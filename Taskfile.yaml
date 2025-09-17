@@ -1,0 +1,203 @@
+# ---------------------------------------------------------------------------- #
+#                             https://taskfile.dev                             #
+# ---------------------------------------------------------------------------- #
+
+version: "3"
+
+dotenv: ["~/.secrets", ".env"]
+
+silent: true
+
+# ----------------------------------- Tasks ---------------------------------- #
+
+tasks:
+    # ---------------------------------------------------------------------------- #
+    #                                    Helpers                                   #
+    # ---------------------------------------------------------------------------- #
+
+    run-title:
+        desc: Title helper task
+        vars:
+            TITLE: '{{.TITLE | default "No TITLE provided"}}'
+        cmds:
+            - echo "== {{.TITLE}} =="
+
+    # run-ps:
+    #     desc: Powershell execute task
+    #     vars:
+    #         COMMAND: '{{.COMMAND | default "No COMMAND provided"}}'
+    #     cmds:
+    #         - powershell -Command {{.COMMAND}}
+
+    # ---------------------------------------------------------------------------- #
+    #                                    Common                                    #
+    # ---------------------------------------------------------------------------- #
+
+    show-pwd:
+        desc: Current location
+        cmds:
+            - task run-title TITLE="Show current location"
+            - pwd
+
+    run-kill-process:
+        desc: Kill process task
+        vars:
+            ID: '{{.ID | default "!No ID provided!"}}'
+        cmds:
+            - task run-title TITLE="Kill process {{.ID}}"
+            - task run-ps COMMAND="Stop-Process -Id {{.ID}} -Force"
+
+    # ---------------------------------------------------------------------------- #
+    #                                     Ruff                                     #
+    # ---------------------------------------------------------------------------- #
+
+    ruff-format:
+        desc: Ruff format project
+        dir: "{{.USER_WORKING_DIR}}"
+        cmds:
+            - task run-title TITLE="Ruff [format .]"
+            - uv run ruff format .
+
+    ruff-check:
+        desc: Ruff check process
+        dir: "{{.USER_WORKING_DIR}}"
+        cmds:
+            - task run-title TITLE="Ruff [check . --fix]"
+            - uv run ruff check . --fix
+
+    # ---------------------------------------------------------------------------- #
+    #                                      UV                                      #
+    # ---------------------------------------------------------------------------- #
+
+    uv-refresh:
+        desc: UV refresh process
+        dir: "{{.USER_WORKING_DIR}}"
+        cmds:
+            - task run-title TITLE="UV [sync]"
+            - uv sync
+            - task run-title TITLE="UV [update]"
+            - uv pip install uv #uv self update, otherwise github error
+
+    uv-lock:
+        desc: UV lock process
+        dir: "{{.USER_WORKING_DIR}}"
+        cmds:
+            - task run-title TITLE="UV [lock check]"
+            - uv lock --check
+            - task run-title TITLE="UV [lock --upgrade]"
+            - uv lock --upgrade
+            - task run-title TITLE="UV [lock]"
+            - uv lock
+
+    uv-list:
+        desc: List UV .venv installed packages
+        dir: "{{.USER_WORKING_DIR}}"
+        cmds:
+            - task run-title TITLE="UV [pip list]"
+            - uv pip list
+
+    uv-all:
+        desc: UV refresh/lock and list .venv installed packages
+        dir: "{{.USER_WORKING_DIR}}"
+        cmds:
+            - task show-pwd
+            - task uv-refresh
+            - task uv-lock
+            - task uv-list
+
+    # ---------------------------------------------------------------------------- #
+    #                              Generate templates                              #
+    # ---------------------------------------------------------------------------- #
+
+    gather-llm-provider-templates:
+        desc: Gather templates from all currently used LLM providers.
+        dir: "{{.USER_WORKING_DIR}}"
+        env:
+            LMSTUDIO_API_KEY: "{{.ENV_DUMMY_API_KEY}}"
+            ERICAI_API_KEY: "{{.ENV_DUMMY_API_KEY}}"
+            OPENROUTER_API_KEY: "{{.ENV_OPENROUTER_API_KEY}}"
+        cmds:
+            - task run-title TITLE="Gather templates [lm_studio]"
+            - uv run scripts/litellm_tasks/gather_templates.py --api-key $LMSTUDIO_API_KEY --api-base-url $LMSTUDIO_API_BASE_URL --provider $LMSTUDIO_LITELLM_PROVIDER --filter-suffixes $LMSTUDIO_FILTER
+            - task run-title TITLE="Gather templates [ericai]"
+            - uv run scripts/litellm_tasks/gather_templates.py --api-key $ERICAI_API_KEY --api-base-url $ERICAI_API_BASE_URL --provider $ERICAI_LITELLM_PROVIDER --filter-suffixes $ERICAI_FILTER
+            - task run-title TITLE="Gather templates [openrouter]"
+            - uv run scripts/litellm_tasks/gather_templates.py --api-key $OPENROUTER_API_KEY --api-base-url $OPENROUTER_API_BASE_URL --provider $OPENROUTER_LITELLM_PROVIDER --filter-suffixes $OPENROUTER_FILTER
+
+    generate-litellm-config:
+        desc: Generate litellm configuration file that is based on gathered LLM provider models.
+        dir: "{{.USER_WORKING_DIR}}"
+        cmds:
+            - task run-title TITLE="Merging LLM provider templates into a configuration file [$CONFIG_FOLDER_PATH/litellm.yaml]"
+            - uv run scripts/litellm_tasks/merge_templates.py --main-template-file scripts/litellm_tasks/main_template.yaml --output-file $CONFIG_FOLDER_PATH//litellm.yaml
+
+    ai-update-llm:
+        desc: Update litellm.yaml with new LLM configurations
+        dir: "{{.USER_WORKING_DIR}}"
+        cmds:
+            - task gather-llm-provider-templates
+            - task generate-litellm-config
+
+    # ---------------------------------------------------------------------------- #
+    #                               Project report                                 #
+    # ---------------------------------------------------------------------------- #
+
+    generate-proj-report:
+        desc: Generate project report
+        dir: "{{.USER_WORKING_DIR}}"
+        cmds:
+            - task run-title TITLE="Generate project report [$GENERATED_FOLDER_PATH/project_report.json]"
+            - uv run scripts/local_tasks/project_report.py --output-file $GENERATED_FOLDER_PATH/project_report.json
+
+    # ---------------------------------------------------------------------------- #
+    #                              Setup AI enviroment                             #
+    # ---------------------------------------------------------------------------- #
+
+    # ericai-proxy:
+    #     desc: Start ericai proxy service
+    #     silent: false
+    #     dir: "{{.USER_WORKING_DIR}}"
+    #     vars:
+    #         SUFFIX: ".pid"
+    #     cmds:
+    #         - task run-title TITLE="Starting ericai proxy [7999]"
+    #         - |
+    #             # Check if task is already running (using a PID file)
+    #             if [ -f {{.TASK}} ] && ps -p $(cat {{.TASK}}{{.SUFFIX}}) > /dev/null; then
+    #                 kill $(cat {{.TASK}})
+    #             fi
+    #         - uv run ericai.exe ericaiproxy & echo $! > {{.TASK}}{{.SUFFIX}}
+
+    # tunnel-ports-87:
+    #     desc: Tunnel to 87 and forward ports to localhost
+    #     dir: "{{.USER_WORKING_DIR}}"
+    #     cmds:
+    #         - task run-title TITLE="Tunneling ports from 87 [1234, 5678, 9000]"
+    #         - ssh -L 1234:localhost:1234 -L 5678:localhost:5678 -L 9000:localhost:9000 -A -J 137.58.231.134 172.16.87.1"  & echo $! > ericai-proxy.pid
+
+    # ericai-to-openai:
+    #     desc: Ericai needs to be able du send correct openai standardization messages
+    #     dir: "{{.USER_WORKING_DIR}}"
+    #     cmds:
+    #         - task run-title TITLE="Starting openai converter proxy for ericai [5050]"
+    #         - uv run .vscode/scrips/ericai_to_openai.py
+
+    # litellm-proxy:
+    #     desc: Starting liteLLM proxy hub
+    #     dir: "{{.USER_WORKING_DIR}}"
+    #     cmds:
+    #         - task run-title TITLE="Killing old liteLLM services"
+    #         - $pids=Get-Process -Name "LiteLLM" -ErrorAction SilentlyContinue
+    #         - if ($pids.Count -gt 0) { $pids | ForEach-Object { Stop-Process -Id $_.Id -Force; Write-Output "Stopped a LiteLLM processes"; } }
+    #         - task run-title TITLE="Starting liteLLM proxy hub [4000]"
+    #         - uv run litellm
+
+    # ai-setup-env:
+    #     desc: Enabling full AI environment
+    #     dir: "{{.USER_WORKING_DIR}}"
+    #     cmds:
+    #         - task run-title TITLE="Starting full AI environment setup"
+    #         - task: ericai-proxy
+    #         - task: tunnel-ports-87
+    #         - task: ericai-to-openai
+    #         - task: litellm-proxy

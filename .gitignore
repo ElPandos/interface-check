@@ -1,0 +1,12 @@
+# Ignore specific folders
+**/.git/
+**/.venv/
+**/venv/
+**/.cache/
+**/__pycache__/
+**/.continue/
+**/.generated/
+**/.config/
+
+# Ignore specific files
+**/.ericai_authrecord

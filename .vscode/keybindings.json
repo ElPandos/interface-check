@@ -1,0 +1,20 @@
+/* -------------------------------------------------------------------------- */
+/*                               Special keymaps                              */
+/* -------------------------------------------------------------------------- */
+[
+    {
+        "key": "[IntlBackslash] 1",
+        "command": "comment-divider.makeMainHeader",
+        "when": "editorTextFocus"
+    },
+    {
+        "key": "[IntlBackslash] 2",
+        "command": "comment-divider.makeSubHeader",
+        "when": "editorTextFocus"
+    },
+    {
+        "key": "[IntlBackslash] 3",
+        "command": "comment-divider.insertSolidLine",
+        "when": "editorTextFocus"
+    }
+]

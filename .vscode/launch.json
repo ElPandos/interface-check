@@ -1,0 +1,127 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug: Active file",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${cwd}"
+            },
+        },
+        {
+            "name": "Debug: Active terminal",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${cwd}"
+            },
+        },
+        {
+            "name": "Debug: gather_templates.py [lm_studio]",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${cwd}/scripts/litellm_tasks/gather_templates.py",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${cwd}"
+            },
+            "args": [
+                "--api-key",
+                "dummy_key",
+                "--api-base-url",
+                "http://localhost:1234/v1",
+                "--provider",
+                "lm_studio",
+                "--filter-suffixes",
+                ""
+            ]
+        },
+        {
+            "name": "Debug: gather_templates.py [ericai]",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${cwd}/scripts/litellm_tasks/gather_templates.py",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${cwd}"
+            },
+            "args": [
+                "--api-key",
+                "dummy_key",
+                "--api-base-url",
+                "http://localhost:7999",
+                "--provider",
+                "openai",
+                "--filter-suffixes",
+                ""
+            ]
+        },
+        {
+            "name": "Debug: gather_templates.py [openrouter]",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${cwd}/scripts/litellm_tasks/gather_templates.py",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${cwd}"
+            },
+            "args": [
+                "--api-key",
+                "${env:ENV_OPENROUTER_API_KEY}",
+                "--api-base-url",
+                "https://openrouter.ai/api/v1",
+                "--provider",
+                "openrouter",
+                "--filter-suffixes",
+                ":free"
+            ]
+        },
+        {
+            "name": "Debug: merge_templates.py [litellm.yaml]",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${cwd}/scripts/litellm_tasks/merge_templates.py",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${cwd}"
+            },
+            "args": [
+                "--main-template-file",
+                "${cwd}/scripts/litellm_tasks/main_template.yaml",
+                "--output-file",
+                "config/litellm.yaml",
+            ]
+        },
+        {
+            "name": "Debug: project_report.yaml [project_report.json]",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${cwd}/scripts/local_tasks/project_report.py",
+            "console": "internalConsole",
+            "justMyCode": false,
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${cwd}"
+            },
+            "args": [
+                "--output-file",
+                "project_report.json"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,188 @@
+/* -------------------------------------------------------------------------- */
+/*     VSCode API: https://code.visualstudio.com/api/references/vscode-api    */
+/* -------------------------------------------------------------------------- */
+{
+    "version": "2.0.0",
+    "tasks": [
+        /* -------------------------------------------------------------------------- */
+        /*                                    Test                                    */
+        /* -------------------------------------------------------------------------- */
+        {
+            "label": "Run: Show workspace folder",
+            "type": "shell",
+            "command": "echo '__TASK_START__' && echo ${workspaceFolder} && echo '__TASK_DONE__'",
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": "."
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*__TASK_START__.*",
+                    "endsPattern": ".*__TASK_DONE__.*"
+                }
+            }
+        },
+        {
+            "label": "Run: Show workspace folder basename",
+            "type": "shell",
+            "command": "echo '__TASK_START__' && echo ${workspaceFolderBasename} && echo '__TASK_DONE__'",
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": "."
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*__TASK_START__.*",
+                    "endsPattern": ".*__TASK_DONE__.*"
+                }
+            }
+        },
+        /* -------------------------------------------------------------------------- */
+        /*                                    Setup                                   */
+        /* -------------------------------------------------------------------------- */
+        {
+            "label": "Run: Activate python .venv",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "command": "echo '__TASK_START__' && source .venv/bin/activate && echo '__TASK_DONE__'",
+            "windows": {
+                "command": "source .venv/Scripts/activate"
+            },
+            "isBackground": false,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": "."
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*__TASK_START__.*",
+                    "endsPattern": ".*__TASK_DONE__.*"
+                }
+            }
+        },
+        {
+            "label": "Run: Update project and UV (all)",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": [
+                "Run: Activate python .venv",
+            ],
+            "command": "echo '__TASK_START__' && task uv-all && echo '__TASK_DONE__'",
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": "."
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*__TASK_START__.*",
+                    "endsPattern": ".*__TASK_DONE__.*"
+                }
+            }
+        },
+        {
+            "label": "Run: Create project report",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": [
+                "Run: Activate python .venv",
+            ],
+            "dependsOrder": "sequence",
+            "command": "echo '__TASK_START__' && uv run scripts/local_tasks/project_report.py ${input:folderPath} && echo '__TASK_DONE__'",
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": "."
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*__TASK_START__.*",
+                    "endsPattern": ".*__TASK_DONE__.*"
+                }
+            }
+        },
+        /* -------------------------------------------------------------------------- */
+        /*                                   Docker                                   */
+        /* -------------------------------------------------------------------------- */
+        {
+            "label": "Run: Docker compose up",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/scripts/local",
+            },
+            "command": "echo '__TASK_START__' && docker compose -f compose-tunnel.yaml up -d --wait && echo '__TASK_DONE__'",
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": "."
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*__TASK_START__.*",
+                    "endsPattern": ".*__TASK_DONE__.*"
+                }
+            }
+        },
+        {
+            "label": "Run: Docker compose down",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}/scripts/local"
+            },
+            "command": "echo '__TASK_START__' && docker compose -f compose-tunnel.yaml down && echo '__TASK_DONE__'",
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": "."
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*__TASK_START__.*",
+                    "endsPattern": ".*__TASK_DONE__.*"
+                }
+            }
+        },
+        /* -------------------------------------------------------------------------- */
+        /*                            SSH portforwarding                              */
+        /* -------------------------------------------------------------------------- */
+        {
+            "label": "Run: Restart SSH tunnel portforwarding",
+            "type": "shell",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "dependsOn": [
+                "Run: Docker compose down",
+                "Run: Docker compose up",
+            ],
+            "dependsOrder": "sequence",
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": "."
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".*__TASK_START__.*",
+                    "endsPattern": ".*__TASK_DONE__.*"
+                }
+            }
+        }
+    ]
+}
