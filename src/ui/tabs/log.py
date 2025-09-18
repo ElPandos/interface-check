@@ -6,18 +6,22 @@ import paramiko
 from nicegui import ui
 from nicegui.elements.log import Log
 
-# from src.ui.handlers.settings import settings
+from src.ui.tabs.base_tab import BaseTab
+
 from ..enums.log_level import LogLevel
 
 
-class Log:
-    """A UI log widget with colored log levels."""
-
-    __MAX_LINES: int = 1000
+class Log(BaseTab):
+    __MAX_LINES: int = 500
     __log: Log
 
     def __init__(self) -> None:
+        """A UI log widget with colored log levels."""
+        super().__init__()
         self.__log = None
+
+    def build(self, title: str) -> None:
+        super.build(title)
 
     def __time(self) -> str:
         return dt.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -34,22 +38,60 @@ class Log:
         self.critical(text)
 
     def __run_remote(self) -> None:
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect("137.58.231.134", username="emvekta", password="emvekta")
+        # ---------- SSH Jumphost ----------
+        jump_host = "137.58.231.134"
+        jump_user = "emvekta"
+        jump_pass = "emvekta"
 
-        stdin, stdout, stderr = ssh.exec_command("ls -la /tmp")
-        stdin = stdin.read().decode()
-        stdout = stdout.read().decode()
-        stderr = stderr.read().decode()
-        ssh.close()
+        # ---------- Final Target ----------
+        target_host = "172.16.87.1"
+        target_user = "emvekta"
+        target_pass = "emvekta"
 
-        self.debug(f"Run remote - STDIN: {stdin}")
-        self.debug(f"Run remote - STDOUT: {stdout}")
-        self.debug(f"Run remote - STDERR: {stderr}")
+        # Connect to jumphost first
+        jump_ssh = paramiko.SSHClient()
+        jump_ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        jump_ssh.connect(
+            jump_host,
+            username=jump_user,
+            password=jump_pass,
+            look_for_keys=False,
+            allow_agent=False,
+        )
+
+        # Open a channel from jumphost -> target
+        jump_transport = jump_ssh.get_transport()
+        dest_addr = (target_host, 22)
+        local_addr = (jump_host, 22)
+        channel = jump_transport.open_channel("direct-tcpip", dest_addr, local_addr)
+
+        # Connect to the final target through that channel
+        target_ssh = paramiko.SSHClient()
+        target_ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        target_ssh.connect(
+            target_host,
+            username=target_user,
+            password=target_pass,
+            sock=channel,  # <--- magic happens here
+            look_for_keys=False,
+            allow_agent=False,
+        )
+
+        # Run your command on the target host
+        stdin, stdout, stderr = target_ssh.exec_command("ip addr")
+        stdout_str = stdout.read().decode()
+        stderr_str = stderr.read().decode()
+
+        target_ssh.close()
+        jump_ssh.close()
+
+        self.debug(f"Run remote - STDOUT: {stdout_str}")
+        self.debug(f"Run remote - STDERR: {stderr_str}")
 
     def __dump_settings(self) -> None:
-        # self.debug(f"Dump settings: {settings.get_settings()}")
+        from src.ui.handlers.settings import settings
+
+        self.debug(f"Dump settings: {settings.get_settings()}")
         pass
 
     def debug(self, text: str) -> None:
@@ -72,12 +114,16 @@ class Log:
         if self.__log is not None:
             self.__log.push(self.__log_text(text, LogLevel.CRITICAL), classes=LogLevel.CRITICAL.color)
 
-    def build(self) -> None:
-        """Build the log UI with a button for testing."""
-        ui.query("body").classes("h-screen m-0 p-0")
-        with ui.column().classes("w-full h-full"):
-            self.__log = ui.log(max_lines=self.__MAX_LINES).classes("w-full flex-grow")
-            with ui.row().classes("w-full"):
+    def build(self, title: str) -> None:
+        """Build the log UI with buttons fixed at the bottom."""
+        with ui.column().classes("w-full h-full flex flex-col"):
+            ui.label(title)
+
+            # Log (flexible, scrollable)
+            self.__log = ui.log(max_lines=self.__MAX_LINES).classes("w-full flex-grow overflow-auto p-5 bg-gray-200")
+
+            # Buttons (footer, fixed at bottom)
+            with ui.row().classes("w-full flex-none p-2 justify-start border-t border-gray-300 bg-white"):
                 ui.button("Clear log", on_click=self.clear)
                 ui.button("Debug - Log time", on_click=self.__debug_log)
                 ui.button(

@@ -1,13 +1,12 @@
 from nicegui import ui
 
+from src.ui.tabs.base_tab import BaseTab
 
-class Ethtool:
+
+class Ethtool(BaseTab):
     def __init__(self) -> None:
+        super().__init__()
         pass
 
-    def build(self) -> None:
-        names = ["Alice", "Bob", "Carol"]
-
-        with ui.card().classes("w-full items-left"):
-            with ui.column().classes("w-full items-left"):
-                ui.select(names, multiple=True, value=names[:2], label="Interfaces").classes("w-64").props("use-chips")
+    def build(self, title: str) -> None:
+        super().build(title)

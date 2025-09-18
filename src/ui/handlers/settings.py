@@ -1,9 +1,9 @@
 import json
 from typing import Any
 
-from nicegui import ui
+from nicegui import events, ui
 
-from src.process_manager import ProcessManager
+from src.utils.process_manager import ProcessManager
 from src.ui.enums.settings import Options, Types
 
 
@@ -44,7 +44,7 @@ class SettingsHandler:
                     with ui.card().classes("w-full items-left"):
                         with ui.column().classes("w-full items-left"):
                             ui.label(opt["name"])
-                            with ui.row().classes("w-full items-center flex-nowrap"):  # right-aligned group
+                            with ui.row().classes("w-full items-center flex-nowrap"):
                                 # Slider
                                 slider = ui.slider(min=opt["min"], max=opt["max"], value=opt["value"]).classes(
                                     "flex-grow"
@@ -66,9 +66,12 @@ class SettingsHandler:
                             textarea.bind_value(opt, "value")
 
                 case Options.INFO:
+                    ui.space()
                     with ui.card().classes("w-full"):
                         with ui.column().classes("w-full"):
-                            with ui.dropdown_button("Libraries", icon="logo_dev", auto_close=True):
+                            with ui.dropdown_button("Libraries", icon="logo_dev", auto_close=True).classes(
+                                "w-full items-left"
+                            ):
                                 pm = ProcessManager()
                                 proc = pm.run("uv run pip-licenses --format=json")
                                 stdout, stderr = pm.get_output(proc)
@@ -79,12 +82,17 @@ class SettingsHandler:
                                         version = pkg.get("Version")
                                         license = pkg.get("License")
                                         ui.item(
-                                            f"{name}=={version} uses license: {license}",
-                                            on_click=lambda: ui.notify(f"{name}"),
+                                            f"{name} == {version} [{license}]",
+                                            on_click=lambda n=name: ui.navigate.to(
+                                                f"https://pypi.org/project/{n}", new_tab=True
+                                            ),
                                         )
                                 else:
                                     ui.item(
-                                        "pip-licenses not installed in venv",
+                                        "pip-licenses not installed in .venv",
+                                        on_click=lambda: ui.navigate.to(
+                                            f"https://pypi.org/project/pip-licenses", new_tab=True
+                                        ),
                                     )
 
     def get_settings(self) -> dict[str, Any]:
