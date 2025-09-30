@@ -5,6 +5,7 @@ class Options(Enum):
     SWITCH = "Switch"
     SLIDER = "Slider"
     TEXT = "Text"
+    BUTTON = "Button"
     INFO = "Info"
 
     @property
@@ -17,6 +18,7 @@ class Types(Enum):
     DARK = "Dark mode"
     UPDATE = "Update in seconds"
     MESSAGE = "Message"
+    SAVE = "Save"
     LIBS = "Libs"
 
     @property

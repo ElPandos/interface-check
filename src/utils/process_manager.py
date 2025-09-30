@@ -1,11 +1,10 @@
 import subprocess
-from typing import List, Optional, Tuple
 
-from src.ui.tabs.log import logger
+#from src.ui.tabs.log import logger
 
 
 class ProcessManager:
-    __procs: List[subprocess.Popen]
+    __procs: list[subprocess.Popen]
 
     def __init__(self) -> None:
         self.__procs = []
@@ -22,7 +21,7 @@ class ProcessManager:
         self.__procs.append(proc)
         return proc
 
-    def get_output(self, proc: subprocess.Popen, timeout: Optional[int] = None) -> Tuple[str, str]:
+    def get_output(self, proc: subprocess.Popen, timeout: int | None = None) -> tuple[str, str]:
         """Wait for process to finish and get stdout and stderr.
 
         :param proc: subprocess.Popen instance
@@ -31,14 +30,14 @@ class ProcessManager:
         """
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
-            logger.debug(f"Footer: STDOUT: {stdout}")
-            logger.debug(f"Footer: STDERR: {stderr}")
+            #logger.debug(f"Footer: STDOUT: {stdout}")
+            #logger.debug(f"Footer: STDERR: {stderr}")
         except subprocess.TimeoutExpired:
             proc.kill()
             stdout, stderr = proc.communicate()
         return stdout, stderr
 
-    def get_procs(self) -> List:
+    def get_procs(self) -> list:
         return self.__procs
 
     def terminate_all(self) -> None:

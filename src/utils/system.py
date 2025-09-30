@@ -1,73 +1,116 @@
 import json
 import logging
-import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Union, cast
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------- #
+#                                  Command I/O                                 #
+# ---------------------------------------------------------------------------- #
 
-def run_command(command: List[str], fail_ok: bool = False) -> str:
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+
+def run_command(command: list[str], fail_ok: bool = False) -> str:
+    result = subprocess.run(command, check=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
 
     if result.returncode != 0:
         if fail_ok:
-            print(f"[WARN] Command failed but continuing: {' '.join(command)}")
-            print(result.stdout)
-            return result.stdout
+            logger.warning(f"Command failed but will continue: {' '.join(command)}")
         else:
-            raise RuntimeError(f"Command failed: {' '.join(command)}\n{result.stdout}")
-
+            raise RuntimeError(f"Command failed: {' '.join(command)}\n{result.stdout}\n{result.stderr}")
+    logger.info(result.stdout)
     return result.stdout
 
 
-def set_pythonpath(pythonpath: str, file: str) -> None:
-    if pythonpath:
-        # Resolve absolute path relative to the reference file's directory
-        full_path = os.path.abspath(os.path.join(os.path.dirname(file), pythonpath))
-        sys.path.insert(0, full_path)
+# ---------------------------------------------------------------------------- #
+#                                     PATH                                     #
+# ---------------------------------------------------------------------------- #
+
+
+def set_python_path(full_path: Path) -> None:
+    if not full_path:
+        logger.warning("PYTHONPATH is empty - nothing was added to sys.path")
+        return
+
+    base_dir = full_path.parent
+    target_dir = base_dir.resolve()
+
+    try:
+        exist_dir(target_dir)
+    except FileNotFoundError:
+        logger.exception("PYTHONPATH directory was not found")
+        raise
+
+    target_dir_str = str(target_dir)
+    if target_dir_str in sys.path:
+        logger.debug("PYTHONPATH was found in sys.path. Will not add again")
+        return
+
+    sys.path.insert(0, target_dir_str)
+    logger.debug(f"Added '{target_dir_str}' to the begionning of sys.path")
+
+
+# ---------------------------------------------------------------------------- #
+#                                     File                                     #
+# ---------------------------------------------------------------------------- #
+
+
+def exist_file(full_path: Path) -> None:
+    if full_path.exists():
+        logger.info(f"File was found: {full_path}")
+        return
+    raise FileNotFoundError(f"File was not found: {full_path}")
+
+
+# ---------------------------------------------------------------------------- #
+#                                   Directory                                  #
+# ---------------------------------------------------------------------------- #
+
+
+def exist_dir(dir_path: Path) -> None:
+    if dir_path.exists():
+        logger.info(f"Folder was found: {dir_path}")
     else:
-        print("[WARN] PYTHONPATH is empty")
+        raise FileNotFoundError(f"Folder was not found: {dir_path}")
 
 
-def fileExist(path_and_file: str) -> None:
-    if Path(path_and_file).exists():
-        logger.info(f"File was found: {path_and_file}")
+def create_dir(dir_path: Path) -> None:
+    if not dir_path.exists():
+        logger.warning(f"Folder was not found. Creating it: {dir_path}")
+        Path.mkdir(dir_path)
     else:
-        raise FileNotFoundError(f"File was not found: {path_and_file}")
+        logger.info(f"Folder was found: {dir_path}")
 
 
-def folderExist(path: str) -> None:
-    if Path(path).exists():
-        logger.info(f"Folder was found: {path}")
-    else:
-        raise FileNotFoundError(f"Folder was not found: {path}")
+# ---------------------------------------------------------------------------- #
+#                                     JSON                                     #
+# ---------------------------------------------------------------------------- #
 
 
-def create_folder_if_not_exist(path: str) -> None:
-    if not os.path.exists(path):
-        logger.info(f"Folder was not found. Creating it: {path}")
-        os.makedirs(path)
-    else:
-        logger.info(f"Folder was found: {path}")
+def save_json(config: str, full_path: Path) -> None:
+    # Ensure the parent directory exists
+    create_dir(full_path.parent)
+
+    with full_path.open("w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
 
 
-def save_json_to_file(json_data: object, path_and_file: str) -> None:
-    with open(path_and_file, "w") as f:
-        json.dump(json_data, f)
+def load_json(full_path: Path) -> dict[str, Any] | list[Any]:
+    if not full_path.exists():
+        raise FileNotFoundError(f"File not found: {full_path}")
+
+    with full_path.open("r", encoding="utf-8") as f:
+        return json.load(f)
 
 
-def load_json_from_file(path_and_file: str) -> Union[Dict[str, Any], List[Any]]:
-    if not os.path.exists(path_and_file):
-        raise FileNotFoundError(f"File not found: {path_and_file}")
-    with open(path_and_file, "r", encoding="utf-8") as f:
-        return cast(Union[Dict[str, Any], List[Any]], json.load(f))
+# ---------------------------------------------------------------------------- #
+#                                    Logging                                   #
+# ---------------------------------------------------------------------------- #
 
 
-def setup_logging(log_obj: logging):
-    # Configure logging
-    log_obj.basicConfig(
-        level=logging.INFO, format="[%(asctime)s] %(levelname)s: %(message)s", handlers=[logging.StreamHandler()]
+def setup_logging():
+    logging.basicConfig(
+        level=logging.DEBUG, format="[%(asctime)s] %(levelname)s: %(message)s", handlers=[logging.StreamHandler()]
     )

@@ -1,8 +1,0 @@
-version: "3"
-
-model_list: []
-
-include:
-    - "*openrouter.yaml"
-    - "*lmstudio.yaml"
-    - "*ericai.yaml"
