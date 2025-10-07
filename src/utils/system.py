@@ -5,7 +5,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from src.utils.process_manager import ProcessManager
+from src.utils.commands import Git, Python
 
 # ---------------------------------------------------------------------------- #
 #                                  Command I/O                                 #
@@ -17,10 +18,10 @@ def run_command(command: list[str], fail_ok: bool = False) -> str:
 
     if result.returncode != 0:
         if fail_ok:
-            logger.warning(f"Command failed but will continue: {' '.join(command)}")
+            logging.warning(f"Command failed but will continue: {' '.join(command)}")
         else:
             raise RuntimeError(f"Command failed: {' '.join(command)}\n{result.stdout}\n{result.stderr}")
-    logger.info(result.stdout)
+    logging.info(result.stdout)
     return result.stdout
 
 
@@ -30,8 +31,8 @@ def run_command(command: list[str], fail_ok: bool = False) -> str:
 
 
 def set_python_path(full_path: Path) -> None:
-    if not full_path:
-        logger.warning("PYTHONPATH is empty - nothing was added to sys.path")
+    if not full_path or not str(full_path).strip():
+        logging.warning("PYTHONPATH is empty - nothing was added to sys.path")
         return
 
     base_dir = full_path.parent
@@ -40,16 +41,16 @@ def set_python_path(full_path: Path) -> None:
     try:
         exist_dir(target_dir)
     except FileNotFoundError:
-        logger.exception("PYTHONPATH directory was not found")
+        logging.exception("PYTHONPATH directory was not found")
         raise
 
     target_dir_str = str(target_dir)
     if target_dir_str in sys.path:
-        logger.debug("PYTHONPATH was found in sys.path. Will not add again")
+        logging.debug("PYTHONPATH was found in sys.path. Will not add again")
         return
 
     sys.path.insert(0, target_dir_str)
-    logger.debug(f"Added '{target_dir_str}' to the begionning of sys.path")
+    logging.debug(f"Added '{target_dir_str}' to the beginning of sys.path")
 
 
 # ---------------------------------------------------------------------------- #
@@ -59,7 +60,7 @@ def set_python_path(full_path: Path) -> None:
 
 def exist_file(full_path: Path) -> None:
     if full_path.exists():
-        logger.info(f"File was found: {full_path}")
+        logging.debug(f"File was found: {full_path}")
         return
     raise FileNotFoundError(f"File was not found: {full_path}")
 
@@ -71,17 +72,17 @@ def exist_file(full_path: Path) -> None:
 
 def exist_dir(dir_path: Path) -> None:
     if dir_path.exists():
-        logger.info(f"Folder was found: {dir_path}")
+        logging.debug(f"Folder was found: {dir_path}")
     else:
         raise FileNotFoundError(f"Folder was not found: {dir_path}")
 
 
 def create_dir(dir_path: Path) -> None:
     if not dir_path.exists():
-        logger.warning(f"Folder was not found. Creating it: {dir_path}")
-        Path.mkdir(dir_path)
+        logging.warning(f"Folder was not found. Creating it: {dir_path}")
+        dir_path.mkdir(parents=True, exist_ok=True)
     else:
-        logger.info(f"Folder was found: {dir_path}")
+        logging.debug(f"Folder was found: {dir_path}")
 
 
 # ---------------------------------------------------------------------------- #
@@ -89,7 +90,7 @@ def create_dir(dir_path: Path) -> None:
 # ---------------------------------------------------------------------------- #
 
 
-def save_json(config: str, full_path: Path) -> None:
+def save_json(config: Any, full_path: Path) -> None:
     # Ensure the parent directory exists
     create_dir(full_path.parent)
 
@@ -106,11 +107,52 @@ def load_json(full_path: Path) -> dict[str, Any] | list[Any]:
 
 
 # ---------------------------------------------------------------------------- #
+#                                    Screen                                    #
+# ---------------------------------------------------------------------------- #
+
+
+def get_screen_size() -> tuple[int, int]:
+    import tkinter as tk
+
+    root = tk.Tk()
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    root.destroy()
+    return screen_height, screen_width
+
+
+# ---------------------------------------------------------------------------- #
+#                                      Git                                     #
+# ---------------------------------------------------------------------------- #
+
+
+def get_patchset() -> tuple[str, str]:
+    pm = ProcessManager()
+    proc = pm.run(Git().patchset().syntax)
+    stdout, stderr = pm.get_output(proc)
+
+    return stdout, stderr
+
+
+# ---------------------------------------------------------------------------- #
+#                                    Python                                    #
+# ---------------------------------------------------------------------------- #
+
+
+def run_pip_licenses() -> tuple[str, str]:
+    pm = ProcessManager()
+    proc = pm.run(Python().syntax)
+    stdout, stderr = pm.get_output(proc)
+
+    return stdout, stderr
+
+
+# ---------------------------------------------------------------------------- #
 #                                    Logging                                   #
 # ---------------------------------------------------------------------------- #
 
 
-def setup_logging():
+def setup_logging(level: int) -> None:
     logging.basicConfig(
-        level=logging.DEBUG, format="[%(asctime)s] %(levelname)s: %(message)s", handlers=[logging.StreamHandler()]
+        level=level, format="[%(asctime)s] %(levelname)s: %(message)s", handlers=[logging.StreamHandler()]
     )

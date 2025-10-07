@@ -1,76 +1,50 @@
+import logging
 from nicegui import ui
 
 from src.models.configurations import AppConfig
 from src.ui.tabs.base import BasePanel, BaseTab
+from src.utils.ssh_connection import SshConnection
+
+
+NAME = "chat"
+LABEL = "Chat"
+
 
 class ChatTab(BaseTab):
+    ICON_NAME: str = "tips_and_updates"
 
-    def __init__(self, app_config: AppConfig) -> None:
-        super().__init__(app_config)
+    def __init__(self, build: bool = False) -> None:
+        super().__init__(NAME, LABEL)
 
-        self._name = "chat"
-        self._label = "Chat"
-        self._icon_name = "tips_and_updates"
+        if build:
+            self.build()
 
-        self._build()
-
-    def _build(self) -> None:
-        super()._build()
+    def build(self) -> None:
+        super().build()
 
 
 class ChatPanel(BasePanel):
+    def __init__(self, build=False, app_config: AppConfig = None, ssh_connection: SshConnection = None):
+        super().__init__(NAME, LABEL, app_config, SshConnection)
 
-    def __init__(self, app_config: AppConfig):
-        super().__init__(app_config)
+        # if build:
+        #    self.build()
 
-        self._name = "chat"
-        self._label = "Chat"
-
-        self._build()
-
-    def _build(self):
+    def build(self):
         with ui.tab_panel(self._name):
-            super()._build()
-            with ui.card().classes("w-full"):
-                super()._build()
+            # Build tab info
+            super().build()
 
-    #     self.user_id = str(uuid4())
-    #     self.avatar = f"https://robohash.org/{self.user_id}?bgset=bg2"
-    #     self.messages: List[Tuple[str, str, str, str]] = []  # per-instance history
-    #     self.text_input = (
-    #         ui.input(placeholder="Start typing...").props("outlined dense").on("keydown.enter", lambda: self.send())
-    #     )
+            # Build chat window
+            self._build_chat()
 
-    # def build(self, title: str) -> None:
-    #     super()._title(title)
+            # Build input field
+            self._build_input()
 
-    #     with ui.column().classes("w-full lp-10"):
-    #         with ui.card().classes("w-full items-left"):
-    #             ui.chat_message("Hello NiceGUI!", name="Robot", stamp="now", avatar="https://robohash.org/ui")
+    def _build_chat(self) -> None:
+        with ui.card().classes("w-full"):
+            pass
 
-    #         with ui.card().classes("w-full items-left"):
-    #             with ui.row().classes("w-full lp-10"):
-    #                 self.text_input
-    #                 ui.button("Send", on_click=self.send)
-
-    #         ui.button("Connect")  # add your own handler if needed
-
-    #     # show current messages
-    #     self.chat_messages()
-
-    # @ui.refreshable
-    # def chat_messages(self) -> None:
-    #     """Render the chat history."""
-    #     if self.messages:
-    #         for uid, avatar, text, stamp in self.messages:
-    #             ui.chat_message(text=text, stamp=stamp, avatar=avatar, sent=self.user_id == uid)
-    #     else:
-    #         ui.label("No messages yet").classes("mx-auto my-36")
-    #     ui.run_javascript("window.scrollTo(0, document.body.scrollHeight)")
-
-    # def send(self) -> None:
-    #     """Append a new message and refresh the view."""
-    #     stamp = datetime.now().strftime("%X")
-    #     self.messages.append((self.user_id, self.avatar, self.text_input.value, stamp))
-    #     self.text_input.value = ""
-    #     self.chat_messages.refresh()
+    def _build_input(self) -> None:
+        with ui.card().classes("w-full"):
+            pass

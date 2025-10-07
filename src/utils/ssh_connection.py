@@ -1,8 +1,10 @@
-import paramiko
 import threading
 import time
 
+import paramiko
+
 from src.models.configurations import AppConfig
+
 
 class SshConnection:
     """
@@ -30,12 +32,12 @@ class SshConnection:
         self._keepalive_thread: threading.Thread | None = None
         self._stop_keepalive = threading.Event()
 
-    # --------------------------------------------------------------------- #
-    # Connection handling
-    # --------------------------------------------------------------------- #
+    # ---------------------------------------------------------------------------- #
+    #                              Connection handling                             #
+    # ---------------------------------------------------------------------------- #
     def connect(self) -> None:
         """Open SSH sessions to the jumphost and then to the target via a tunnel."""
-        # --- Jump host ----------------------------------------------------
+        # --------------------------------- Jump host -------------------------------- #
         try:
             self._jump_ssh = paramiko.SSHClient()
             self._jump_ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -49,13 +51,13 @@ class SshConnection:
         except paramiko.AuthenticationException as e:
             raise RuntimeError(f"Authentication to target {self.jump_host} failed: {e}")
 
-        # --- Channel to target --------------------------------------------
+        # ----------------------------- Channel to target ---------------------------- #
         jump_transport = self._jump_ssh.get_transport()
         dest_addr = (self.target_host, 22)
         local_addr = (self.jump_host, 22)
         channel = jump_transport.open_channel("direct-tcpip", dest_addr, local_addr)
 
-        # --- Target host --------------------------------------------------
+        # -------------------------------- Target host ------------------------------- #
         try:
             self._target_ssh = paramiko.SSHClient()
             self._target_ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -70,7 +72,7 @@ class SshConnection:
         except paramiko.AuthenticationException as e:
             raise RuntimeError(f"Authentication to target {self.target_host} failed: {e}")
 
-        # --- Start keep‑alive thread ---------------------------------------
+        # -------------------------- Start keep‑alive thread ------------------------- #
         self._stop_keepalive.clear()
         self._keepalive_thread = threading.Thread(target=self._keepalive_loop, daemon=True)
         self._keepalive_thread.start()
@@ -89,27 +91,26 @@ class SshConnection:
             self._jump_ssh.close()
             self._jump_ssh = None
 
-    # --------------------------------------------------------------------- #
-    # Command execution
-    # --------------------------------------------------------------------- #
-    def exec_command(self, command: str, timeout: int | None = None):
-        """
-        Run *command* on the target host.
-        Returns (stdout_str, stderr_str).
-        """
-        if not self._target_ssh:
-            raise RuntimeError("Not connected – call connect() first.")
+    # ---------------------------------------------------------------------------- #
+    #                               Command execution                              #
+    # ---------------------------------------------------------------------------- #
 
-        stdin, stdout, stderr = self._target_ssh.exec_command(command, timeout=timeout)
+    def exec_command(self, command: str, timeout: int | None = None) -> tuple[str, str]:
+        if not self._target_ssh:
+            raise RuntimeError("Not connected – Call connect() first.")
+
+        _, stdout, stderr = self._target_ssh.exec_command(command, timeout=timeout)
+
         stdout_str = stdout.read().decode()
         stderr_str = stderr.read().decode()
 
         return stdout_str, stderr_str
 
-    # --------------------------------------------------------------------- #
-    # Internal keep‑alive logic
-    # --------------------------------------------------------------------- #
-    def _keepalive_loop(self):
+    # ---------------------------------------------------------------------------- #
+    #                           Internal keep‑alive logic                          #
+    # ---------------------------------------------------------------------------- #
+
+    def _keepalive_loop(self) -> None:
         """Send a keep‑alive packet on each transport every *keepalive_interval* seconds."""
         while not self._stop_keepalive.is_set():
             if self._jump_ssh:
@@ -122,9 +123,10 @@ class SshConnection:
                     transport.send_ignore()
             time.sleep(self.keepalive_interval)
 
-    # ---------------------------------------------------------------------
-    # Connection status
-    # ---------------------------------------------------------------------
+    # ---------------------------------------------------------------------------- #
+    #                               Connection status                              #
+    # ---------------------------------------------------------------------------- #
+
     def is_connected(self) -> bool:
         """
         Return True if both the jump‑host and target SSH transports are alive.

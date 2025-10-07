@@ -1,6 +1,4 @@
-from ast import Tuple
 import json
-from typing import Any
 
 from nicegui import ui
 
@@ -20,13 +18,10 @@ class SettingsHandler:
         for s in app_config.system.settings:
             if s.name == name:
                 return s.value, s.min, s.max
+        return None, None, None
 
     def _save(self) -> None:
-        try:
-            Configure().save(self._app_config)
-            ui.notify("Configuration saved", type="positive")
-        except Exception as exc:          # pragma: no cover
-            ui.notify(f"Failed to save: {exc}", type="negative")
+        Configure().save(self._app_config)
 
     def build(self, app_config: AppConfig) -> None:
         """Render settings UI with live bindings to internal values."""
@@ -75,9 +70,10 @@ class SettingsHandler:
                         textarea.bind_value(opt, "value")
 
                 case Options.BUTTON:
-                    with ( ui.card().classes("w-full"),
-                           ui.column().classes("w-full"),
-                           ui.button(opt.name, on_click=self._save).classes("w-full items-left"),
+                    with (
+                        ui.card().classes("w-full"),
+                        ui.column().classes("w-full"),
+                        ui.button(opt.name, on_click=self._save).classes("w-full items-left"),
                     ):
                         pass
 
@@ -90,7 +86,7 @@ class SettingsHandler:
                     ):
                         pm = ProcessManager()
                         proc = pm.run("uv run pip-licenses --format=json")
-                        stdout, stderr = pm.get_output(proc)
+                        stdout, _ = pm.get_output(proc)
                         if stdout:
                             licenses = json.loads(stdout)
                             for pkg in licenses:
@@ -108,6 +104,7 @@ class SettingsHandler:
                                 "pip-licenses not installed in .venv",
                                 on_click=lambda: ui.navigate.to("https://pypi.org/project/pip-licenses", new_tab=True),
                             )
+
 
 # Create the global singleton instance
 settings = SettingsHandler()

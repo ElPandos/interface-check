@@ -1,37 +1,59 @@
+import logging
 from nicegui import ui
+
+import plotly.graph_objects as go
 
 from src.models.configurations import AppConfig
 from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.ssh_connection import SshConnection
 
+
+NAME = "mlxlink"
+LABEL = "Mlxlink"
+
+
 class MlxlinkTab(BaseTab):
+    ICON_NAME: str = "home_repair_service"
 
-    def __init__(self, app_config: AppConfig) -> None:
-        super().__init__(app_config)
+    def __init__(self, build: bool = False) -> None:
+        super().__init__(NAME, LABEL, self.ICON_NAME)
 
-        self._name = "mlxlink"
-        self._label = "Mlxlink"
-        self._icon_name = "home_repair_service"
+        if build:
+            self.build()
 
-        self._build()
-
-    def _build(self) -> None:
-        super()._build()
+    def build(self) -> None:
+        super().build()
 
 
 class MlxlinkPanel(BasePanel):
+    def __init__(self, build: bool = False, app_config: AppConfig = None, ssh_connection: SshConnection = None):
+        super().__init__(NAME, LABEL)
 
-    def __init__(self, app_config: AppConfig, ssh_connection: SshConnection = None):
-        super().__init__(app_config, ssh_connection)
+        self._app_config = app_config
+        self.ssh_connection = ssh_connection
 
-        self._name = "mlxlink"
-        self._label = "Mlxlink"
+        if build:
+            self.build()
 
-        self._build()
+    # @ui.refreshable
+    def build(self):
+        with ui.tab_panel(self.name):
+            # Build tab info
+            super().build()
 
-    def _build(self):
-        with ui.tab_panel(self._name):
-            super()._build()
-            with ui.card().classes("w-full"):
-                super()._build()
+            # Build selector
+            self._build_selector()
 
+            # Build plot
+            self._build_plot()
+
+    # def refresh(self):
+    #    self.build.refresh()
+
+    def _build_selector(self) -> None:
+        with ui.card().classes("w-full"):
+            pass
+
+    def _build_plot(self) -> None:
+        with ui.card().classes("w-full"):
+            pass

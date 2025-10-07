@@ -1,6 +1,7 @@
+import logging
 import subprocess
 
-#from src.ui.tabs.log import logger
+# from src.ui.tabs.log import logger
 
 
 class ProcessManager:
@@ -30,8 +31,8 @@ class ProcessManager:
         """
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
-            #logger.debug(f"Footer: STDOUT: {stdout}")
-            #logger.debug(f"Footer: STDERR: {stderr}")
+            logging.debug(f"STDOUT: {stdout}")
+            logging.debug(f"STDERR: {stderr}")
         except subprocess.TimeoutExpired:
             proc.kill()
             stdout, stderr = proc.communicate()

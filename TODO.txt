@@ -1,0 +1,11 @@
+TODO
+
+Add dmesg -T polling
+Add data export of graph data
+Add statistics on graph data, min, max, mean median
+Add auto update of graph in gui based on choosen sec intervall
+Add removal of graphs and interupts on worker threads for specific interface
+Add more commands, ethtool only implemented yet
+Add dump of all the known interface/module/NIC related info the INFO tab
+
+

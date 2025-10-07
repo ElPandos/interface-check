@@ -1,5 +1,6 @@
-import subprocess
-from typing import List, Optional
+from src.utils.ssh_connection import SshConnection
+
+from src.utils.commands import Mst
 
 
 class MstDevice:
@@ -7,13 +8,8 @@ class MstDevice:
     Represents a single Mellanox/NVIDIA device entry from `mst status -v`.
     Contains all relevant fields for diagnostics and mapping.
     """
-    def __init__(self,
-                 device_type: str,
-                 mst: str,
-                 pci: str,
-                 rdma: Optional[str],
-                 net: Optional[str],
-                 numa: Optional[str]):
+
+    def __init__(self, device_type: str, mst: str, pci: str, rdma: str | None, net: str | None, numa: str | None):
         self.device_type = device_type
         self.mst = mst
         self.pci = pci
@@ -22,10 +18,12 @@ class MstDevice:
         self.numa = numa if numa != "-" else None
 
     def __repr__(self):
-        return (f"MstDevice(device_type={self.device_type!r}, "
-                f"mst={self.mst!r}, pci={self.pci!r}, "
-                f"rdma={self.rdma!r}, net={self.net!r}, "
-                f"numa={self.numa!r})")
+        return (
+            f"MstDevice(device_type={self.device_type!r}, "
+            f"mst={self.mst!r}, pci={self.pci!r}, "
+            f"rdma={self.rdma!r}, net={self.net!r}, "
+            f"numa={self.numa!r})"
+        )
 
 
 class MstStatus:
@@ -36,10 +34,10 @@ class MstStatus:
 
     def __init__(self, raw_output: str):
         self.raw_output = raw_output
-        self.devices: List[MstDevice] = self._parse_output()
+        self.devices: list[MstDevice] = self._parse_output()
 
-    def _parse_output(self) -> List[MstDevice]:
-        devices: List[MstDevice] = []
+    def _parse_output(self) -> list[MstDevice]:
+        devices: list[MstDevice] = []
         lines = self.raw_output.splitlines()
 
         # Find header line (starts with DEVICE_TYPE)
@@ -77,24 +75,14 @@ class MstStatus:
 
         return devices
 
-    @classmethod
-    def from_system(cls) -> "MstStatus":
-        """
-        Run `sudo mst status -v` and return parsed result.
-        """
-        result = subprocess.run(
-            ["sudo", "mst", "status", "-v"],
-            text=True,
-            capture_output=True,
-            check=True
-        )
-        return cls(result.stdout)
+    def from_system(self, ssh_connection: SshConnection = None) -> MstStatus:
+        out, err = ssh_connection.exec_command(Mst.DEVICES)
 
+        if err:
+            raise RuntimeError(f"MST command failed: {err.strip()}")
 
-# ------------------------------
-# Example usage
-# ------------------------------
-if __name__ == "__main__":
-    status = MstStatus.from_system()
-    for dev in status.devices:
-        print(dev)
+        return MstStatus(out)
+
+    def print_devices(self) -> None:
+        for dev in self.devices:
+            print(dev)

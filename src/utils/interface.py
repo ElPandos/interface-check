@@ -1,5 +1,4 @@
 import os
-from typing import List
 
 
 class NetworkInterfaces:
@@ -15,9 +14,9 @@ class NetworkInterfaces:
         """
         self.include_virtual = include_virtual
         self.include_loopback = include_loopback
-        self.interfaces: List[str] = self._discover_interfaces()
+        self.interfaces: list[str] = self._discover_interfaces()
 
-    def _discover_interfaces(self) -> List[str]:
+    def _discover_interfaces(self) -> list[str]:
         interfaces = []
         sys_class_net = "/sys/class/net"
 
@@ -41,7 +40,7 @@ class NetworkInterfaces:
 
         return interfaces
 
-    def list(self) -> List[str]:
+    def list(self) -> list[str]:
         """Return all discovered interfaces."""
         return self.interfaces
 

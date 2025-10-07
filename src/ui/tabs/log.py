@@ -1,43 +1,42 @@
-import threading
 from datetime import datetime as dt
 
-import paramiko
 from nicegui import ui
 from nicegui.elements.log import Log
 
 from src.models.configurations import AppConfig
-from src.ui.tabs.base import BasePanel, BaseTab
-
 from src.ui.enums.log_level import LogLevel
+from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.ssh_connection import SshConnection
+
+NAME = "log"
+LABEL = "Log"
 
 
 class LogTab(BaseTab):
+    ICON_NAME: str = "logo_dev"
 
-    def __init__(self, app_config: AppConfig) -> None:
-        super().__init__(app_config)
+    def __init__(self, build: bool = False) -> None:
+        super().__init__(NAME, LABEL, self.ICON_NAME)
 
-        self._name = "log"
-        self._label = "Log"
-        self._icon_name = "logo_dev"
+        if build:
+            self.build()
 
-        self._build()
-
-    def _build(self) -> None:
-        super()._build()
+    def build(self) -> None:
+        super().build()
 
 
 class LogPanel(BasePanel):
     _MAX_LINES: int = 500
     _log: Log
 
-    def __init__(self, app_config: AppConfig, ssh_connection: SshConnection = None):
-        super().__init__(app_config, ssh_connection)
+    def __init__(self, build: bool = False, app_config: AppConfig = None, ssh_connection: SshConnection = None):
+        super().__init__(NAME, LABEL)
 
-        self._name = "log"
-        self._label = "Log"
+        self._app_config = app_config
+        self.ssh_connection = ssh_connection
 
-        self._build()
+        if build:
+            self.build()
 
     def _time(self) -> str:
         return dt.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -54,12 +53,14 @@ class LogPanel(BasePanel):
         self.critical(text)
 
     def _run_remote(self) -> None:
-        out, err = self.get_ssh().exec_command("ip addr", 10)
-        self.debug(f"STDOUT: {out}")
-        self.debug(f"STDERR: {err}")
+        if self.ssh_connection.is_connected():
+            out, err = self.ssh_connection.exec_command("ip addr", 10)
+            self.debug(f"STDOUT: {out}")
+            self.debug(f"STDERR: {err}")
+        else:
+            ui.notify("Not connected", color="warning")
 
     def _dump_settings(self) -> None:
-        from src.ui.handlers.settings import settings
         self.debug(f"Dump settings: {self._app_config.model_dump_json()}")
 
     def debug(self, text: str) -> None:
@@ -82,14 +83,16 @@ class LogPanel(BasePanel):
         if self._log is not None:
             self._log.push(self._log_text(text, LogLevel.CRITICAL), classes=LogLevel.CRITICAL.color)
 
-    def _build(self) -> None:
-        with ui.tab_panel(self._name):
-            super()._build()
+    # @ui.refreshable
+    def build(self) -> None:
+        with ui.tab_panel(self.name):
+            super().build()
             with ui.card().classes("w-full items-left"), ui.column().classes("w-full items-left"):
                 with ui.column().classes("w-full h-full flex flex-col"):
-
                     # Log (flexible, scrollable)
-                    self._log = ui.log(max_lines=self._MAX_LINES).classes("w-full flex-grow overflow-auto p-5 bg-gray-200")
+                    self._log = ui.log(max_lines=self._MAX_LINES).classes(
+                        "w-full flex-grow overflow-auto p-5 bg-gray-200"
+                    )
 
                     # Buttons (footer, fixed at bottom)
                     with ui.row().classes("w-full flex-none p-2 justify-start bg-white"):
@@ -98,8 +101,11 @@ class LogPanel(BasePanel):
                         # ui.button(                           "Remote command",
                         #     on_click=lambda: threading.Thread(target=self._run_remote, daemon=True).start(),
                         # )
-                        ui.button("Remote command", on_click=self._run_remote),
+                        (ui.button("Remote command", on_click=self._run_remote),)
                         ui.button("Dump settings", on_click=self._dump_settings)
+
+    # def refresh(self):
+    #    self.build.refresh()
 
     def clear(self) -> None:
         self._log.clear()

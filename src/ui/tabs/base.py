@@ -1,56 +1,57 @@
 from nicegui import ui
 
-from src.models.configurations import AppConfig
-from src.utils.ssh_connection import SshConnection
-
 
 class Base:
-    _name: str
-    _label: str
+    name: str
+    label: str
 
-    _app_config: AppConfig | None
-    _ssh_connection: SshConnection | None
+    def __init__(self, name: str, label: str) -> None:
+        self.name = name
+        self.label = label
 
-    _CONTENT_OF_STRING = "Content of -> "
-
-    def __init__(self, app_config: AppConfig, ssh_connection: SshConnection = None) -> None:
-        self._app_config = app_config
-        self._ssh_connection = ssh_connection
-
-    def _title(self) -> None:
-        ui.label(self._CONTENT_OF_STRING + self._label)
-
-    def _build(self) -> None:
-        self._title()
-
-    def get_ssh(self) -> SshConnection:
-        return self._ssh_connection
+    def build(self) -> None:
+        pass
 
 
 class BaseTab(Base):
+    _tab: ui.tab = None
+
     _icon_name: str
-    _icon: ui.icon
 
-    def __init__(self, app_config: AppConfig) -> None:
-        super().__init__(app_config)
+    icon: ui.icon = None
 
-    def _build(self) -> None:
-        with ui.tab(self._name):
-            self._icon = ui.icon(self._icon_name).props('size=24px')
+    def __init__(self, name: str, label: str, icon_name: str) -> None:
+        super().__init__(name, label)
+        self._icon_name = icon_name
 
-    def get_icon(self) -> ui.icon:
-        return self._icon
+    def build(self) -> None:
+        with ui.column().classes("items-center gap-1"):
+            with ui.tab(self.name):
+                self.icon = ui.icon(self._icon_name).props("size=24px")
+
+    def clear(self) -> None:
+        if self.icon:
+            self.icon.clear()
+
+    def reset(self) -> None:
+        self.clear()
+        self.build()
 
 
 class BasePanel(Base):
+    _title: ui.label = None
 
-    def __init__(self, app_config: AppConfig, ssh_connection: SshConnection) -> None:
-        super().__init__(app_config, ssh_connection)
+    _CONTENT_OF_STRING = "Content of: "
 
-    def _build(self) -> None:
-        super()._build()
+    def __init__(self, name: str, label: str) -> None:
+        super().__init__(name, label)
 
-    def _save(self) -> None:
+    def build(self) -> None:
+        if self._title:
+            self._title.clear()
+        self._title = ui.label(self._CONTENT_OF_STRING + self.label)
+
+    def save(self) -> None:
         from src.utils.configure import Configure
-        Configure().save(self._app_config)
 
+        Configure().save(self._app_config)

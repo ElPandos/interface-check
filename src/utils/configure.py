@@ -1,8 +1,9 @@
+import logging
 from pathlib import Path
 
 from nicegui import ui
-from src.models.configurations import AppConfig
 
+from src.models.configurations import AppConfig
 from src.utils import system
 
 
@@ -47,11 +48,11 @@ class Configure:
 
         try:
             system.exist_file(self._FULL_PATH)
-            #logger.debug(f"Config found at: {self._FULL_PATH}")
+            # logger.debug(f"Config found at: {self._FULL_PATH}")
         except FileNotFoundError:
             default_config = AppConfig().model_dump_json()
             system.save_json(default_config, self._FULL_PATH)
-            logger.debug(f"Config file created at: {self._FULL_PATH}")
+            logging.debug(f"Config file created at: {self._FULL_PATH}")
 
     # ---------------------------------------------------------------------------- #
     #                                  Public API                                  #
@@ -67,11 +68,10 @@ class Configure:
         try:
             system.save_json(cfg.model_dump_json(), self._FULL_PATH)
             ui.notify("Configuration saved", type="positive")
-        except Exception as exc:          # pragma: no cover
-            ui.notify(f"Failed to save: {exc}", type="negative")
+        except Exception as e:  # pragma: no cover
+            ui.notify(f"Failed to save: {e}", type="negative")
 
     def load(self) -> AppConfig:
         """Load the JSON file and return a validated `AppConfig` instance."""
         data = system.load_json(self._FULL_PATH)
         return AppConfig().model_validate_json(data)
-

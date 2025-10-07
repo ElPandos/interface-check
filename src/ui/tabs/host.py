@@ -1,126 +1,132 @@
+import logging
 from nicegui import ui
 
-from src.models.configurations import AppConfig
-from src.ui.tabs.base import BaseTab, BasePanel
+import plotly.graph_objects as go
+
+from src.models.configurations import AppConfig, Host
+from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.ssh_connection import SshConnection
 
+
+NAME = "host"
+LABEL = "Host"
+
+
 class HostTab(BaseTab):
+    ICON_NAME: str = "home"
 
-    def __init__(self, app_config: AppConfig) -> None:
-        super().__init__(app_config)
+    def __init__(self, build: bool = False) -> None:
+        super().__init__(NAME, LABEL, self.ICON_NAME)
 
-        self._name = "host"
-        self._label = "Host"
-        self._icon_name = "home"
+        if build:
+            self.build()
 
-        self._build()
-
-    def _build(self) -> None:
-        super()._build()
+    def build(self) -> None:
+        super().build()
 
 
 class HostPanel(BasePanel):
+    _app_config: AppConfig
     _icon: ui.icon
 
-    def __init__(self, app_config: AppConfig, icon: ui.icon = None, ssh_connection: SshConnection = None):
-        super().__init__(app_config, ssh_connection)
+    def __init__(
+        self, build=False, app_config: AppConfig = None, ssh_connection: SshConnection = None, icon: ui.icon = None
+    ):
+        super().__init__(NAME, LABEL)
 
-        self._name = "host"
-        self._label = "Host"
-
-        self._build(icon)
-
-    def _build(self, icon: ui.icon = None):
+        self._app_config = app_config
+        self.ssh_connection = ssh_connection
         self._icon = icon
 
-        with ui.tab_panel(self._name):
-            super()._build()
-            with ui.card().classes("w-full"):
+        if build:
+            self.build()
 
-                # Title
-                ui.label("Remote host").classes("text-lg font-medium")
+    # @ui.refreshable
+    def build(self):
+        with ui.tab_panel(self.name):
+            with ui.column():
+                # Build tab info
+                super().build()
 
-                # Name
-                ui.input(
-                    label="Name"
-                ).props("outlined dense").bind_value(self._app_config.hosts.target_host, "name")
+                # Build panel
+                self._build_remote_target()
+                self._build_jump_hosts()
+                self._build_buttons()
 
-                # IP address
-                ui.input(
-                    label="IP"
-                ).props("outlined dense").bind_value(self._app_config.hosts.target_host, "ip")
+    # def refresh(self):
+    #     self.build.refresh()
 
-                # Username
-                ui.input(
-                    label="Username"
-                ).props("outlined dense").bind_value(self._app_config.hosts.target_host, "username")
+    def _build_remote_target(self) -> None:
+        with ui.card().classes("w-full"):
+            # Title
+            ui.label("Remote host").classes("text-lg font-medium")
 
-                # Password (masked)
-                ui.input(
-                    label="Password",
-                    password=True
-                ).props("outlined dense").bind_value(self._app_config.hosts.target_host, "password")
+            # Name
+            ui.input(label="Name").props("outlined dense").bind_value(self._app_config.hosts.target_host, "name")
 
-            with ui.card().classes("w-full"):
-                for idx, jump in enumerate(self._app_config.hosts.jump_hosts):
-                    # each `jump` is a plain object (e.g. a dataclass) that has name/ip/username/password attributes
-                    with ui.expansion(f"Jump host {idx + 1}").classes("w-full"):
+            # IP address
+            ui.input(label="IP").props("outlined dense").bind_value(self._app_config.hosts.target_host, "ip")
 
-                        # Name
-                        ui.input(
-                            placeholder="Name",
-                            label="Name"
-                        ).props("outlined dense").bind_value(jump, "name")
+            # Username
+            ui.input(label="Username").props("outlined dense").bind_value(
+                self._app_config.hosts.target_host, "username"
+            )
 
-                        # IP address
-                        ui.input(
-                            placeholder="IP",
-                            label="IP"
-                        ).props("outlined dense").bind_value(jump, "ip")
+            # Password (masked)
+            ui.input(label="Password", password=True).props("outlined dense").bind_value(
+                self._app_config.hosts.target_host, "password"
+            )
 
-                        # Username
-                        ui.input(
-                            placeholder="Username",
-                            label="Username"
-                        ).props("outlined dense").bind_value(jump, "username")
+    def _build_jump_hosts(self) -> None:
+        with ui.card().classes("w-full"):
+            for idx, jump in enumerate(self._app_config.hosts.jump_hosts):
+                # Each `jump` is a plain object (e.g. a dataclass) that has name/ip/username/password attributes
+                with ui.expansion(f"Jump host {idx + 1}").classes("w-full"):
+                    # Name
+                    ui.input(placeholder="Name", label="Name").props("outlined dense").bind_value(jump, "name")
 
-                        # Password (masked)
-                        ui.input(
-                            placeholder="Password",
-                            label="Password",
-                            password=True
-                        ).props("outlined dense").bind_value(jump, "password")
+                    # IP address
+                    ui.input(placeholder="IP", label="IP").props("outlined dense").bind_value(jump, "ip")
 
+                    # Username
+                    ui.input(placeholder="Username", label="Username").props("outlined dense").bind_value(
+                        jump, "username"
+                    )
+
+                    # Password (masked)
+                    ui.input(placeholder="Password", label="Password", password=True).props(
+                        "outlined dense"
+                    ).bind_value(jump, "password")
+
+    def _build_buttons(self) -> None:
+        with ui.card().classes("w-full"):
             with ui.row().classes("w-full items-center"):
                 self._connect_button = ui.button("Connect", on_click=self._connect)
-
                 ui.button("Add jump host", on_click=self._add_jump_host).props("color-primary")
                 ui.space()
-                ui.button("Save", on_click=self._save).props("color-primary")
+                ui.button("Save", on_click=self.save).props("color-primary")
 
     def _connect(self) -> None:
-        """Update tab icon colour and size depending on state."""
+        """Update tab icon colour depending on connection state."""
         try:
             if not self.is_connected():
-                self._icon.style('color: limegreen; font-size: 24px;')
+                self.ssh_connection.connect()
+                self._icon.style("color: limegreen;")  # font-size: 24px;")
                 self._connect_button.set_text("Disconnect")
-                self.get_ssh().connect()
             else:
-                self._icon.style('color: white; font-size: 24px;')
+                self.ssh_connection.disconnect()
+                self._icon.style("color: white;")  # font-size: 24px;")
                 self._connect_button.set_text("Connect")
-                self.get_ssh().disconnect()
         except RuntimeError as e:
-            print(f"Connection failed failed: {e}")
+            logging.error(f"SSH connection failed: {e}")
 
     def _add_jump_host(self) -> None:
-        print("Not yet implemented...")
+        logging.warning("Not yet implemented...")
+        # No jump host addition logic implemented yet.
+        # self._app_config.add_jump(Host().default_jump())
         pass
 
     def is_connected(self) -> bool:
-        if not self.get_ssh():
+        if not self.ssh_connection:
             return False
-        return self.get_ssh().is_connected()
-
-
-
-
+        return self.ssh_connection.is_connected()
