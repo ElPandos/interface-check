@@ -1,30 +1,33 @@
-from typing import ClassVar
-from pydantic import BaseModel, Field
+from typing import ClassVar, Optional
+from pydantic import BaseModel, Field, ConfigDict
 
 from src.ui.enums.settings import Options, Types
 
 
 class Host(BaseModel):
-    name: str
     ip: str
     username: str
     password: str
-    port: int
+    remote: bool = False
+    jump: bool = False
+    jump_order: Optional[int] = None
 
     _DEFAULT_HOST: ClassVar[dict] = {
-        "name": "default_host_server",
-        "ip": "127.0.0.1",
-        "username": "user",
-        "password": "pass",
-        "port": 22,
+        "ip": "192.168.1.10",
+        "username": "admin",
+        "password": "demo123",
+        "remote": False,
+        "jump": False,
+        "jump_order": None,
     }
 
     _DEFAULT_JUMP: ClassVar[dict] = {
-        "name": "default_jump_server",
-        "ip": "127.0.0.1",
+        "ip": "10.0.0.5",
         "username": "user",
-        "password": "pass",
-        "port": 22,
+        "password": "demo456",
+        "remote": False,
+        "jump": True,
+        "jump_order": 1,
     }
 
     @classmethod
@@ -59,6 +62,8 @@ class Host(BaseModel):
 
 
 class Setting(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+    
     name: str
     type: Options
     value: bool | int | str
@@ -124,14 +129,7 @@ class SettingsConfig(BaseModel):
         return int(graph_update.value)
 
 
-class HostsConfig(BaseModel):
-    target_host: Host = Field(default_factory=lambda: Host.default_host())
-    jump_hosts: list[Host] = Field(default_factory=lambda: [Host.default_jump()])
-
-
 class AppConfig(BaseModel):
     system: SettingsConfig = Field(default_factory=SettingsConfig)
-    hosts: HostsConfig = Field(default_factory=HostsConfig)
-
-    def add_jump(self, host: Host) -> None:
-        self.hosts.jump_hosts.append(host)
+    hosts: list[Host] = Field(default_factory=lambda: [Host.default_host(), Host.default_jump()])
+    routes: list[dict] = Field(default_factory=list)

@@ -5,12 +5,12 @@ from src.ui.tabs.base import BasePanel, BaseTab
 from src.ui.mixins.multi_screen import MultiScreenMixin
 from src.utils.ssh_connection import SshConnection
 
-NAME = "mlxconfig"
-LABEL = "Mlxconfig"
+NAME = "cable"
+LABEL = "Cable End to End"
 
 
-class MlxconfigTab(BaseTab):
-    ICON_NAME: str = "settings"
+class CableTab(BaseTab):
+    ICON_NAME: str = "cable"
 
     def __init__(self, build: bool = False) -> None:
         super().__init__(NAME, LABEL, self.ICON_NAME)
@@ -21,7 +21,7 @@ class MlxconfigTab(BaseTab):
         super().build()
 
 
-class MlxconfigPanel(BasePanel, MultiScreenMixin):
+class CablePanel(BasePanel, MultiScreenMixin):
     def __init__(
         self,
         build: bool = False,
@@ -41,7 +41,7 @@ class MlxconfigPanel(BasePanel, MultiScreenMixin):
 
     def build(self):
         with ui.tab_panel(self.name).classes("w-full h-screen"):
-            self._build_controls_base("Mlxconfig")
+            self._build_controls_base("Cable End to End")
             self._build_content_base()
 
     def _build_screen(self, screen_num, classes):

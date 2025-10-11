@@ -1,3 +1,5 @@
+"""System tab implementation."""
+
 import logging
 from nicegui import ui
 from src.models.configurations import AppConfig
@@ -5,12 +7,12 @@ from src.ui.tabs.base import BasePanel, BaseTab
 from src.ui.mixins.multi_screen import MultiScreenMixin
 from src.utils.ssh_connection import SshConnection
 
-NAME = "mlxconfig"
-LABEL = "Mlxconfig"
+NAME = "system"
+LABEL = "System"
 
 
-class MlxconfigTab(BaseTab):
-    ICON_NAME: str = "settings"
+class SystemTab(BaseTab):
+    ICON_NAME: str = "computer"
 
     def __init__(self, build: bool = False) -> None:
         super().__init__(NAME, LABEL, self.ICON_NAME)
@@ -21,7 +23,7 @@ class MlxconfigTab(BaseTab):
         super().build()
 
 
-class MlxconfigPanel(BasePanel, MultiScreenMixin):
+class SystemPanel(BasePanel, MultiScreenMixin):
     def __init__(
         self,
         build: bool = False,
@@ -41,7 +43,7 @@ class MlxconfigPanel(BasePanel, MultiScreenMixin):
 
     def build(self):
         with ui.tab_panel(self.name).classes("w-full h-screen"):
-            self._build_controls_base("Mlxconfig")
+            self._build_controls_base("System")
             self._build_content_base()
 
     def _build_screen(self, screen_num, classes):
@@ -55,10 +57,10 @@ class MlxconfigPanel(BasePanel, MultiScreenMixin):
                         self._host_handler._routes,
                         lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
                     ).build()
-                ui.button("Scan Interfaces", on_click=lambda s=screen_num: self._scan_interfaces(s)).classes(
-                    "bg-red-300 hover:bg-red-400 text-red-900 mt-2"
+                ui.button("System Info", on_click=lambda s=screen_num: self._get_system_info(s)).classes(
+                    "bg-green-300 hover:bg-green-400 text-green-900 mt-2"
                 )
-                ui.label(f"Content for host {screen_num}").classes("mt-4")
+                ui.label(f"System information for host {screen_num}").classes("mt-4")
 
-    def _scan_interfaces(self, screen_num):
-        ui.notify(f"Scanning interfaces for screen {screen_num}", color="info")
+    def _get_system_info(self, screen_num):
+        ui.notify(f"Getting system info for screen {screen_num}", color="info")

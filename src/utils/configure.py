@@ -1,3 +1,4 @@
+import json
 import logging
 from pathlib import Path
 
@@ -14,8 +15,7 @@ class Configure:
     #                                 Default names                                #
     # ---------------------------------------------------------------------------- #
 
-    _CONFIG_DIR = ".interface-check"
-
+    _CONFIG_DIR_NAME = ".interface-check"
     _CONFIG_FILE = "ssh_config.json"
     _LOG_FILE = "main.log"
 
@@ -24,7 +24,7 @@ class Configure:
     # ---------------------------------------------------------------------------- #
 
     _HOME: Path = Path.home()
-    _CONFIG_DIR: Path = _HOME / _CONFIG_DIR
+    _CONFIG_DIR: Path = _HOME / _CONFIG_DIR_NAME
     _CONFIG_FULL_PATH: Path = _CONFIG_DIR / _CONFIG_FILE
     _LOG_FULL_PATH: Path = _CONFIG_DIR / _LOG_FILE
 
@@ -49,13 +49,12 @@ class Configure:
         """
         self._ensure_dir()
 
-        try:
-            system.exist_file(self._CONFIG_FULL_PATH)
-            logging.debug(f"Config found at: {self._CONFIG_FULL_PATH}")
-        except FileNotFoundError:
-            default_config = AppConfig().model_dump_json()
+        if not self._CONFIG_FULL_PATH.exists():
+            default_config = AppConfig().model_dump()
             system.save_json(default_config, self._CONFIG_FULL_PATH)
             logging.debug(f"Config file created at: {self._CONFIG_FULL_PATH}")
+        else:
+            logging.debug(f"Config found at: {self._CONFIG_FULL_PATH}")
 
     # ---------------------------------------------------------------------------- #
     #                                  Public API                                  #
@@ -74,12 +73,18 @@ class Configure:
     def save(self, cfg: AppConfig) -> None:
         """Persist *cfg* to the JSON file."""
         try:
-            system.save_json(cfg.model_dump_json(), self._CONFIG_FULL_PATH)
+            system.save_json(cfg.model_dump(), self._CONFIG_FULL_PATH)
             ui.notify("Configuration saved", type="positive")
         except Exception as e:  # pragma: no cover
             ui.notify(f"Failed to save: {e}", type="negative")
 
     def load(self) -> AppConfig:
         """Load the JSON file and return a validated `AppConfig` instance."""
-        data = system.load_json(self._CONFIG_FULL_PATH)
-        return AppConfig().model_validate_json(data)
+        try:
+            data = system.load_json(self._CONFIG_FULL_PATH)
+            return AppConfig.model_validate(data)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logging.warning(f"Config file issue: {e}. Creating default config.")
+            default_config = AppConfig()
+            self.save(default_config)
+            return default_config

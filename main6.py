@@ -12,17 +12,15 @@ from nicegui import ui
 # Configure extensive debug logging
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('ssh_host_manager.log')
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s",
+    handlers=[logging.StreamHandler(), logging.FileHandler("ssh_host_manager.log")],
 )
 logger = logging.getLogger(__name__)
 
 
 class HostDict(TypedDict):
     """Type definition for host configuration."""
+
     ip: str
     username: str
     password: str
@@ -33,6 +31,7 @@ class HostDict(TypedDict):
 
 class RouteDict(TypedDict):
     """Type definition for route configuration."""
+
     summary: str
     remote_host_ip: str
     remote_host_username: str
@@ -43,6 +42,7 @@ class RouteDict(TypedDict):
 @dataclass(frozen=True)
 class UIStyles:
     """Immutable UI styling configuration."""
+
     header_gradient: str = "font-bold text-white bg-gradient-to-r from-blue-500 to-gray-500 w-full justify-between rounded-t-lg px-4 py-3 text-sm shadow-md"
     route_header_gradient: str = "font-bold text-white bg-gradient-to-r from-green-500 to-gray-500 w-full justify-between rounded-t-lg px-4 py-3 text-sm shadow-md"
     delete_button: str = "bg-gray-300 hover:bg-red-200 text-red-600 w-20 h-8 rounded shadow"
@@ -56,9 +56,30 @@ class HostManager:
         """Initialize the host manager with default configuration."""
         logger.debug("Initializing HostManager")
         self._hosts: List[HostDict] = [
-            {"ip": "192.168.1.10", "username": "admin", "password": "demo123", "remote": False, "jump": False, "jump_order": None},
-            {"ip": "10.0.0.5", "username": "user", "password": "demo456", "remote": False, "jump": False, "jump_order": None},
-            {"ip": "172.16.0.20", "username": "root", "password": "demo789", "remote": False, "jump": False, "jump_order": None}
+            {
+                "ip": "192.168.1.10",
+                "username": "admin",
+                "password": "demo123",
+                "remote": False,
+                "jump": False,
+                "jump_order": None,
+            },
+            {
+                "ip": "10.0.0.5",
+                "username": "user",
+                "password": "demo456",
+                "remote": False,
+                "jump": False,
+                "jump_order": None,
+            },
+            {
+                "ip": "172.16.0.20",
+                "username": "root",
+                "password": "demo789",
+                "remote": False,
+                "jump": False,
+                "jump_order": None,
+            },
         ]
         logger.debug(f"Initialized with {len(self._hosts)} default hosts")
         self._remote_index: Optional[int] = None
@@ -68,7 +89,7 @@ class HostManager:
                 "remote_host_ip": "10.0.0.5",
                 "remote_host_username": "user",
                 "remote_host_password": "demo456",
-                "jump_hosts": [{"ip": "192.168.1.10", "username": "admin", "password": "demo123", "order": 1}]
+                "jump_hosts": [{"ip": "192.168.1.10", "username": "admin", "password": "demo123", "order": 1}],
             }
         ]
         self._styles = UIStyles()
@@ -89,32 +110,59 @@ class HostManager:
     def _init_ui(self) -> None:
         """Initialize the user interface with proper error handling."""
         try:
-            ui.colors(primary='#374151', secondary='#4b5563', accent='#3b82f6', dark='#1f2937', positive='#10b981', negative='#ef4444', info='#3b82f6', warning='#f59e0b')
+            ui.colors(
+                primary="#374151",
+                secondary="#4b5563",
+                accent="#3b82f6",
+                dark="#1f2937",
+                positive="#10b981",
+                negative="#ef4444",
+                info="#3b82f6",
+                warning="#f59e0b",
+            )
 
             with ui.card().classes("w-full max-w-6xl mx-auto p-6 shadow-xl bg-gray-50 border border-gray-200"):
                 with ui.row().classes("w-full justify-center items-center gap-3 mb-6"):
                     ui.icon("terminal", size="lg").classes("text-blue-600")
                     ui.label("SSH Host Manager").classes("text-2xl font-bold text-gray-800")
                     ui.space()
-                    ui.button(icon="download", text="Import" , on_click=self._open_import_dialog).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded")
-                    ui.button(icon="upload", text="Export", on_click=self._export_config).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded")
+                    ui.button(icon="download", text="Import", on_click=self._open_import_dialog).classes(
+                        "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded"
+                    )
+                    ui.button(icon="upload", text="Export", on_click=self._export_config).classes(
+                        "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded"
+                    )
 
                 with ui.card().classes("w-full bg-white border border-gray-200 shadow-sm"):
                     with ui.row().classes("w-full items-center gap-2 mb-4"):
-                        self.hosts_toggle_btn = ui.button(icon="expand_less", on_click=self._toggle_hosts).props("flat round").classes("text-gray-600")
+                        self.hosts_toggle_btn = (
+                            ui.button(icon="expand_less", on_click=self._toggle_hosts)
+                            .props("flat round")
+                            .classes("text-gray-600")
+                        )
                         ui.icon("computer", size="lg").classes("text-blue-600")
                         ui.label("Hosts").classes("text-lg font-semibold text-gray-800")
                         ui.space()
-                        ui.button(icon="desktop_windows", text="Add Host", on_click=self._open_add_dialog).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded")
+                        ui.button(icon="desktop_windows", text="Add Host", on_click=self._open_add_dialog).classes(
+                            "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded"
+                        )
                     self.table_container = ui.column().classes("w-full")
 
                 with ui.card().classes("w-full bg-white border border-gray-200 shadow-sm"):
                     with ui.row().classes("w-full items-center gap-2 mb-4"):
-                        self.routes_toggle_btn = ui.button(icon="expand_less", on_click=self._toggle_routes).props("flat round").classes("text-gray-600")
+                        self.routes_toggle_btn = (
+                            ui.button(icon="expand_less", on_click=self._toggle_routes)
+                            .props("flat round")
+                            .classes("text-gray-600")
+                        )
                         ui.icon("route", size="lg").classes("text-green-600")
                         ui.label("Routes").classes("text-lg font-semibold text-gray-800")
                         ui.space()
-                        self.add_route_btn = ui.button(icon="route", text="Add Route", on_click=self._add_route).props("disable").classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded")
+                        self.add_route_btn = (
+                            ui.button(icon="route", text="Add Route", on_click=self._add_route)
+                            .props("disable")
+                            .classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded")
+                        )
                     self.route_container = ui.column().classes("w-full")
 
             self._refresh_table()
@@ -127,7 +175,8 @@ class HostManager:
     def _validate_ip(self, ip: str) -> bool:
         """Validate IP address format."""
         import re
-        pattern = r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+
+        pattern = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
         return bool(re.match(pattern, ip.strip()))
 
     def _sanitize_input(self, value: str) -> str:
@@ -144,24 +193,30 @@ class HostManager:
             with ui.card().classes("w-full p-4 bg-gray-50 border border-gray-200 mb-4"):
                 ui.label("Network details").classes("font-semibold mb-3 text-gray-700")
                 ip_input = ui.input("IP address", placeholder="192.168.1.100").classes("w-full")
-                ip_input.props('outlined').tooltip("Enter the server's IP address")
+                ip_input.props("outlined").tooltip("Enter the server's IP address")
 
             with ui.card().classes("w-full p-4 bg-gray-50 border border-gray-200 mb-4"):
                 ui.label("Authentication").classes("font-semibold mb-3 text-gray-700")
                 user_input = ui.input("Username", placeholder="admin").classes("w-full mb-3")
-                user_input.props('outlined').tooltip("SSH username for server login")
+                user_input.props("outlined").tooltip("SSH username for server login")
                 pass_input = ui.input("Password", password=True, placeholder="••••••••").classes("w-full")
-                pass_input.props('outlined').tooltip("Password for authentication")
+                pass_input.props("outlined").tooltip("Password for authentication")
 
             with ui.row().classes("w-full mt-6"):
-                ui.button(icon="add", text="Add host", on_click=lambda: self._add_host(
-                    self._sanitize_input(ip_input.value or ""),
-                    self._sanitize_input(user_input.value or ""),
-                    self._sanitize_input(pass_input.value or ""),
-                    dialog
-                )).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg")
+                ui.button(
+                    icon="add",
+                    text="Add host",
+                    on_click=lambda: self._add_host(
+                        self._sanitize_input(ip_input.value or ""),
+                        self._sanitize_input(user_input.value or ""),
+                        self._sanitize_input(pass_input.value or ""),
+                        dialog,
+                    ),
+                ).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg")
                 ui.space()
-                ui.button(icon="cancel", text="Cancel", on_click=dialog.close).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg")
+                ui.button(icon="cancel", text="Cancel", on_click=dialog.close).classes(
+                    "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg"
+                )
         dialog.open()
 
     def _add_host(self, ip: str, username: str, password: str, dialog: ui.dialog) -> None:
@@ -185,7 +240,7 @@ class HostManager:
                 "password": password,
                 "remote": False,
                 "jump": False,
-                "jump_order": None
+                "jump_order": None,
             }
             self._hosts.append(new_host)
 
@@ -232,8 +287,7 @@ class HostManager:
                 return
 
             jump_hosts = sorted(
-                [h for h in self._hosts if h["jump"] and h["jump_order"]],
-                key=lambda x: x["jump_order"] or 0
+                [h for h in self._hosts if h["jump"] and h["jump_order"]], key=lambda x: x["jump_order"] or 0
             )
 
             jump_parts = [f"{h['ip']}(J{h['jump_order']})" for h in jump_hosts]
@@ -249,12 +303,10 @@ class HostManager:
                 "remote_host_ip": remote_host["ip"],
                 "remote_host_username": remote_host["username"],
                 "remote_host_password": remote_host["password"],
-                "jump_hosts": [{
-                    "ip": h["ip"],
-                    "username": h["username"],
-                    "password": h["password"],
-                    "order": h["jump_order"]
-                } for h in jump_hosts]
+                "jump_hosts": [
+                    {"ip": h["ip"], "username": h["username"], "password": h["password"], "order": h["jump_order"]}
+                    for h in jump_hosts
+                ],
             }
             self._routes.append(route)
             ui.notify(f"Route added: {summary}", color="positive")
@@ -346,7 +398,9 @@ class HostManager:
 
             if self.hosts_expanded:
                 with self.table_container:
-                    with ui.row().classes("font-bold text-white bg-gradient-to-r from-blue-500 to-gray-500 w-full justify-between rounded-t-lg px-4 py-3 text-sm shadow-md border border-gray-300"):
+                    with ui.row().classes(
+                        "font-bold text-white bg-gradient-to-r from-blue-500 to-gray-500 w-full justify-between rounded-t-lg px-4 py-3 text-sm shadow-md border border-gray-300"
+                    ):
                         ui.label("#").classes("w-6 text-white font-bold")
                         ui.label("IP Address").classes("w-40 text-white font-bold")
                         ui.label("Username").classes("w-36 text-white font-bold")
@@ -369,12 +423,18 @@ class HostManager:
         is_remote = host["remote"]
         is_jump = host["jump"]
         row_bg = (
-            "bg-gradient-to-r from-white to-blue-500 border-blue-400" if is_remote else
-            "bg-gradient-to-r from-white to-blue-200 border-blue-300" if is_jump else
-            "bg-gradient-to-r from-white to-gray-50 border-gray-200" if index % 2 else "bg-gradient-to-r from-white to-white border-gray-200"
+            "bg-gradient-to-r from-white to-blue-500 border-blue-400"
+            if is_remote
+            else "bg-gradient-to-r from-white to-blue-200 border-blue-300"
+            if is_jump
+            else "bg-gradient-to-r from-white to-gray-50 border-gray-200"
+            if index % 2
+            else "bg-gradient-to-r from-white to-white border-gray-200"
         )
 
-        with ui.row().classes(f"items-center justify-between border-b px-4 py-2 w-full text-sm {row_bg} hover:bg-gray-100"):
+        with ui.row().classes(
+            f"items-center justify-between border-b px-4 py-2 w-full text-sm {row_bg} hover:bg-gray-100"
+        ):
             ui.label(str(index + 1)).classes("w-6 text-gray-600")
             ui.label(host["ip"]).classes("w-40 text-gray-800")
             ui.label(host["username"]).classes("w-36 text-gray-800")
@@ -401,7 +461,9 @@ class HostManager:
                 order_select.disable()
                 order_select.style("opacity: 0.2")
 
-            ui.button(icon="delete", on_click=self._create_delete_handler(index)).props("unelevated").classes("bg-gray-500 hover:bg-gray-600 text-white w-20 h-8 rounded shadow")
+            ui.button(icon="delete", on_click=self._create_delete_handler(index)).props("unelevated").classes(
+                "bg-gray-500 hover:bg-gray-600 text-white w-20 h-8 rounded shadow"
+            )
 
     def _refresh_route_table(self) -> None:
         """Refresh the route table."""
@@ -413,22 +475,32 @@ class HostManager:
 
             if self.routes_expanded:
                 with self.route_container:
-                    with ui.row().classes("font-bold text-white bg-gradient-to-r from-green-600 to-gray-500 w-full justify-between rounded-t-lg px-4 py-3 text-sm shadow-md border border-gray-300"):
+                    with ui.row().classes(
+                        "font-bold text-white bg-gradient-to-r from-green-600 to-gray-500 w-full justify-between rounded-t-lg px-4 py-3 text-sm shadow-md border border-gray-300"
+                    ):
                         ui.label("#").classes("w-6 text-white font-bold")
                         ui.label("Route Summary (Jump → Remote)").classes("w-96 text-white font-bold")
                         ui.label("Actions").classes("w-40 text-center text-gray-200 font-bold")
 
                     if not self._routes:
-                        ui.label("No routes defined yet.").classes("text-gray-500 italic text-center py-4 bg-white border-b border-gray-200")
+                        ui.label("No routes defined yet.").classes(
+                            "text-gray-500 italic text-center py-4 bg-white border-b border-gray-200"
+                        )
                     else:
                         for i, route in enumerate(self._routes):
                             row_bg = "bg-green-50 border-green-200" if i % 2 else "bg-white border-gray-200"
-                            with ui.row().classes(f"items-center border-b px-4 py-2 w-full text-sm {row_bg} hover:bg-green-100"):
+                            with ui.row().classes(
+                                f"items-center border-b px-4 py-2 w-full text-sm {row_bg} hover:bg-green-100"
+                            ):
                                 ui.label(str(i + 1)).classes("w-6 text-gray-600")
                                 ui.label(route["summary"]).classes("flex-1 truncate text-gray-800")
                                 with ui.row().classes("gap-2 ml-auto"):
-                                    ui.button(icon="power").props("unelevated").classes("bg-gray-500 hover:bg-gray-600 text-white w-20 h-8 rounded shadow")
-                                    ui.button(icon="delete", on_click=self._create_route_delete_handler(i)).props("unelevated").classes("bg-gray-500 hover:bg-gray-600 text-white w-20 h-8 rounded shadow")
+                                    ui.button(icon="power").props("unelevated").classes(
+                                        "bg-gray-500 hover:bg-gray-600 text-white w-20 h-8 rounded shadow"
+                                    )
+                                    ui.button(icon="delete", on_click=self._create_route_delete_handler(i)).props(
+                                        "unelevated"
+                                    ).classes("bg-gray-500 hover:bg-gray-600 text-white w-20 h-8 rounded shadow")
 
         except Exception as e:
             logger.error(f"Error refreshing route table: {e}")
@@ -474,25 +546,30 @@ class HostManager:
 
             with ui.card().classes("w-full p-4 bg-gray-50 border border-gray-200 mb-4"):
                 ui.label("Upload file").classes("font-semibold mb-3 text-gray-700")
-                file_upload = ui.upload(
-                    on_upload=lambda e: self._handle_file_upload(e, dialog),
-                    auto_upload=True
-                ).props('accept=".json"').classes("w-full")
+                file_upload = (
+                    ui.upload(on_upload=lambda e: self._handle_file_upload(e, dialog), auto_upload=True)
+                    .props('accept=".json"')
+                    .classes("w-full")
+                )
 
             with ui.card().classes("w-full p-4 bg-gray-50 border border-gray-200 mb-4"):
                 ui.label("Paste JSON").classes("font-semibold mb-3 text-gray-700")
                 config_input = ui.textarea(placeholder="Paste JSON here...").classes("w-full h-32")
 
             with ui.row().classes("w-full mt-6"):
-                ui.button(icon="download", text="Import", on_click=lambda: self._import_config(config_input.value, dialog)).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg")
+                ui.button(
+                    icon="download", text="Import", on_click=lambda: self._import_config(config_input.value, dialog)
+                ).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg")
                 ui.space()
-                ui.button(icon="cancel", text="Cancel", on_click=dialog.close).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg")
+                ui.button(icon="cancel", text="Cancel", on_click=dialog.close).classes(
+                    "bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg"
+                )
         dialog.open()
 
     def _handle_file_upload(self, e, dialog: ui.dialog) -> None:
         """Handle file upload."""
         try:
-            content = e.content.read().decode('utf-8')
+            content = e.content.read().decode("utf-8")
             self._import_config(content, dialog)
         except Exception as ex:
             logger.error(f"Error reading file: {ex}")
@@ -515,17 +592,17 @@ class HostManager:
             self._hosts = hosts
             self._routes = routes if isinstance(routes, list) else []
             self._remote_index = None
-            
+
             # Reset all host selections
             for host in self._hosts:
                 host["remote"] = False
                 host["jump"] = False
                 host["jump_order"] = None
-            
+
             # Reset table states
             self.hosts_expanded = True
             self.routes_expanded = True
-            
+
             # Update toggle button icons
             if self.hosts_toggle_btn:
                 self.hosts_toggle_btn.props("icon=expand_less")
@@ -547,12 +624,7 @@ def main() -> None:
     """Main application entry point."""
     try:
         host_manager = HostManager()
-        ui.run(
-            title="SSH Host Manager",
-            favicon="./assets/icons/interoperability.png",
-            port=8080,
-            dark=False
-        )
+        ui.run(title="SSH Host Manager", favicon="./assets/icons/interoperability.png", port=8080, dark=False)
     except Exception as e:
         logger.error(f"Failed to start application: {e}")
         return 1

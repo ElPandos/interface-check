@@ -26,23 +26,99 @@ class MlxlinkTab(BaseTab):
 
 
 class MlxlinkPanel(BasePanel):
-    def __init__(self, build: bool = False, app_config: AppConfig = None, ssh_connection: SshConnection = None):
+    def __init__(
+        self,
+        build: bool = False,
+        app_config: AppConfig = None,
+        ssh_connection: SshConnection = None,
+        host_handler=None,
+        icon: ui.icon = None,
+    ):
         super().__init__(NAME, LABEL)
-
         self._app_config = app_config
         self._ssh_connection = ssh_connection
-
+        self._host_handler = host_handler
+        self._icon = icon
+        self.num_screens = 1
+        self.screen_connections = {}
         if build:
             self.build()
 
     def build(self):
-        with ui.tab_panel(self.name):
-            # Build tab info
-            super().build()
+        with ui.tab_panel(self.name).classes("w-full h-screen"):
+            self._build_controls()
+            self._build_content()
+            if self._icon:
+                self._icon.style("color: #ef4444")
 
-            # Build selector
-            self._build_selector()
+    def _build_controls(self) -> None:
+        with ui.card().classes("w-full mb-4"):
+            with ui.row().classes("w-full items-center gap-4"):
+                ui.label("Mlxlink").classes("text-lg font-bold")
+                ui.space()
+                ui.select([1, 2, 3, 4], value=1, label="Hosts").classes("w-32").on_value_change(self._on_screen_change)
 
-    def _build_selector(self) -> None:
-        with ui.card().classes("w-full"):
-            pass
+    def _build_content(self) -> None:
+        self.content_container = ui.column().classes("w-full h-full")
+        with self.content_container:
+            self._render_screens()
+
+    def _render_screens(self):
+        self.content_container.clear()
+        with self.content_container:
+            if self.num_screens == 1:
+                self._build_screen(1, "w-full h-full")
+            elif self.num_screens == 2:
+                with ui.row().classes("w-full h-full gap-2"):
+                    self._build_screen(1, "flex-1 h-full")
+                    self._build_screen(2, "flex-1 h-full")
+            elif self.num_screens == 3:
+                with ui.column().classes("w-full h-full gap-2"):
+                    with ui.row().classes("w-full flex-1 gap-2"):
+                        self._build_screen(1, "flex-1 h-full")
+                        self._build_screen(2, "flex-1 h-full")
+                    self._build_screen(3, "w-full flex-1")
+            elif self.num_screens == 4:
+                with ui.column().classes("w-full h-full gap-2"):
+                    with ui.row().classes("w-full flex-1 gap-2"):
+                        self._build_screen(1, "flex-1 h-full")
+                        self._build_screen(2, "flex-1 h-full")
+                    with ui.row().classes("w-full flex-1 gap-2"):
+                        self._build_screen(3, "flex-1 h-full")
+                        self._build_screen(4, "flex-1 h-full")
+
+    def _build_screen(self, screen_num, classes):
+        with ui.card().classes(classes):
+            with ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
+                if self._host_handler:
+                    from src.ui.components.connection_selector import ConnectionSelector
+
+                    ConnectionSelector(
+                        self._host_handler._connected_routes,
+                        self._host_handler._routes,
+                        lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
+                    ).build()
+                ui.button("Scan Interfaces", on_click=lambda s=screen_num: self._scan_interfaces(s)).classes(
+                    "bg-red-300 hover:bg-red-400 text-red-900 mt-2"
+                )
+                ui.label(f"Content for host {screen_num}").classes("mt-4")
+
+    def _on_screen_change(self, e):
+        self.num_screens = e.value
+        self._render_screens()
+        self._update_icon_status()
+
+    def _on_connection_change(self, connection_id, screen_num):
+        if not hasattr(self, "screen_connections"):
+            self.screen_connections = {}
+        self.screen_connections[screen_num] = connection_id
+        self._update_icon_status()
+
+    def _update_icon_status(self):
+        if hasattr(self, "screen_connections") and any(self.screen_connections.values()) and self._icon:
+            self._icon.style("color: #10b981")
+        elif self._icon:
+            self._icon.style("color: #ef4444")
+
+    def _scan_interfaces(self, screen_num):
+        ui.notify(f"Scanning interfaces for screen {screen_num}", color="info")

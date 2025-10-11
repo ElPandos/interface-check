@@ -11,6 +11,12 @@ from src.ui.tabs.info import InfoPanel, InfoTab
 from src.ui.tabs.log import LogPanel, LogTab
 from src.ui.tabs.mlxconfig import MlxconfigPanel, MlxconfigTab
 from src.ui.tabs.mlxlink import MlxlinkPanel, MlxlinkTab
+from src.ui.tabs.slx import SlxPanel, SlxTab
+from src.ui.tabs.cable import CablePanel, CableTab
+from src.ui.tabs.database import DatabasePanel, DatabaseTab
+from src.ui.tabs.system import SystemPanel, SystemTab
+from src.ui.tabs.ipmitool import IpmitoolPanel, IpmitoolTab
+from src.ui.tabs.dashboard import DashboardPanel, DashboardTab
 from src.utils.system import get_patchset
 from src.utils.ssh_connection import SshConnection
 
@@ -41,14 +47,20 @@ class Gui:
         self._add_gui_events()
 
     def run(self) -> None:
-        ui.run(reload=False)
+        ui.run(reload=True)
 
     def _build_header(self) -> None:
         with ui.header().classes(replace="row items-center justify-between"):
             with ui.tabs() as self._tabs:
                 self._tab_content[HostTab().name] = HostTab(True)
+                self._tab_content[DashboardTab().name] = DashboardTab(True)
                 self._tab_content[MlxconfigTab().name] = MlxconfigTab(True)
                 self._tab_content[MlxlinkTab().name] = MlxlinkTab(True)
+                self._tab_content[SlxTab().name] = SlxTab(True)
+                self._tab_content[CableTab().name] = CableTab(True)
+                self._tab_content[DatabaseTab().name] = DatabaseTab(True)
+                self._tab_content[SystemTab().name] = SystemTab(True)
+                self._tab_content[IpmitoolTab().name] = IpmitoolTab(True)
                 self._tab_content[EthtoolTab().name] = EthtoolTab(True)
                 self._tab_content[InfoTab().name] = InfoTab(True)
                 self._tab_content[LogTab().name] = LogTab(True)
@@ -61,8 +73,14 @@ class Gui:
             self._panel_content[HostPanel().name] = HostPanel(
                 True, self._app_config, self._ssh_connection, self._tab_content[HostTab().name].icon
             )
+            self._panel_content[DashboardPanel().name] = DashboardPanel(True, self._app_config, self._ssh_connection)
             self._panel_content[MlxconfigPanel().name] = MlxconfigPanel(True, self._app_config, self._ssh_connection)
             self._panel_content[MlxlinkPanel().name] = MlxlinkPanel(True, self._app_config, self._ssh_connection)
+            self._panel_content[SlxPanel().name] = SlxPanel(True, self._app_config, self._ssh_connection)
+            self._panel_content[CablePanel().name] = CablePanel(True, self._app_config, self._ssh_connection)
+            self._panel_content[DatabasePanel().name] = DatabasePanel(True, self._app_config, self._ssh_connection)
+            self._panel_content[SystemPanel().name] = SystemPanel(True, self._app_config, self._ssh_connection)
+            self._panel_content[IpmitoolPanel().name] = IpmitoolPanel(True, self._app_config, self._ssh_connection)
             self._panel_content[EthtoolPanel().name] = EthtoolPanel(True, self._app_config, self._ssh_connection)
             self._panel_content[InfoPanel().name] = InfoPanel(True, self._app_config, self._ssh_connection)
             self._panel_content[LogPanel().name] = LogPanel(True, self._app_config, self._ssh_connection)

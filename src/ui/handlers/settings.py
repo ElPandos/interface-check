@@ -28,7 +28,7 @@ class SettingsHandler:
         self._app_config = app_config
         for opt in self._app_config.system.settings:
             match opt.type:
-                case Options.SWITCH:
+                case Options.SWITCH.value | Options.SWITCH:
                     with (
                         ui.card().classes("w-full items-left"),
                         ui.row().classes("w-full items-center"),
@@ -46,7 +46,7 @@ class SettingsHandler:
 
                         switch.bind_value(opt, "value")
 
-                case Options.SLIDER:
+                case Options.SLIDER.value | Options.SLIDER:
                     with ui.card().classes("w-full items-left"), ui.column().classes("w-full items-left"):
                         ui.label(opt.name)
                         value, value_min, value_max = self._get_value(opt.name, app_config)
@@ -59,7 +59,7 @@ class SettingsHandler:
                             slider_value_label = ui.label(str(opt.value)).classes("w-3 text-right pr-10")
                             slider_value_label.bind_text_from(slider, "value")
 
-                case Options.TEXT:
+                case Options.TEXT.value | Options.TEXT:
                     with ui.card().classes("w-full items-left"), ui.column().classes("w-full items-left"):
                         value, value_min, value_max = self._get_value(opt.name, app_config)
                         textarea = ui.textarea(
@@ -69,15 +69,17 @@ class SettingsHandler:
                         ).classes("w-full")
                         textarea.bind_value(opt, "value")
 
-                case Options.BUTTON:
+                case Options.BUTTON.value | Options.BUTTON:
                     with (
                         ui.card().classes("w-full"),
                         ui.column().classes("w-full"),
-                        ui.button(opt.name, on_click=self._save).classes("w-full items-left"),
+                        ui.button(opt.name, on_click=self._save).classes(
+                            "w-full items-left bg-gray-300 hover:bg-gray-400 text-gray-800"
+                        ),
                     ):
                         pass
 
-                case Options.INFO:
+                case Options.INFO.value | Options.INFO:
                     ui.space()
                     with (
                         ui.card().classes("w-full"),

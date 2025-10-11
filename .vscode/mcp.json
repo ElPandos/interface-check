@@ -29,7 +29,7 @@
         },
         "github": {
             "type": "http",
-            "url": "https://api.githubcopilot.com/mcp/",
+            "url": "https://api.githubcopilot.com/mcp/"
         },
         "hf-mcp-server": {
             "url": "https://huggingface.co/mcp?login"
@@ -43,7 +43,7 @@
             "args": [
                 "-y",
                 "@modelcontextprotocol/server-sequential-thinking@latest"
-            ],
+            ]
         },
         "memory": {
             "type": "stdio",
@@ -54,7 +54,7 @@
             ],
             "env": {
                 "MEMORY_FILE_PATH": "${secrets:ENV_MEMORY_FILE}"
-            },
+            }
         },
         "firecrawl": {
             "type": "stdio",

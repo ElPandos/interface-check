@@ -18,15 +18,28 @@ class SshConnection:
     """
 
     def __init__(self, app_config: AppConfig, keepalive_interval: int = 30):
-        jump_host_config = app_config.hosts.jump_hosts[0]
-        self.jump_host = jump_host_config.ip
-        self.jump_user = jump_host_config.username
-        self.jump_pass = jump_host_config.password
+        jump_hosts = [h for h in app_config.hosts if h.jump]
+        target_hosts = [h for h in app_config.hosts if h.remote]
 
-        target_config = app_config.hosts.target_host
-        self.target_host = target_config.ip
-        self.target_user = target_config.username
-        self.target_pass = target_config.password
+        if jump_hosts:
+            jump_host_config = jump_hosts[0]
+            self.jump_host = jump_host_config.ip
+            self.jump_user = jump_host_config.username
+            self.jump_pass = jump_host_config.password
+        else:
+            self.jump_host = "127.0.0.1"
+            self.jump_user = "user"
+            self.jump_pass = "pass"
+
+        if target_hosts:
+            target_config = target_hosts[0]
+            self.target_host = target_config.ip
+            self.target_user = target_config.username
+            self.target_pass = target_config.password
+        else:
+            self.target_host = "127.0.0.1"
+            self.target_user = "user"
+            self.target_pass = "pass"
 
         self.keepalive_interval = keepalive_interval
 
@@ -53,10 +66,10 @@ class SshConnection:
     #                              Connection handling                             #
     # ---------------------------------------------------------------------------- #
 
-    def connect(self) -> None:
+    def connect(self) -> bool:
         """Open SSH sessions to the jumphost and then to the target via a tunnel."""
-        # --------------------------------- Jump host -------------------------------- #
         try:
+            # --------------------------------- Jump host -------------------------------- #
             self._jump_ssh = paramiko.SSHClient()
             self._jump_ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             self._jump_ssh.connect(
@@ -66,24 +79,19 @@ class SshConnection:
                 look_for_keys=False,
                 allow_agent=False,
             )
-        except paramiko.AuthenticationException as e:
-            raise RuntimeError(f"Authentication to target {self.jump_host} failed: {e}")
 
-        # ----------------------------- Channel to target ---------------------------- #
+            # ----------------------------- Channel to target ---------------------------- #
+            jump_transport = self._jump_ssh.get_transport()
+            if not jump_transport:
+                raise RuntimeError("Failed to get transport from jump host.")
 
-        jump_transport = self._jump_ssh.get_transport()
-        if not jump_transport:
-            raise RuntimeError("Failed to get transport from jump host.")
+            logging.info(f"Send keep alive packets every: {self.keepalive_interval} sec.")
+            jump_transport.set_keepalive(self.keepalive_interval)
+            dest_addr = (self.target_host, 22)
+            local_addr = (self.jump_host, 22)
+            channel = jump_transport.open_channel("direct-tcpip", dest_addr, local_addr)
 
-        logging.info(f"Send keep alive packets every: {self.keepalive_interval} sec.")
-        jump_transport.set_keepalive(self.keepalive_interval)
-        dest_addr = (self.target_host, 22)
-        local_addr = (self.jump_host, 22)
-        channel = jump_transport.open_channel("direct-tcpip", dest_addr, local_addr)
-
-        # -------------------------------- Target host ------------------------------- #
-
-        try:
+            # -------------------------------- Target host ------------------------------- #
             self._target_ssh = paramiko.SSHClient()
             self._target_ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             self._target_ssh.connect(
@@ -94,13 +102,16 @@ class SshConnection:
                 look_for_keys=False,
                 allow_agent=False,
             )
-        except paramiko.AuthenticationException as e:
-            raise RuntimeError(f"Authentication to target {self.target_host} failed: {e}")
 
-        # -------------------------- Start keep‑alive thread ------------------------- #
-        self._stop_keepalive.clear()
-        self._keepalive_thread = threading.Thread(target=self._keepalive_loop, daemon=True)
-        self._keepalive_thread.start()
+            # -------------------------- Start keep‑alive thread ------------------------- #
+            self._stop_keepalive.clear()
+            self._keepalive_thread = threading.Thread(target=self._keepalive_loop, daemon=True)
+            self._keepalive_thread.start()
+            return True
+        except Exception as e:
+            logging.error(f"Connection failed: {e}")
+            self.disconnect()
+            return False
 
     def disconnect(self) -> None:
         """Terminate both SSH sessions and stop the keep‑alive thread."""
