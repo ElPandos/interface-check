@@ -62,13 +62,23 @@ class HostManager:
         ]
         logger.debug(f"Initialized with {len(self._hosts)} default hosts")
         self._remote_index: Optional[int] = None
-        self._routes: List[RouteDict] = []
+        self._routes: List[RouteDict] = [
+            {
+                "summary": "192.168.1.10(J1) ⟶ 10.0.0.5(Remote)",
+                "remote_host_ip": "10.0.0.5",
+                "remote_host_username": "user",
+                "remote_host_password": "demo456",
+                "jump_hosts": [{"ip": "192.168.1.10", "username": "admin", "password": "demo123", "order": 1}]
+            }
+        ]
         self._styles = UIStyles()
 
         # UI components
         self.add_route_btn: Optional[ui.button] = None
         self.table_container: Optional[ui.column] = None
         self.route_container: Optional[ui.column] = None
+        self.hosts_toggle_btn: Optional[ui.button] = None
+        self.routes_toggle_btn: Optional[ui.button] = None
         self.hosts_expanded: bool = True
         self.routes_expanded: bool = True
 
@@ -91,7 +101,7 @@ class HostManager:
 
                 with ui.card().classes("w-full bg-white border border-gray-200 shadow-sm"):
                     with ui.row().classes("w-full items-center gap-2 mb-4"):
-                        ui.button(icon="expand_more", on_click=self._toggle_hosts).props("flat round").classes("text-gray-600")
+                        self.hosts_toggle_btn = ui.button(icon="expand_less", on_click=self._toggle_hosts).props("flat round").classes("text-gray-600")
                         ui.icon("computer", size="lg").classes("text-blue-600")
                         ui.label("Hosts").classes("text-lg font-semibold text-gray-800")
                         ui.space()
@@ -100,7 +110,7 @@ class HostManager:
 
                 with ui.card().classes("w-full bg-white border border-gray-200 shadow-sm"):
                     with ui.row().classes("w-full items-center gap-2 mb-4"):
-                        ui.button(icon="expand_more", on_click=self._toggle_routes).props("flat round").classes("text-gray-600")
+                        self.routes_toggle_btn = ui.button(icon="expand_less", on_click=self._toggle_routes).props("flat round").classes("text-gray-600")
                         ui.icon("route", size="lg").classes("text-green-600")
                         ui.label("Routes").classes("text-lg font-semibold text-gray-800")
                         ui.space()
@@ -143,13 +153,14 @@ class HostManager:
                 pass_input = ui.input("Password", password=True, placeholder="••••••••").classes("w-full")
                 pass_input.props('outlined').tooltip("Password for authentication")
 
-            with ui.row().classes("justify-between gap-6 mt-6"):
+            with ui.row().classes("w-full mt-6"):
                 ui.button(icon="add", text="Add host", on_click=lambda: self._add_host(
                     self._sanitize_input(ip_input.value or ""),
                     self._sanitize_input(user_input.value or ""),
                     self._sanitize_input(pass_input.value or ""),
                     dialog
                 )).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg")
+                ui.space()
                 ui.button(icon="cancel", text="Cancel", on_click=dialog.close).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg")
         dialog.open()
 
@@ -189,6 +200,9 @@ class HostManager:
     def _toggle_routes(self) -> None:
         """Toggle routes table visibility."""
         self.routes_expanded = not self.routes_expanded
+        if self.routes_toggle_btn:
+            icon = "expand_less" if self.routes_expanded else "expand_more"
+            self.routes_toggle_btn.props(f'icon="{icon}"')
         self._refresh_route_table()
 
     def _delete_host(self, index: int) -> None:
@@ -252,6 +266,9 @@ class HostManager:
     def _toggle_hosts(self) -> None:
         """Toggle hosts table visibility."""
         self.hosts_expanded = not self.hosts_expanded
+        if self.hosts_toggle_btn:
+            icon = "expand_less" if self.hosts_expanded else "expand_more"
+            self.hosts_toggle_btn.props(f'icon="{icon}"')
         self._refresh_table()
 
     def _delete_route(self, index: int) -> None:
@@ -278,6 +295,10 @@ class HostManager:
             else:
                 self._remote_index = None
                 self._hosts[index]["remote"] = False
+                # Reset jump settings for all hosts when unchecking remote
+                for host in self._hosts:
+                    host["jump"] = False
+                    host["jump_order"] = None
 
             self._refresh_table()
         except Exception as e:
@@ -363,11 +384,13 @@ class HostManager:
             cb_remote.on_value_change(self._create_remote_handler(index))
             if self._remote_index is not None and not is_remote:
                 cb_remote.disable()
+                cb_remote.style("opacity: 0.2")
 
             cb_jump = ui.checkbox(value=is_jump).classes("w-24")
             cb_jump.on_value_change(self._create_jump_handler(index))
             if is_remote:
                 cb_jump.disable()
+                cb_jump.style("opacity: 0.2")
 
             order_value = str(host["jump_order"]) if host["jump_order"] else None
             order_options = self._get_available_orders(host)
@@ -376,6 +399,7 @@ class HostManager:
 
             if not is_jump or is_remote:
                 order_select.disable()
+                order_select.style("opacity: 0.2")
 
             ui.button(icon="delete", on_click=self._create_delete_handler(index)).props("unelevated").classes("bg-gray-500 hover:bg-gray-600 text-white w-20 h-8 rounded shadow")
 
@@ -388,25 +412,23 @@ class HostManager:
             self.route_container.clear()
 
             if self.routes_expanded:
-                if not self._routes:
-                    with self.route_container:
-                        ui.label("No routes defined yet.").classes("text-gray-500 italic text-center py-4")
-                    return
-
                 with self.route_container:
                     with ui.row().classes("font-bold text-white bg-gradient-to-r from-green-600 to-gray-500 w-full justify-between rounded-t-lg px-4 py-3 text-sm shadow-md border border-gray-300"):
                         ui.label("#").classes("w-6 text-white font-bold")
                         ui.label("Route Summary (Jump → Remote)").classes("w-96 text-white font-bold")
                         ui.label("Actions").classes("w-40 text-center text-gray-200 font-bold")
 
-                    for i, route in enumerate(self._routes):
-                        row_bg = "bg-green-50 border-green-200" if i % 2 else "bg-white border-gray-200"
-                        with ui.row().classes(f"items-center border-b px-4 py-2 w-full text-sm {row_bg} hover:bg-green-100"):
-                            ui.label(str(i + 1)).classes("w-6 text-gray-600")
-                            ui.label(route["summary"]).classes("flex-1 truncate text-gray-800")
-                            with ui.row().classes("gap-2 ml-auto"):
-                                ui.button(icon="power").props("unelevated").classes("bg-gray-500 hover:bg-gray-600 text-white w-20 h-8 rounded shadow")
-                                ui.button(icon="delete", on_click=self._create_route_delete_handler(i)).props("unelevated").classes("bg-gray-500 hover:bg-gray-600 text-white w-20 h-8 rounded shadow")
+                    if not self._routes:
+                        ui.label("No routes defined yet.").classes("text-gray-500 italic text-center py-4 bg-white border-b border-gray-200")
+                    else:
+                        for i, route in enumerate(self._routes):
+                            row_bg = "bg-green-50 border-green-200" if i % 2 else "bg-white border-gray-200"
+                            with ui.row().classes(f"items-center border-b px-4 py-2 w-full text-sm {row_bg} hover:bg-green-100"):
+                                ui.label(str(i + 1)).classes("w-6 text-gray-600")
+                                ui.label(route["summary"]).classes("flex-1 truncate text-gray-800")
+                                with ui.row().classes("gap-2 ml-auto"):
+                                    ui.button(icon="power").props("unelevated").classes("bg-gray-500 hover:bg-gray-600 text-white w-20 h-8 rounded shadow")
+                                    ui.button(icon="delete", on_click=self._create_route_delete_handler(i)).props("unelevated").classes("bg-gray-500 hover:bg-gray-600 text-white w-20 h-8 rounded shadow")
 
         except Exception as e:
             logger.error(f"Error refreshing route table: {e}")
@@ -461,8 +483,9 @@ class HostManager:
                 ui.label("Paste JSON").classes("font-semibold mb-3 text-gray-700")
                 config_input = ui.textarea(placeholder="Paste JSON here...").classes("w-full h-32")
 
-            with ui.row().classes("justify-between gap-6 mt-6"):
+            with ui.row().classes("w-full mt-6"):
                 ui.button(icon="download", text="Import", on_click=lambda: self._import_config(config_input.value, dialog)).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg")
+                ui.space()
                 ui.button(icon="cancel", text="Cancel", on_click=dialog.close).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg")
         dialog.open()
 
@@ -492,11 +515,22 @@ class HostManager:
             self._hosts = hosts
             self._routes = routes if isinstance(routes, list) else []
             self._remote_index = None
-
-            for i, host in enumerate(self._hosts):
-                if host.get("remote", False):
-                    self._remote_index = i
-                    break
+            
+            # Reset all host selections
+            for host in self._hosts:
+                host["remote"] = False
+                host["jump"] = False
+                host["jump_order"] = None
+            
+            # Reset table states
+            self.hosts_expanded = True
+            self.routes_expanded = True
+            
+            # Update toggle button icons
+            if self.hosts_toggle_btn:
+                self.hosts_toggle_btn.props("icon=expand_less")
+            if self.routes_toggle_btn:
+                self.routes_toggle_btn.props("icon=expand_less")
 
             dialog.close()
             self._refresh_table()
@@ -515,7 +549,7 @@ def main() -> None:
         host_manager = HostManager()
         ui.run(
             title="SSH Host Manager",
-            favicon="🌐",
+            favicon="./assets/icons/interoperability.png",
             port=8080,
             dark=False
         )
