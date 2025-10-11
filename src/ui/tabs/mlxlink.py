@@ -30,12 +30,11 @@ class MlxlinkPanel(BasePanel):
         super().__init__(NAME, LABEL)
 
         self._app_config = app_config
-        self.ssh_connection = ssh_connection
+        self._ssh_connection = ssh_connection
 
         if build:
             self.build()
 
-    # @ui.refreshable
     def build(self):
         with ui.tab_panel(self.name):
             # Build tab info
@@ -44,16 +43,6 @@ class MlxlinkPanel(BasePanel):
             # Build selector
             self._build_selector()
 
-            # Build plot
-            self._build_plot()
-
-    # def refresh(self):
-    #    self.build.refresh()
-
     def _build_selector(self) -> None:
-        with ui.card().classes("w-full"):
-            pass
-
-    def _build_plot(self) -> None:
         with ui.card().classes("w-full"):
             pass

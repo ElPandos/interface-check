@@ -1,12 +1,14 @@
 from datetime import datetime as dt
 
-from nicegui import ui
+from nicegui import ui, run
 from nicegui.elements.log import Log
+import asyncio
 
 from src.models.configurations import AppConfig
 from src.ui.enums.log_level import LogLevel
 from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.ssh_connection import SshConnection
+
 
 NAME = "log"
 LABEL = "Log"
@@ -33,7 +35,7 @@ class LogPanel(BasePanel):
         super().__init__(NAME, LABEL)
 
         self._app_config = app_config
-        self.ssh_connection = ssh_connection
+        self._ssh_connection = ssh_connection
 
         if build:
             self.build()
@@ -52,9 +54,30 @@ class LogPanel(BasePanel):
         self.error(text)
         self.critical(text)
 
-    def _run_remote(self) -> None:
-        if self.ssh_connection.is_connected():
-            out, err = self.ssh_connection.exec_command("ip addr", 10)
+    async def _run_remote(self) -> None:
+        if self._ssh_connection.is_connected():
+
+            async def get_text_input(prompt: str) -> str:
+                """Show a dialog with a text input and return the user’s input."""
+                future = asyncio.get_event_loop().create_future()
+                dialog = ui.dialog()
+
+                with dialog, ui.card().classes("p-6 w-96"):
+                    ui.label(prompt)
+                    input_field = ui.input("Command").classes("w-full")
+                    with ui.row().classes("justify-end mt-4"):
+                        ui.button("Cancel", on_click=lambda: dialog.close())
+                        ui.button("OK", on_click=lambda: (dialog.close(), future.set_result(input_field.value)))
+
+                dialog.open()
+                return await future
+
+            command = await get_text_input("Enter command:")
+            if not command:
+                ui.notify("Command cancelled", color="info")
+                return
+
+            out, err = self._ssh_connection.exec_command(command, 10)
             self.debug(f"STDOUT: {out}")
             self.debug(f"STDERR: {err}")
         else:

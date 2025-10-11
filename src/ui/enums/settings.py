@@ -16,7 +16,8 @@ class Options(Enum):
 class Types(Enum):
     DEBUG = "Debug mode"
     DARK = "Dark mode"
-    UPDATE = "Update in seconds"
+    COMMAND = "Command poll (seconds)"
+    GRAPH = "Graph update (seconds)"
     MESSAGE = "Message"
     SAVE = "Save"
     LIBS = "Libs"

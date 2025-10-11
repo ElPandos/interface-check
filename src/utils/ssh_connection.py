@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 
@@ -17,24 +18,41 @@ class SshConnection:
     """
 
     def __init__(self, app_config: AppConfig, keepalive_interval: int = 30):
-        self.jump_host = app_config.hosts.jump_hosts[0].ip
-        self.jump_user = app_config.hosts.jump_hosts[0].username
-        self.jump_pass = app_config.hosts.jump_hosts[0].password
+        jump_host_config = app_config.hosts.jump_hosts[0]
+        self.jump_host = jump_host_config.ip
+        self.jump_user = jump_host_config.username
+        self.jump_pass = jump_host_config.password
 
-        self.target_host = app_config.hosts.target_host.ip
-        self.target_user = app_config.hosts.target_host.username
-        self.target_pass = app_config.hosts.target_host.password
+        target_config = app_config.hosts.target_host
+        self.target_host = target_config.ip
+        self.target_user = target_config.username
+        self.target_pass = target_config.password
 
         self.keepalive_interval = keepalive_interval
 
         self._jump_ssh: paramiko.SSHClient | None = None
         self._target_ssh: paramiko.SSHClient | None = None
+
         self._keepalive_thread: threading.Thread | None = None
         self._stop_keepalive = threading.Event()
+
+    def __del__(self) -> None:
+        """Cleanup on garbage collection."""
+        self.disconnect()
+
+    def __enter__(self) -> "SshConnection":
+        """Context manager entry."""
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager exit - ensures cleanup."""
+        self.disconnect()
 
     # ---------------------------------------------------------------------------- #
     #                              Connection handling                             #
     # ---------------------------------------------------------------------------- #
+
     def connect(self) -> None:
         """Open SSH sessions to the jumphost and then to the target via a tunnel."""
         # --------------------------------- Jump host -------------------------------- #
@@ -52,12 +70,19 @@ class SshConnection:
             raise RuntimeError(f"Authentication to target {self.jump_host} failed: {e}")
 
         # ----------------------------- Channel to target ---------------------------- #
+
         jump_transport = self._jump_ssh.get_transport()
+        if not jump_transport:
+            raise RuntimeError("Failed to get transport from jump host.")
+
+        logging.info(f"Send keep alive packets every: {self.keepalive_interval} sec.")
+        jump_transport.set_keepalive(self.keepalive_interval)
         dest_addr = (self.target_host, 22)
         local_addr = (self.jump_host, 22)
         channel = jump_transport.open_channel("direct-tcpip", dest_addr, local_addr)
 
         # -------------------------------- Target host ------------------------------- #
+
         try:
             self._target_ssh = paramiko.SSHClient()
             self._target_ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -131,18 +156,11 @@ class SshConnection:
         """
         Return True if both the jump‑host and target SSH transports are alive.
         """
-        # Jump host transport
-        if self._jump_ssh is None:
-            return False
-        jump_transport = self._jump_ssh.get_transport()
-        if not (jump_transport and jump_transport.is_active()):
-            return False
-
-        # Target host transport
-        if self._target_ssh is None:
-            return False
-        target_transport = self._target_ssh.get_transport()
-        if not (target_transport and target_transport.is_active()):
-            return False
-
-        return True
+        return (
+            self._jump_ssh is not None
+            and self._jump_ssh.get_transport() is not None
+            and self._jump_ssh.get_transport().is_active()
+            and self._target_ssh is not None
+            and self._target_ssh.get_transport() is not None
+            and self._target_ssh.get_transport().is_active()
+        )

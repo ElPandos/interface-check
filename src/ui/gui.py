@@ -1,6 +1,6 @@
 import logging
 from typing import Any
-from nicegui import ui
+from nicegui import ui, nicegui
 
 from src.models.configurations import AppConfig
 from src.ui.handlers.settings import settings
@@ -24,13 +24,12 @@ class Gui:
 
     def __init__(self, app_config: AppConfig) -> None:
         logging.debug("GUI init")
+        logging.debug(f"Nicegui version: {nicegui.__version__}")
 
         self._app_config = app_config
         self._ssh_connection = SshConnection(self._app_config)
 
         self.build()
-
-        ui.run()
 
     def build(self) -> None:
         self._build_right_drawer()
@@ -40,6 +39,9 @@ class Gui:
         self._build_sticky_footer()
 
         self._add_gui_events()
+
+    def run(self) -> None:
+        ui.run(reload=False)
 
     def _build_header(self) -> None:
         with ui.header().classes(replace="row items-center justify-between"):
@@ -90,8 +92,6 @@ class Gui:
             ui.button(on_click=self.footer.toggle, icon="build_circle").props("fab")
 
     def _on_tab_changes(self, e):
-        # self._panel_content[e.value].build()
-        # self.ethtool_panel.refresh()
         pass
 
     def _add_gui_events(self):

@@ -1,13 +1,15 @@
+import datetime as dt
 import logging
-from time import time
+from tkinter import XView
 from typing import Any
 from nicegui import ui
 
 import plotly.graph_objects as go
 
 from src.models.configurations import AppConfig
+from src.ui.handlers.graph import GraphHandler
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.utils.collector import WorkManager, Worker
+from src.utils.collector import PlotSampleData, WorkManager, Worker
 from src.utils.commands import Common, Modify, System, Ethtool
 from src.utils.ssh_connection import SshConnection
 
@@ -30,14 +32,14 @@ class EthtoolTab(BaseTab):
 
 
 class EthtoolPanel(BasePanel):
-    _worker_manager: WorkManager
+    _work_manager: WorkManager
 
     def __init__(self, build: bool = False, app_config: AppConfig = None, ssh_connection: SshConnection = None):
         super().__init__(NAME, LABEL)
 
         self._app_config = app_config
         self._ssh_connection = ssh_connection
-        self._worker_manager = WorkManager()
+        self._work_manager = WorkManager()
 
         if build:
             self.build()
@@ -51,14 +53,17 @@ class EthtoolPanel(BasePanel):
                 # Build selector
                 self._build_selector()
 
-    # def refresh(self):
-    #    self.build.refresh()
+    def _close_card(self, card: ui.card, interf: str = None, kill_worker: bool = False) -> None:
+        if kill_worker:
+            logging.debug("Kill worker")
+            self._work_manager.reset()
+        card.delete()
+        logging.debug("Card deleted")
 
-    # @ui.refreshable
     def _build_selector(self) -> None:
-        with ui.row().classes("w-full items-center"):
-            with ui.card().classes("w-full"):
-                ui.button("Scan interfaces", on_click=self._scan_interfaces)
+        card = ui.card().classes("w-full")
+        with card, ui.row().classes("w-full items-center"):
+            ui.button("Scan interfaces", on_click=self._scan_interfaces)
 
     def _scan_interfaces(self):
         if not self._ssh_connection:
@@ -71,114 +76,82 @@ class EthtoolPanel(BasePanel):
 
         _, err = self._ssh_connection.exec_command(System().install_psutil().syntax)
         if err:
-            ui.notify("Failed to install python library: psutil", color="warning")
+            logging.warning("Failed to install python library: psutil")
             return
 
         out, err = self._ssh_connection.exec_command(Common().get_interfaces().syntax)
         if err:
-            ui.notify("Failed to collect host interface names", color="warning")
+            logging.warning("Failed to collect host interface names")
             return
 
-        with ui.card().classes("w-full"):
-            with ui.row().classes("w-full"):
-                selection = (
-                    ui.select(
-                        Modify().to_list(out),
-                        multiple=True,
-                        value=None,
-                        label="Interfaces",
-                    )
-                    .classes("w-40")
-                    .classes("w-64")
-                    .props("use-chips")
+        card = ui.card().classes("w-full")
+        with card, ui.row().classes("w-full"):
+            selection = (
+                ui.select(
+                    Modify().to_list(out),
+                    multiple=True,
+                    value=None,
+                    label="Interfaces",
                 )
+                .classes("w-40")
+                .classes("w-64")
+                .props("use-chips")
+            )
 
-                ui.button("Start", on_click=lambda opt=selection: self._activate_workers(opt))
+            ui.button("Start", on_click=lambda opt=selection: self._activate_workers(opt))
+            ui.space()
+            ui.button("X", on_click=lambda opt=card: self._close_card(opt, True))
 
     def _activate_workers(self, options: list) -> None:
         for interf in options.value:
-            self._worker_manager.add(
+            self._work_manager.add(
                 Worker(Ethtool().module_info(interf), interf, self._app_config, self._ssh_connection)
             )
             self._build_source(interf)
 
     def _build_source(self, interf: str) -> None:
-        with ui.card().classes("w-full"):
-            with ui.row().classes("w-full"):
-                sample = self._worker_manager.get_worker(interf).get_first_sample()
-                selection = (
-                    ui.select(
-                        list(sample.snapshot.keys()),
-                        multiple=True,
-                        value=None,
-                        label="Source",
-                    )
-                    .classes("w-40")
-                    .classes("w-64")
-                    .props("use-chips")
+        card = ui.card().classes("w-full")
+        with card, ui.row().classes("w-full"):
+            sample = self._work_manager.get_worker(interf).get_first_sample()
+            selection = (
+                ui.select(
+                    list(sample.snapshot.keys()),
+                    multiple=True,
+                    value=None,
+                    label="Source",
                 )
-                ui.button("Start", on_click=lambda opt=selection: self._activate_source(interf, opt))
+                .classes("w-40")
+                .classes("w-64")
+                .props("use-chips")
+            )
+            ui.button("Start", on_click=lambda opt=selection: self._activate_source(interf, opt))
+            ui.space()
+            ui.button("X", on_click=lambda opt=card: self._close_card(opt, interf, True))
 
     def _activate_source(self, interf: str, options: list) -> None:
         for source in options.value:
             self._build_value(interf, source)
 
     def _build_value(self, interf: str, source: str) -> None:
-        with ui.card().classes("w-full"):
-            with ui.row().classes("w-full"):
-                samples = self._worker_manager.get_worker(interf).get_all_samples()
-                selection = (
-                    ui.select(
-                        list(samples[0].snapshot[source].keys()),
-                        multiple=True,
-                        value=None,
-                        label="value",
-                    )
-                    .classes("w-40")
-                    .classes("w-64")
-                    .props("use-chips")
+        card = ui.card().classes("w-full")
+        with card, ui.row().classes("w-full"):
+            samples = self._work_manager.get_worker(interf).get_all_samples()
+            selection = (
+                ui.select(
+                    list(samples[0].snapshot[source].keys()),
+                    multiple=True,
+                    value=None,
+                    label="value",
                 )
-                ui.button("Start", on_click=lambda opt=selection: self._activate_value(interf, source, opt))
+                .classes("w-40")
+                .classes("w-64")
+                .props("use-chips")
+            )
+            ui.button("Start", on_click=lambda opt=selection: self._plot_values(interf, source, opt))
+            ui.space()
+            ui.button("X", on_click=lambda opt=card: self._close_card(opt))
 
-    def _activate_value(self, interf: str, source: str, options: list) -> None:
+    def _plot_values(self, interf: str, source: str, options: list) -> None:
+        gh = GraphHandler()
         for value in options.value:
-            self._build_plot(interf, source, value)
-
-    def _build_plot(self, interf: str, source: str, value: str) -> None:
-        with ui.card().classes("w-full"):
-            with ui.row().classes("w-full"):
-                fig = go.Figure()
-                plot = ui.plotly(fig).classes("w-full h-80")
-                fig.update_layout(margin=dict(l=10, r=10, t=30, b=10))
-
-                def add_line() -> None:
-                    # Clear all existing traces
-                    fig.data = []
-
-                    samples = self._worker_manager.get_worker(interf).get_all_samples()
-
-                    y_value = []
-                    x_value = []
-                    y_axis_label = ""
-                    for i in samples:
-                        v = i.snapshot[source]
-                        v1 = v[value]
-                        if type(v1) is list and len(v1) == 2:
-                            v1 = v1[0]
-                        v2 = v1.value
-                        y_axis_label = v1.unit
-                        x_value.append(i.begin)
-                        y_value.append(v2)
-
-                    fig.update_layout(
-                        margin=dict(l=10, r=10, t=30, b=10),
-                        title=f"Interface: {interf}, Source: {source}, Value: {value}",
-                        #xaxis_title=f"Time",
-                        yaxis_title=f"{y_axis_label}",
-                        legend_title="Legend",
-                        xaxis=dict(type="date", tickformat="%d %b %H:%M:%S", tickangle=-45),
-                    )
-                    fig.add_trace(go.Scatter(x=x_value, y=y_value))
-                    plot.update()
-
-                ui.button("Render graph", on_click=add_line)
+            gh.add(self._app_config, self._work_manager, interf, source, value)

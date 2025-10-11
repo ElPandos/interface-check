@@ -80,10 +80,17 @@ class SettingsConfig(BaseModel):
                 value=False,
             ),
             Setting(
-                name=Types.UPDATE.name,
+                name=Types.COMMAND.name,
                 type=Options.SLIDER,
                 value=10,
-                min=5,
+                min=3,
+                max=100,
+            ),
+            Setting(
+                name=Types.GRAPH.name,
+                type=Options.SLIDER,
+                value=10,
+                min=10,
                 max=100,
             ),
             Setting(
@@ -104,11 +111,17 @@ class SettingsConfig(BaseModel):
         ]
     )
 
-    def get_update_value(self) -> int:
-        update_setting = next((s for s in self.settings if s.name == Types.UPDATE.name), None)
-        if update_setting is None:
+    def get_command_update_value(self) -> int:
+        command_update = next((s for s in self.settings if s.name == Types.COMMAND.name), None)
+        if command_update is None:
             raise ValueError("UPDATE setting not defined in configuration")
-        return int(update_setting.value)
+        return int(command_update.value)
+
+    def get_graph_update_value(self) -> int:
+        graph_update = next((s for s in self.settings if s.name == Types.GRAPH.name), None)
+        if graph_update is None:
+            raise ValueError("UPDATE setting not defined in configuration")
+        return int(graph_update.value)
 
 
 class HostsConfig(BaseModel):

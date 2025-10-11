@@ -44,16 +44,6 @@ class InfoPanel(BasePanel):
             # Build selector
             self._build_selector()
 
-            # Build plot
-            self._build_plot()
-
-    # def refresh(self):
-    #    self.build.refresh()
-
     def _build_selector(self) -> None:
-        with ui.card().classes("w-full"):
-            pass
-
-    def _build_plot(self) -> None:
         with ui.card().classes("w-full"):
             pass

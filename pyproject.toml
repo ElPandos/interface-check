@@ -14,12 +14,15 @@ dependencies = [
     "pydantic",
     "pydantic-settings",
     "keyboard>=0.13.5",
-    "nicegui>=2.24.2",
+    "nicegui==2.24.2",
     "pip-licenses>=5.0.0",
     "paramiko>=4.0.0",
     "python-dotenv>=1.1.1",
     "plotly>=6.3.1",
     "psutil>=7.1.0",
+    "asyncio>=4.0.0",
+    "pympler>=1.1",
+    "pandas>=2.3.3",
 ]
 
 [project.optional-dependencies]

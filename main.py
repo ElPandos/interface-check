@@ -5,9 +5,8 @@ from src.utils.system import setup_logging
 
 setup_logging(logging.DEBUG)
 
-#sudo sysctl fs.inotify.max_user_watches=524288
-#sudo sysctl fs.inotify.max_user_instances=512
-
+# sudo sysctl fs.inotify.max_user_watches=524288
+# sudo sysctl fs.inotify.max_user_instances=512
 
 
 if __name__ in {"__main__", "__mp_main__"}:

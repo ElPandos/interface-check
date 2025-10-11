@@ -15,7 +15,6 @@ class Base:
 
 class BaseTab(Base):
     _tab: ui.tab = None
-
     _icon_name: str
 
     icon: ui.icon = None
@@ -27,15 +26,9 @@ class BaseTab(Base):
     def build(self) -> None:
         with ui.column().classes("items-center gap-1"):
             with ui.tab(self.name):
+                if self.icon:
+                    self.icon.clear()
                 self.icon = ui.icon(self._icon_name).props("size=24px")
-
-    def clear(self) -> None:
-        if self.icon:
-            self.icon.clear()
-
-    def reset(self) -> None:
-        self.clear()
-        self.build()
 
 
 class BasePanel(Base):

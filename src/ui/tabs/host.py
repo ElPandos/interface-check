@@ -26,6 +26,7 @@ class HostTab(BaseTab):
 
 
 class HostPanel(BasePanel):
+    _ssh_connection: SshConnection
     _app_config: AppConfig
     _icon: ui.icon
 
@@ -35,7 +36,7 @@ class HostPanel(BasePanel):
         super().__init__(NAME, LABEL)
 
         self._app_config = app_config
-        self.ssh_connection = ssh_connection
+        self._ssh_connection = ssh_connection
         self._icon = icon
 
         if build:
@@ -43,23 +44,20 @@ class HostPanel(BasePanel):
 
     # @ui.refreshable
     def build(self):
-        with ui.tab_panel(self.name):
+        with ui.tab_panel(self.name).classes("w-full"):
             with ui.column():
                 # Build tab info
                 super().build()
 
                 # Build panel
-                self._build_remote_target()
+                self._build_remote_host()
                 self._build_jump_hosts()
                 self._build_buttons()
 
-    # def refresh(self):
-    #     self.build.refresh()
-
-    def _build_remote_target(self) -> None:
+    def _build_remote_host(self) -> None:
         with ui.card().classes("w-full"):
             # Title
-            ui.label("Remote host").classes("text-lg font-medium")
+            ui.label("Remote host").classes("text-lg font-small")
 
             # Name
             ui.input(label="Name").props("outlined dense").bind_value(self._app_config.hosts.target_host, "name")
@@ -81,7 +79,7 @@ class HostPanel(BasePanel):
         with ui.card().classes("w-full"):
             for idx, jump in enumerate(self._app_config.hosts.jump_hosts):
                 # Each `jump` is a plain object (e.g. a dataclass) that has name/ip/username/password attributes
-                with ui.expansion(f"Jump host {idx + 1}").classes("w-full"):
+                with ui.expansion(f"Jump host {idx + 1}").classes("text-lg font-small"):
                     # Name
                     ui.input(placeholder="Name", label="Name").props("outlined dense").bind_value(jump, "name")
 
@@ -100,7 +98,7 @@ class HostPanel(BasePanel):
 
     def _build_buttons(self) -> None:
         with ui.card().classes("w-full"):
-            with ui.row().classes("w-full items-center"):
+            with ui.row().classes("w-full"):
                 self._connect_button = ui.button("Connect", on_click=self._connect)
                 ui.button("Add jump host", on_click=self._add_jump_host).props("color-primary")
                 ui.space()
@@ -110,11 +108,11 @@ class HostPanel(BasePanel):
         """Update tab icon colour depending on connection state."""
         try:
             if not self.is_connected():
-                self.ssh_connection.connect()
+                self._ssh_connection.connect()
                 self._icon.style("color: limegreen;")  # font-size: 24px;")
                 self._connect_button.set_text("Disconnect")
             else:
-                self.ssh_connection.disconnect()
+                self._ssh_connection.disconnect()
                 self._icon.style("color: white;")  # font-size: 24px;")
                 self._connect_button.set_text("Connect")
         except RuntimeError as e:
@@ -124,9 +122,8 @@ class HostPanel(BasePanel):
         logging.warning("Not yet implemented...")
         # No jump host addition logic implemented yet.
         # self._app_config.add_jump(Host().default_jump())
-        pass
 
     def is_connected(self) -> bool:
-        if not self.ssh_connection:
+        if not self._ssh_connection:
             return False
-        return self.ssh_connection.is_connected()
+        return self._ssh_connection.is_connected()
