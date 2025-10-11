@@ -23,6 +23,10 @@ class SettingsHandler:
     def _save(self) -> None:
         Configure().save(self._app_config)
 
+    def _toggle_refresh_slider(self, enabled: bool, refresh_setting) -> None:
+        """Enable/disable refresh slider based on auto checkbox."""
+        # This will be handled by the UI binding automatically
+
     def build(self, app_config: AppConfig) -> None:
         """Render settings UI with live bindings to internal values."""
         self._app_config = app_config
@@ -44,11 +48,30 @@ class SettingsHandler:
                                 "ml-auto"
                             )
 
-                        switch.bind_value(opt, "value")
+                        # Removed AUTO toggle - each tab has its own checkbox
+
+                        if switch:
+                            switch.bind_value(opt, "value")
 
                 case Options.SLIDER.value | Options.SLIDER:
                     with ui.card().classes("w-full items-left"), ui.column().classes("w-full items-left"):
-                        ui.label(opt.name)
+                        with ui.row().classes("w-full items-center gap-2"):
+                            # Add icon and tooltip based on slider type
+                            if opt.name == Types.REFRESH.name:
+                                ui.icon("dashboard", size="lg").classes("text-blue-600").tooltip(
+                                    "Used in Dashboard tab for auto-refresh interval"
+                                )
+                            elif opt.name == Types.COMMAND.name:
+                                ui.icon("terminal", size="lg").classes("text-yellow-600").tooltip(
+                                    "Used for command polling interval"
+                                )
+                            elif opt.name == Types.GRAPH.name:
+                                ui.icon("show_chart", size="lg").classes("text-green-600").tooltip(
+                                    "Used for graph update interval"
+                                )
+
+                            ui.label(opt.name)
+
                         value, value_min, value_max = self._get_value(opt.name, app_config)
                         with ui.row().classes("w-full items-center flex-nowrap"):
                             # Slider

@@ -7,7 +7,6 @@ from nicegui.elements.log import Log
 from src.models.configurations import AppConfig
 from src.ui.enums.log_level import LogLevel
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.ui.components.dialogs import DialogFactory
 from src.utils.ssh_connection import SshConnection
 
 NAME = "log"

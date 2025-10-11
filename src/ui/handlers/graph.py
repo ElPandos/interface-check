@@ -1,8 +1,7 @@
-import datetime as dt
 import logging
 from typing import Any
-from nicegui import ui
 
+from nicegui import ui
 import plotly.graph_objects as go
 
 from src.models.configurations import AppConfig
@@ -73,7 +72,7 @@ class Graph:
 
             # Buttons
             ui.button("Update graph", on_click=self.update)
-            self._auto_update = ui.checkbox(f"Auto").on_value_change(lambda e: self.update_auto())
+            self._auto_update = ui.checkbox("Auto").on_value_change(lambda e: self.update_auto())
             ui.space()
             ui.button("X", on_click=lambda c=self._card: self._close_card(c))
 

@@ -1,7 +1,7 @@
 import logging
 
 from src.app import App
-from src.utils.system import setup_logging
+from src.utils.configure import setup_logging
 
 setup_logging(logging.DEBUG)
 
@@ -10,8 +10,9 @@ setup_logging(logging.DEBUG)
 
 
 if __name__ in {"__main__", "__mp_main__"}:
+    logger = logging.getLogger(__name__)
     try:
-        logging.debug("Main init")
+        logger.debug("Main init")
         app = App()
-    except Exception as e:
-        logging.exception(f"Failed to initialise the application: {e}")
+    except Exception:
+        logger.exception("Failed to initialise the application")

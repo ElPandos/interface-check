@@ -1,12 +1,8 @@
-import logging
 from nicegui import ui
-
-import plotly.graph_objects as go
 
 from src.models.configurations import AppConfig
 from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.ssh_connection import SshConnection
-
 
 NAME = "mlxlink"
 LABEL = "Mlxlink"

@@ -1,7 +1,6 @@
-import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Union
-
+import re
+from typing import Any
 
 DATA = """Identifier                                : 0x03 (SFP)
         Extended identifier                       : 0x04 (GBIC/SFP defined by 2-wire interface ID)
@@ -99,11 +98,11 @@ class EthtoolOutputParser:
     # Regular expression to match a number + unit pattern
     VALUE_UNIT_RE = re.compile(r"([-+]?\d*\.?\d+)\s*([a-zA-Z%°]+)")
 
-    def parse(self, raw_text: str) -> Dict[str, Any]:
+    def parse(self, raw_text: str) -> dict[str, Any]:
         """
         Parse the given raw ethtool output into a dictionary of structured data.
         """
-        data: Dict[str, Any] = {}
+        data: dict[str, Any] = {}
 
         for line in raw_text.splitlines():
             if ":" not in line:

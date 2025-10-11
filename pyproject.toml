@@ -3,9 +3,9 @@
 #build-backend = "hatchling.build"
 
 [project]
-name = "python-template"
+name = "interface-check"
 version = "0.1.0"
-description = "Python template project"
+description = "Python interface analyzer project"
 authors = [{ name = "Mattias Keva", email = "mattias.keva@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.13"
@@ -55,9 +55,11 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.ruff.lint]
-#select = ["E", "F", "W", "I", "N", "D", "UP", "B", "A", "C4", "T20", "Q", "RUF"]
 select = ["ALL"]
 ignore = [
+    # Performance optimizations
+    "PERF203", # try-except in loop can be slow
+    "PERF401", # manual list comprehension can be slow
     #### modules
     "ANN", # flake8-annotations
     "COM", # flake8-commas
@@ -90,10 +92,11 @@ ignore = [
     "FIX002", # too verbose descriptions of todos
     "EM102",
     "S101",
-    "PLR2004",
-    "G004",
-
-
+    "PLR2004", # magic values
+    "G004",    # f-string in logging
+    "FURB140", # itertools.starmap
+    "RET504",  # unnecessary assignment before return
+    "SIM108",  # ternary operator
 ]
 fixable = ["ALL"]
 unfixable = []
@@ -131,6 +134,14 @@ exclude = [
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true
+known-first-party = ["src"]
+
+[tool.ruff.lint.flake8-type-checking]
+strict = true
 
 [tool.black]
 line-length = 120

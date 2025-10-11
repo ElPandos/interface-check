@@ -2,18 +2,24 @@
 Connection selector component for choosing host connections.
 """
 
-from typing import List, Optional, Callable
+from collections.abc import Callable
+
 from nicegui import ui
 
 
 class ConnectionSelector:
     """Component for selecting active host connections."""
 
-    def __init__(self, connected_routes: set, routes: list, on_connection_change: Optional[Callable] = None):
+    def __init__(
+        self,
+        connected_routes: set[int],
+        routes: list[dict[str, str]],
+        on_connection_change: Callable[[int], None] | None = None,
+    ):
         self.connected_routes = connected_routes
         self.routes = routes
         self.on_connection_change = on_connection_change
-        self.selected_connection: Optional[int] = None
+        self.selected_connection: int | None = None
 
     def build(self) -> ui.select:
         """Build connection selector dropdown."""
@@ -30,7 +36,7 @@ class ConnectionSelector:
         selector.on_value_change(self._on_selection_change_wrapper)
         return selector
 
-    def _get_connection_options(self) -> List[dict]:
+    def _get_connection_options(self) -> list[dict[str, str | int]]:
         """Get available connection options with tooltips."""
         options = []
         for i in self.connected_routes:
@@ -39,7 +45,7 @@ class ConnectionSelector:
                 options.append({"label": route["summary"], "value": i, "tooltip": route["summary"]})
         return options
 
-    def _on_selection_change_wrapper(self, e):
+    def _on_selection_change_wrapper(self, e) -> None:
         """Handle connection selection change with label to value mapping."""
         if e.value and hasattr(self, "_option_mapping"):
             actual_value = self._option_mapping.get(e.value)
@@ -49,7 +55,7 @@ class ConnectionSelector:
         else:
             self._on_selection_change(e)
 
-    def _on_selection_change(self, e):
+    def _on_selection_change(self, e) -> None:
         """Handle connection selection change."""
         self.selected_connection = e.value
         if self.on_connection_change:

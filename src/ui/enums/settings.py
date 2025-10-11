@@ -18,6 +18,8 @@ class Types(Enum):
     DARK = "Dark mode"
     COMMAND = "Command poll (seconds)"
     GRAPH = "Graph update (seconds)"
+    AUTO = "Auto refresh"
+    REFRESH = "Refresh interval (seconds)"
     MESSAGE = "Message"
     SAVE = "Save"
     LIBS = "Libs"

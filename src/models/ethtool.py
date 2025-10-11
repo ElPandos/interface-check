@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
 import re
-from typing import Any, Dict, List, Union
+from typing import Any
+
 from src.models.configurations import AppConfig
 from src.utils.commands import Ethtool
 from src.utils.ssh_connection import SshConnection
@@ -34,7 +35,7 @@ class EthtoolOutputParser:
     # Regex to detect numeric + unit groups, e.g. "53.14 degrees C"
     VALUE_UNIT_RE = re.compile(r"([-+]?\d*\.?\d+)\s*(?:degrees\s*)?([°]?[CF]|[a-zA-Z%]+)")
 
-    def parse_value(self, value: str) -> Union[ValueWithUnit, List[ValueWithUnit], str, None]:
+    def parse_value(self, value: str) -> ValueWithUnit | list[ValueWithUnit] | str | None:
         """
         Parses a string like "50.94 degrees C / 123.69 degrees F"
         into structured ValueWithUnit objects.
@@ -54,16 +55,16 @@ class EthtoolOutputParser:
         # Default behavior: return list if >1, else single
         return parsed if len(parsed) > 1 else parsed[0]
 
-    def _is_temp_pair(self, values: List[ValueWithUnit]) -> bool:
+    def _is_temp_pair(self, values: list[ValueWithUnit]) -> bool:
         """Return True if both °C and °F temperature values are found."""
         if len(values) != 2:
             return False
         units = {v.unit.replace("degrees", "").strip() for v in values}
         return "C" in units and "F" in units
 
-    def parse(self, raw_text: str) -> Dict[str, Any]:
+    def parse(self, raw_text: str) -> dict[str, Any]:
         """Parse the full ethtool output into structured fields."""
-        data: Dict[str, Any] = {}
+        data: dict[str, Any] = {}
         for line in raw_text.splitlines():
             if ":" not in line:
                 continue
@@ -102,7 +103,7 @@ class EthtoolParser:
 
     # -------------------- Parsers -------------------- #
 
-    def module_info(self) -> Dict[str, Any]:
+    def module_info(self) -> dict[str, Any]:
         """Parse ethtool -m (module EEPROM info) and SFP/QSFP fields."""
         output, error = self._ssh_connection.exec_command(Ethtool().module_info(self._interface).syntax)
         if not output or error:
@@ -133,17 +134,12 @@ class EthtoolParser:
             elif "media" in key.lower() or "type" in key.lower():
                 data["media_type"] = val
 
-            # Try to extract all numeric+unit pairs from the value
-            matches = list(self.VALUE_UNIT_RE.finditer(val))
-
-            # if key == 'Module temperature':
-            #     hello = 0
-
+            # Parse the value using the parser
             data[key] = self._parser.parse_value(val)
 
         return data
 
-    def statistics(self) -> Dict[str, int]:
+    def statistics(self) -> dict[str, int]:
         """Parse ethtool -S (interface statistics)."""
         output, error = self._ssh_connection.exec_command(Ethtool().nic_statistics(self._interface).syntax)
         if not output or error:
@@ -157,7 +153,7 @@ class EthtoolParser:
                 data[key] = int(value)
         return data
 
-    def ring_params(self) -> Dict[str, Union[int, Dict[str, int]]]:
+    def ring_params(self) -> dict[str, int | dict[str, int]]:
         """Parse ethtool -g (ring/buffer parameters)."""
         output, error = self._ssh_connection.exec_command(Ethtool().ring_parameters(self._interface).syntax)
         if not output or error:
@@ -176,7 +172,7 @@ class EthtoolParser:
                     data[current_block][key] = int(value)
         return data
 
-    def features(self) -> Dict[str, bool]:
+    def features(self) -> dict[str, bool]:
         """Parse ethtool -k (offload features)."""
         output, error = self._ssh_connection.exec_command(Ethtool().offload_features(self._interface).syntax)
         if not output or error:
@@ -190,7 +186,7 @@ class EthtoolParser:
                 data[key] = value.lower() == "on"
         return data
 
-    def coalesce_params(self) -> Dict[str, int]:
+    def coalesce_params(self) -> dict[str, int]:
         """Parse ethtool -c (coalescing parameters)."""
         output, error = self._ssh_connection.exec_command(Ethtool().coalescing_parameters(self._interface).syntax)
         if not output or error:
@@ -206,7 +202,7 @@ class EthtoolParser:
 
     # -------------------- Unified Output -------------------- #
 
-    def all_info(self) -> Dict[str, Any]:
+    def all_info(self) -> dict[str, Any]:
         """Return all parsed ethtool info as a single dictionary."""
         return {
             EthtoolKey.MODULE_INFO: self.module_info(),

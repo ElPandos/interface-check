@@ -1,21 +1,22 @@
-from ast import parse
 from collections import defaultdict
+from datetime import datetime as dt, timezone
 import json
 import logging
 from pathlib import Path
 import queue
 import threading
 import time
+from typing import Any
 
 from pympler import asizeof
-from typing import Any, List, Tuple
-from datetime import datetime as dt
 
+logger = logging.getLogger(__name__)
+
+from src.enums.command_types import CommandTypes
 from src.models.configurations import AppConfig
 from src.models.ethtool import EthtoolParser
 from src.utils.commands import Command
 from src.utils.ssh_connection import SshConnection
-from src.enums.command_types import CommandTypes as ct
 
 
 class Sample:
@@ -34,26 +35,26 @@ class Sample:
         self._ssh_connection = ssh_connection
 
     def begin(self) -> None:
-        self.begin = dt.now()
+        self.begin = dt.now(tz=timezone.utc)
 
     def end(self) -> None:
-        self.end = dt.now()
+        self.end = dt.now(tz=timezone.utc)
 
     def new(self, cmd: Command) -> Any:
         self.begin()
         match cmd.cmd_type:
-            case ct.MODIFY, ct.SYSTEM, ct.COMMON:
-                print("Not implemented...")
-            case ct.ETHTOOL:
+            case CommandTypes.MODIFY, CommandTypes.SYSTEM, CommandTypes.COMMON:
+                pass  # Not implemented
+            case CommandTypes.ETHTOOL:
                 self.snapshot = EthtoolParser(self._interf, self._app_config, self._ssh_connection).all_info()
-            case ct.MLXLINK:
-                print("Not implemented...")
-            case ct.MLXCONFIG:
-                print("Not implemented...")
-            case ct.MST:
-                print("Not implemented...")
+            case CommandTypes.MLXLINK:
+                pass  # Not implemented
+            case CommandTypes.MLXCONFIG:
+                pass  # Not implemented
+            case CommandTypes.MST:
+                pass  # Not implemented
             case _:
-                print("Unknown command")
+                pass  # Unknown command
         self.end()
 
         return self
@@ -124,7 +125,7 @@ class Worker(threading.Thread):
         while not self._stop_event.is_set():
             try:
                 if reconnect > self._MAX_RECONNECT:
-                    logging.info(f"Reconnect failed 10 times. Exiting thread...")
+                    logger.info("Reconnect failed 10 times. Exiting thread...")
                     reconnect = 0
                     self.stop()
                     break
@@ -132,23 +133,23 @@ class Worker(threading.Thread):
                 self._collected_samples.put(sample)
                 time.sleep(self._app_config.system.get_command_update_value())
             except KeyboardInterrupt:
-                logging.info(f"User pressed 'Ctrl+c' - Exiting worker thread")
-            except Exception as e:
-                logging.exception(f"Collection stopped unexpectedly: {e}")
+                logger.info("User pressed 'Ctrl+c' - Exiting worker thread")
+            except Exception:
+                logger.exception("Collection stopped unexpectedly")
                 try:
                     self._ssh_connection.connect()
                     if self._ssh_connection.is_connected():
-                        logging.info(f"Reconnected to SSH session")
+                        logger.info("Reconnected to SSH session")
                     else:
-                        logging.exception(f"Failed to reconnect to SSH session ({reconnect}/{self._MAX_RECONNECT})")
-                except Exception as e:
-                    logging.exception(f"SSH reconnect failed: {e}")
+                        logger.exception(f"Failed to reconnect to SSH session ({reconnect}/{self._MAX_RECONNECT})")
+                except Exception:
+                    logger.exception("SSH reconnect failed")
             reconnect += 1
         self.work_stop()
 
     def stop(self) -> None:
         self._stop_event.set()
-        logging.debug(f"Stop event set")
+        logger.debug("Stop event set")
 
     def stop_and_wait(self) -> None:
         self._stop_event.set()
@@ -160,13 +161,13 @@ class Worker(threading.Thread):
         return self._stop_event.is_set()
 
     def work_start(self) -> None:
-        self._start = dt.now()
+        self._start = dt.now(tz=timezone.utc)
 
     def get_work_start(self) -> None:
         return self._start
 
     def work_stop(self) -> None:
-        self._stop = dt.now()
+        self._stop = dt.now(tz=timezone.utc)
 
     def get_work_stop(self) -> None:
         return self._stop
@@ -184,11 +185,11 @@ class Worker(threading.Thread):
 
     def clear(self) -> None:
         self._extracted_samples.clear()
-        logging.debug("Clearing extracted samples")
+        logger.debug("Clearing extracted samples")
 
     def log_extracted_size(self):
-        logging.debug(f"Extracted list size: {len(self._extracted_samples)}")
-        logging.debug(
+        logger.debug(f"Extracted list size: {len(self._extracted_samples)}")
+        logger.debug(
             f"Mem size of extracted list: {round(asizeof.asizeof(self._extracted_samples) / (1024 * 1024), 2)} Mb"
         )
 
@@ -215,7 +216,7 @@ class Worker(threading.Thread):
                 break
 
     def get_range(self, start: dt, end: dt) -> list[Sample]:
-        return [s for s in self.collected_samples.get() if hasattr(s, "_begin") and start <= s._begin <= end]
+        return [s for s in self.collected_samples.get() if hasattr(s, "begin") and start <= s.begin <= end]
 
     def group_by_type(self) -> dict:
         """Group samples by their concrete class name."""
@@ -229,14 +230,14 @@ class Worker(threading.Thread):
             json.dump(self.get_samples(), f, default=str, indent=2)
 
     def summary(self) -> str:
-        """One‑line textual summary of the collected sample data."""
+        """One-line textual summary of the collected sample data."""
         total_samples = len(self._collected_samples)
         types = {type(s).__name__ for s in self._collected_samples.get()}
         return f"Collected {total_samples} samples of types: {', '.join(sorted(types))}"
 
 
 class WorkManager:
-    _work_pool: List[Worker]
+    _work_pool: list[Worker]
 
     def __init__(self) -> None:
         self._work_pool = []
@@ -248,37 +249,37 @@ class WorkManager:
             self._work_pool.append(new_worker)
         else:
             old_worker.start()
-            logging.debug(f"Worker already exists for: {old_worker._interf}")
+            logger.debug(f"Worker already exists for: {old_worker._interf}")
 
     def clear(self) -> None:
-        logging.debug(f"Clearing {len(self._work_pool)} workers from pool")
+        logger.debug(f"Clearing {len(self._work_pool)} workers from pool")
         self._work_pool.clear()
-        logging.debug(f"Work pool cleared")
+        logger.debug("Work pool cleared")
 
     def stop_all(self) -> None:
-        logging.debug(f"Stop all workers in pool: {len(self._work_pool)}")
+        logger.debug(f"Stop all workers in pool: {len(self._work_pool)}")
         for w in self._work_pool:
             w.stop()
-            logging.debug(f"Thread stopped")
+            logger.debug("Thread stopped")
             w.join()
-            logging.debug(f"Thread joined")
+            logger.debug("Thread joined")
 
     def reset(self) -> None:
-        logging.debug("Reset work manager")
+        logger.debug("Reset work manager")
         self.stop_all()
         self.clear()
-        logging.debug("Work manager has been resetted")
+        logger.debug("Work manager has been resetted")
 
     def get_worker(self, interf: str) -> Worker | None:
         for w in self._work_pool:
             if w._interf == interf:
-                logging.debug(f"Found worker: {w._interf}")
+                logger.debug(f"Found worker: {w._interf}")
                 return w
-        logging.debug(f"Did not find any old worker for interface: {interf}")
+        logger.debug(f"Did not find any old worker for interface: {interf}")
         return None
 
     def summary(self) -> str:
-        """One‑line textual summary of the work pool."""
+        """One-line textual summary of the work pool."""
         total_workers = len(self._work_pool)
         types = {type(s).__name__ for s in self._work_pool}
         return f"Started {total_workers} workers of types: {', '.join(sorted(types))}"

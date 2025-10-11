@@ -1,11 +1,14 @@
 """Dashboard tab implementation."""
 
+from datetime import datetime, timezone
+import json
 import logging
 import platform
-import psutil
 import socket
-from datetime import datetime
+
 from nicegui import ui
+import psutil
+
 from src.models.configurations import AppConfig
 from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.ssh_connection import SshConnection
@@ -40,10 +43,16 @@ class DashboardPanel(BasePanel):
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
         self._icon = icon
+        self._expansion_states = {}
+        self._auto_refresh = False
+        self._refresh_timer = None
         if build:
             self.build()
 
     def build(self):
+        # Add global CSS for left-aligned table cells
+        ui.add_head_html("<style>.q-table td, .q-table th { text-align: left !important; }</style>")
+
         with ui.tab_panel(self.name).classes("w-full h-screen"):
             with ui.column().classes("w-full h-full p-4"):
                 with ui.card().classes("w-full h-full p-6 shadow-lg bg-white border border-gray-200"):
@@ -51,8 +60,14 @@ class DashboardPanel(BasePanel):
                         ui.icon("dashboard", size="lg").classes("text-blue-600")
                         ui.label("System Dashboard").classes("text-2xl font-bold text-gray-800")
                         ui.space()
+                        ui.checkbox(
+                            "Auto Refresh", value=self._auto_refresh, on_change=self._toggle_auto_refresh
+                        ).classes("mr-4")
                         ui.button("Refresh", icon="refresh", on_click=self._refresh_stats).classes(
                             "bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                        )
+                        ui.button("Export", icon="upload", on_click=self._export_data).classes(
+                            "bg-blue-300 hover:bg-blue-400 text-blue-900 px-4 py-2 rounded ml-2"
                         )
 
                     self.stats_container = ui.column().classes("w-full gap-4")
@@ -65,92 +80,463 @@ class DashboardPanel(BasePanel):
         with self.stats_container:
             self._build_system_stats()
 
+    def _toggle_auto_refresh(self, enabled: bool):
+        """Toggle auto-refresh functionality."""
+        self._auto_refresh = enabled
+        if enabled:
+            self._start_auto_refresh()
+        else:
+            self._stop_auto_refresh()
+
+    def _start_auto_refresh(self):
+        """Start auto-refresh timer."""
+        if self._refresh_timer:
+            self._refresh_timer.cancel()
+        self._refresh_timer = ui.timer(5.0, self._refresh_stats, active=True)
+
+    def _stop_auto_refresh(self):
+        """Stop auto-refresh timer."""
+        if self._refresh_timer:
+            self._refresh_timer.cancel()
+            self._refresh_timer = None
+
+    def _export_data(self):
+        """Export all dashboard data to JSON."""
+        try:
+            data = self._collect_all_data()
+            json_data = json.dumps(data, indent=2, default=str, ensure_ascii=False)
+            timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+            filename = f"system_dashboard_{timestamp}.json"
+            ui.download(json_data.encode("utf-8"), filename)
+            ui.notify(f"Data exported to {filename}", color="positive")
+        except Exception as e:
+            ui.notify(f"Export failed: {e}", color="negative")
+
+    def _get_system_info(self):
+        """Get system information."""
+        return {
+            "os": f"{platform.system()} {platform.release()}",
+            "hostname": socket.gethostname(),
+            "architecture": platform.machine(),
+            "python_version": platform.python_version(),
+        }
+
+    def _get_performance_data(self):
+        """Get performance metrics."""
+        return {
+            "cpu_percent": psutil.cpu_percent(interval=0.1),
+            "cpu_count": psutil.cpu_count(),
+            "memory": dict(psutil.virtual_memory()._asdict()),
+            "disk_usage": dict(psutil.disk_usage("/")._asdict()),
+        }
+
+    def _collect_all_data(self):
+        """Collect all system data for export."""
+        data = {
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+            "system_info": self._get_system_info(),
+            "performance": self._get_performance_data(),
+            "network": dict(psutil.net_io_counters()._asdict()),
+            "processes": {
+                "total": len(list(psutil.process_iter())),
+                "by_status": {
+                    status: sum(1 for p in psutil.process_iter() if p.status() == status)
+                    for status in ["running", "sleeping", "zombie", "stopped"]
+                },
+            },
+            "uptime": {
+                "boot_time": psutil.boot_time(),
+                "uptime_seconds": (
+                    datetime.now(tz=timezone.utc) - datetime.fromtimestamp(psutil.boot_time(), tz=timezone.utc)
+                ).total_seconds(),
+            },
+        }
+
+        try:
+            data["top_processes"] = {
+                "cpu": [
+                    {"name": p.info["name"], "cpu_percent": p.info["cpu_percent"]}
+                    for p in sorted(
+                        psutil.process_iter(["name", "cpu_percent"]),
+                        key=lambda x: x.info["cpu_percent"] or 0,
+                        reverse=True,
+                    )[:10]
+                ],
+                "memory": [
+                    {"name": p.info["name"], "memory_percent": p.info["memory_percent"]}
+                    for p in sorted(
+                        psutil.process_iter(["name", "memory_percent"]),
+                        key=lambda x: x.info["memory_percent"] or 0,
+                        reverse=True,
+                    )[:10]
+                ],
+            }
+        except Exception:
+            data["top_processes"] = {"cpu": [], "memory": []}
+
+        return data
+
+    def _create_table(self, columns, rows):
+        """Create optimized table with consistent styling."""
+        return (
+            ui.table(columns=columns, rows=rows).classes("w-full").style("background-color: white; text-align: left;")
+        )
+
     def _build_system_stats(self):
         """Build comprehensive system statistics display."""
         try:
-            # Row 1: System Identity & Time
-            with ui.row().classes("w-full gap-4 mb-4"):
-                with ui.card().classes("flex-1 p-4 bg-blue-50 border border-blue-200 h-40"):
-                    ui.icon("computer", size="md").classes("text-blue-600 mb-2")
-                    ui.label("System Info").classes("font-semibold text-gray-800 mb-2")
-                    ui.label(f"OS: {platform.system()} {platform.release()}").classes("text-sm text-gray-600")
-                    ui.label(f"Host: {socket.gethostname()}").classes("text-sm text-gray-600")
-                    ui.label(f"Arch: {platform.machine()}").classes("text-sm text-gray-600")
+            system_info = self._get_system_info()
+            perf_data = self._get_performance_data()
 
-                with ui.card().classes("flex-1 p-4 bg-green-50 border border-green-200 h-40"):
-                    ui.icon("schedule", size="md").classes("text-green-600 mb-2")
-                    ui.label("Uptime").classes("font-semibold text-gray-800 mb-2")
-                    boot_time = datetime.fromtimestamp(psutil.boot_time())
-                    uptime = datetime.now() - boot_time
-                    ui.label(f"Boot: {boot_time.strftime('%m-%d %H:%M')}").classes("text-sm text-gray-600")
-                    ui.label(f"Up: {uptime.days}d {uptime.seconds//3600}h {(uptime.seconds//60)%60}m").classes("text-sm text-gray-600")
-                    ui.label(f"Now: {datetime.now().strftime('%H:%M:%S')}").classes("text-sm text-gray-600")
+            # Row 1: System Overview Tables
+            with ui.row().classes("w-full gap-2 mb-2"):
+                # System Info Table
+                exp1 = ui.expansion(
+                    "System Info", icon="computer", value=self._expansion_states.get("system", False)
+                ).classes("flex-1 bg-blue-50 border border-blue-200")
+                exp1.on_value_change(lambda e: self._expansion_states.update({"system": e.value}))
+                with exp1:
+                    system_data = [
+                        {"Property": "Operating System", "Value": system_info["os"]},
+                        {"Property": "Hostname", "Value": system_info["hostname"]},
+                        {"Property": "Architecture", "Value": system_info["architecture"]},
+                        {"Property": "Python Version", "Value": system_info["python_version"]},
+                    ]
+                    self._create_table(
+                        [
+                            {"name": "Property", "label": "Property", "field": "Property"},
+                            {"name": "Value", "label": "Value", "field": "Value"},
+                        ],
+                        system_data,
+                    )
 
-                with ui.card().classes("flex-1 p-4 bg-purple-50 border border-purple-200 h-40"):
-                    ui.icon("list", size="md").classes("text-purple-600 mb-2")
-                    ui.label("Processes").classes("font-semibold text-gray-800 mb-2")
-                    processes = list(psutil.process_iter(['pid', 'name']))
-                    running = sum(1 for p in psutil.process_iter() if p.status() == 'running')
-                    ui.label(f"Total: {len(processes)}").classes("text-sm text-gray-600")
-                    ui.label(f"Running: {running}").classes("text-sm text-gray-600")
-                    ui.label(f"This PID: {psutil.Process().pid}").classes("text-sm text-gray-600")
+                # Performance Table
+                exp2 = ui.expansion(
+                    "Performance", icon="memory", value=self._expansion_states.get("performance", False)
+                ).classes("flex-1 bg-orange-50 border border-orange-200")
+                exp2.on_value_change(lambda e: self._expansion_states.update({"performance": e.value}))
+                with exp2:
+                    memory = psutil.virtual_memory()
+                    disk = psutil.disk_usage("/")
+                    performance_data = [
+                        {
+                            "Metric": "CPU Usage",
+                            "Value": f"{perf_data['cpu_percent']}%",
+                            "Details": f"{perf_data['cpu_count']} cores",
+                        },
+                        {
+                            "Metric": "Memory",
+                            "Value": f"{memory.percent}%",
+                            "Details": f"{memory.used / (1024**3):.1f}/{memory.total / (1024**3):.1f} GB",
+                        },
+                        {
+                            "Metric": "Disk Usage",
+                            "Value": f"{disk.used / disk.total * 100:.0f}%",
+                            "Details": f"{disk.free / (1024**3):.0f}/{disk.total / (1024**3):.0f} GB",
+                        },
+                    ]
+                    self._create_table(
+                        [
+                            {"name": "Metric", "label": "Metric", "field": "Metric"},
+                            {"name": "Value", "label": "Value", "field": "Value"},
+                            {"name": "Details", "label": "Details", "field": "Details"},
+                        ],
+                        performance_data,
+                    )
 
-            # Row 2: Performance Metrics
-            with ui.row().classes("w-full gap-4 mb-4"):
-                with ui.card().classes("flex-1 p-4 bg-orange-50 border border-orange-200 h-40"):
-                    ui.icon("memory", size="md").classes("text-orange-600 mb-2")
-                    ui.label("CPU").classes("font-semibold text-gray-800 mb-2")
-                    cpu_percent = psutil.cpu_percent(interval=0.1)
-                    cpu_count = psutil.cpu_count()
-                    ui.label(f"Usage: {cpu_percent}%").classes("text-sm text-gray-600")
-                    ui.label(f"Cores: {cpu_count}").classes("text-sm text-gray-600")
+                # Network Table
+                exp3 = ui.expansion(
+                    "Network", icon="network_check", value=self._expansion_states.get("network", False)
+                ).classes("flex-1 bg-teal-50 border border-teal-200")
+                exp3.on_value_change(lambda e: self._expansion_states.update({"network": e.value}))
+                with exp3:
+                    net_io = psutil.net_io_counters()
+                    try:
+                        connections = len(psutil.net_connections())
+                    except:
+                        connections = "N/A"
+                    net_data = [
+                        {"Metric": "Bytes Sent", "Value": f"{net_io.bytes_sent / (1024**2):.0f} MB"},
+                        {"Metric": "Bytes Received", "Value": f"{net_io.bytes_recv / (1024**2):.0f} MB"},
+                        {"Metric": "Packets Sent", "Value": f"{net_io.packets_sent:,}"},
+                        {"Metric": "Active Connections", "Value": str(connections)},
+                    ]
+                    self._create_table(
+                        [
+                            {"name": "Metric", "label": "Metric", "field": "Metric"},
+                            {"name": "Value", "label": "Value", "field": "Value"},
+                        ],
+                        net_data,
+                    )
+
+            # Row 2: Process Analysis Tables
+            with ui.row().classes("w-full gap-2 mb-2"):
+                # Top CPU Processes Table
+                exp4 = ui.expansion(
+                    "Top CPU Processes", icon="trending_up", value=self._expansion_states.get("top_cpu", False)
+                ).classes("flex-1 bg-red-50 border border-red-200")
+                exp4.on_value_change(lambda e: self._expansion_states.update({"top_cpu": e.value}))
+                with exp4:
+                    try:
+                        top_cpu = sorted(
+                            psutil.process_iter(["pid", "name", "cpu_percent"]),
+                            key=lambda p: p.info["cpu_percent"] or 0,
+                            reverse=True,
+                        )[:5]
+                        cpu_data = [
+                            {
+                                "PID": p.info["pid"],
+                                "Process": p.info["name"][:20],
+                                "CPU %": f"{p.info['cpu_percent']:.1f}",
+                            }
+                            for p in top_cpu
+                            if p.info["cpu_percent"]
+                        ]
+                        self._create_table(
+                            [
+                                {"name": "PID", "label": "PID", "field": "PID"},
+                                {"name": "Process", "label": "Process", "field": "Process"},
+                                {"name": "CPU %", "label": "CPU %", "field": "CPU %"},
+                            ],
+                            cpu_data,
+                        )
+                    except Exception:
+                        ui.label("CPU data unavailable").classes("text-sm text-gray-500")
+
+                # Top Memory Processes Table
+                exp5 = ui.expansion(
+                    "Top Memory Processes", icon="storage", value=self._expansion_states.get("top_memory", False)
+                ).classes("flex-1 bg-purple-50 border border-purple-200")
+                exp5.on_value_change(lambda e: self._expansion_states.update({"top_memory": e.value}))
+                with exp5:
+                    try:
+                        top_mem = sorted(
+                            psutil.process_iter(["pid", "name", "memory_percent"]),
+                            key=lambda p: p.info["memory_percent"] or 0,
+                            reverse=True,
+                        )[:5]
+                        mem_data = [
+                            {
+                                "PID": p.info["pid"],
+                                "Process": p.info["name"][:20],
+                                "Memory %": f"{p.info['memory_percent']:.1f}",
+                            }
+                            for p in top_mem
+                            if p.info["memory_percent"]
+                        ]
+                        self._create_table(
+                            [
+                                {"name": "PID", "label": "PID", "field": "PID"},
+                                {"name": "Process", "label": "Process", "field": "Process"},
+                                {"name": "Memory %", "label": "Memory %", "field": "Memory %"},
+                            ],
+                            mem_data,
+                        )
+                    except Exception:
+                        ui.label("Memory data unavailable").classes("text-sm text-gray-500")
+
+                # Process Health Table
+                exp6 = ui.expansion(
+                    "Process Health", icon="health_and_safety", value=self._expansion_states.get("health", False)
+                ).classes("flex-1 bg-yellow-50 border border-yellow-200")
+                exp6.on_value_change(lambda e: self._expansion_states.update({"health": e.value}))
+                with exp6:
+                    try:
+                        status_counts = {}
+                        for p in psutil.process_iter():
+                            status = p.status()
+                            status_counts[status] = status_counts.get(status, 0) + 1
+
+                        health_data = [
+                            {
+                                "Status": status.title(),
+                                "Count": count,
+                                "Alert": "⚠️" if status == "zombie" and count > 0 else "",
+                            }
+                            for status, count in status_counts.items()
+                        ]
+                        self._create_table(
+                            [
+                                {"name": "Status", "label": "Status", "field": "Status"},
+                                {"name": "Count", "label": "Count", "field": "Count"},
+                                {"name": "Alert", "label": "Alert", "field": "Alert"},
+                            ],
+                            health_data,
+                        )
+                    except Exception:
+                        ui.label("Process data unavailable").classes("text-sm text-gray-500")
+
+            # Row 3: System Resources Tables
+            with ui.row().classes("w-full gap-2 mb-2"):
+                # Disk I/O Table
+                exp7 = ui.expansion(
+                    "Disk I/O", icon="hard_drive", value=self._expansion_states.get("disk_io", False)
+                ).classes("flex-1 bg-cyan-50 border border-cyan-200")
+                exp7.on_value_change(lambda e: self._expansion_states.update({"disk_io": e.value}))
+                with exp7:
+                    try:
+                        disk_io = psutil.disk_io_counters()
+                        io_data = [
+                            {
+                                "Operation": "Read",
+                                "Bytes": f"{disk_io.read_bytes / (1024**2):.0f} MB",
+                                "Count": f"{disk_io.read_count:,}",
+                            },
+                            {
+                                "Operation": "Write",
+                                "Bytes": f"{disk_io.write_bytes / (1024**2):.0f} MB",
+                                "Count": f"{disk_io.write_count:,}",
+                            },
+                            {
+                                "Operation": "Total IOPS",
+                                "Bytes": "-",
+                                "Count": f"{disk_io.read_count + disk_io.write_count:,}",
+                            },
+                        ]
+                        self._create_table(
+                            [
+                                {"name": "Operation", "label": "Operation", "field": "Operation"},
+                                {"name": "Bytes", "label": "Bytes", "field": "Bytes"},
+                                {"name": "Count", "label": "Count", "field": "Count"},
+                            ],
+                            io_data,
+                        )
+                    except Exception:
+                        ui.label("Disk I/O unavailable").classes("text-sm text-gray-500")
+
+                # System Load Table
+                exp8 = ui.expansion(
+                    "System Load", icon="analytics", value=self._expansion_states.get("load", False)
+                ).classes("flex-1 bg-lime-50 border border-lime-200")
+                exp8.on_value_change(lambda e: self._expansion_states.update({"load": e.value}))
+                with exp8:
                     try:
                         load_avg = psutil.getloadavg()
-                        ui.label(f"Load: {load_avg[0]:.1f}").classes("text-sm text-gray-600")
+                        load_data = [
+                            {"Period": "1 minute", "Load": f"{load_avg[0]:.2f}"},
+                            {"Period": "5 minutes", "Load": f"{load_avg[1]:.2f}"},
+                            {"Period": "15 minutes", "Load": f"{load_avg[2]:.2f}"},
+                        ]
                     except AttributeError:
-                        ui.label(f"Threads: {psutil.cpu_count(logical=True)}").classes("text-sm text-gray-600")
+                        cpu_times = psutil.cpu_times()
+                        load_data = [
+                            {"Period": "User Time", "Load": f"{cpu_times.user:.1f}s"},
+                            {"Period": "System Time", "Load": f"{cpu_times.system:.1f}s"},
+                            {"Period": "Idle Time", "Load": f"{cpu_times.idle:.1f}s"},
+                        ]
+                    self._create_table(
+                        [
+                            {"name": "Period", "label": "Period", "field": "Period"},
+                            {"name": "Load", "label": "Load", "field": "Load"},
+                        ],
+                        load_data,
+                    )
 
-                with ui.card().classes("flex-1 p-4 bg-red-50 border border-red-200 h-40"):
-                    ui.icon("storage", size="md").classes("text-red-600 mb-2")
-                    ui.label("Memory").classes("font-semibold text-gray-800 mb-2")
-                    memory = psutil.virtual_memory()
-                    ui.label(f"Total: {memory.total / (1024**3):.1f} GB").classes("text-sm text-gray-600")
-                    ui.label(f"Used: {memory.used / (1024**3):.1f} GB").classes("text-sm text-gray-600")
-                    ui.label(f"Usage: {memory.percent}%").classes("text-sm text-gray-600")
+                # Users Table
+                exp9 = ui.expansion(
+                    "Active Users", icon="security", value=self._expansion_states.get("security", False)
+                ).classes("flex-1 bg-pink-50 border border-pink-200")
+                exp9.on_value_change(lambda e: self._expansion_states.update({"security": e.value}))
+                with exp9:
+                    try:
+                        users = psutil.users()
+                        current_user = psutil.Process().username()
+                        user_data = [{"Type": "Current User", "Name": current_user, "Status": "Active"}]
+                        for user in users[-3:]:  # Show last 3 users
+                            user_data.append(
+                                {"Type": "Session", "Name": user.name, "Status": f"Terminal: {user.terminal or 'N/A'}"}
+                            )
+                        self._create_table(
+                            [
+                                {"name": "Type", "label": "Type", "field": "Type"},
+                                {"name": "Name", "label": "Name", "field": "Name"},
+                                {"name": "Status", "label": "Status", "field": "Status"},
+                            ],
+                            user_data,
+                        )
+                    except Exception:
+                        ui.label("User data unavailable").classes("text-sm text-gray-500")
 
-                with ui.card().classes("flex-1 p-4 bg-yellow-50 border border-yellow-200 h-40"):
-                    ui.icon("hard_drive", size="md").classes("text-yellow-600 mb-2")
-                    ui.label("Disk").classes("font-semibold text-gray-800 mb-2")
-                    disk = psutil.disk_usage('/')
-                    ui.label(f"Total: {disk.total / (1024**3):.0f} GB").classes("text-sm text-gray-600")
-                    ui.label(f"Free: {disk.free / (1024**3):.0f} GB").classes("text-sm text-gray-600")
-                    ui.label(f"Used: {disk.used/disk.total*100:.0f}%").classes("text-sm text-gray-600")
-
-            # Row 3: Network & Application
-            with ui.row().classes("w-full gap-4 mb-4"):
-                with ui.card().classes("flex-1 p-4 bg-teal-50 border border-teal-200 h-40"):
-                    ui.icon("network_check", size="md").classes("text-teal-600 mb-2")
-                    ui.label("Network").classes("font-semibold text-gray-800 mb-2")
-                    net_io = psutil.net_io_counters()
-                    ui.label(f"Sent: {net_io.bytes_sent / (1024**2):.0f} MB").classes("text-sm text-gray-600")
-                    ui.label(f"Recv: {net_io.bytes_recv / (1024**2):.0f} MB").classes("text-sm text-gray-600")
-                    ui.label(f"Packets: {(net_io.packets_sent + net_io.packets_recv)/1000:.0f}K").classes("text-sm text-gray-600")
-
-                with ui.card().classes("flex-1 p-4 bg-indigo-50 border border-indigo-200 h-40"):
-                    ui.icon("code", size="md").classes("text-indigo-600 mb-2")
-                    ui.label("Application").classes("font-semibold text-gray-800 mb-2")
+            # Row 4: Application & Environment Tables
+            with ui.row().classes("w-full gap-2"):
+                # Application Stats Table
+                exp10 = ui.expansion(
+                    "Application Stats", icon="code", value=self._expansion_states.get("application", False)
+                ).classes("flex-1 bg-indigo-50 border border-indigo-200")
+                exp10.on_value_change(lambda e: self._expansion_states.update({"application": e.value}))
+                with exp10:
                     current_process = psutil.Process()
-                    ui.label(f"Python: {platform.python_version()}").classes("text-sm text-gray-600")
-                    ui.label(f"Memory: {current_process.memory_info().rss / (1024**2):.0f} MB").classes("text-sm text-gray-600")
-                    ui.label(f"Threads: {current_process.num_threads()}").classes("text-sm text-gray-600")
+                    app_data = [
+                        {"Metric": "Memory Usage", "Value": f"{current_process.memory_info().rss / (1024**2):.0f} MB"},
+                        {"Metric": "Thread Count", "Value": str(current_process.num_threads())},
+                        {"Metric": "Process ID", "Value": str(current_process.pid)},
+                        {"Metric": "Status", "Value": "Online ✅"},
+                    ]
+                    self._create_table(
+                        [
+                            {"name": "Metric", "label": "Metric", "field": "Metric"},
+                            {"name": "Value", "label": "Value", "field": "Value"},
+                        ],
+                        app_data,
+                    )
 
-                with ui.card().classes("flex-1 p-4 bg-gray-50 border border-gray-200 h-40"):
-                    ui.icon("info", size="md").classes("text-gray-600 mb-2")
-                    ui.label("Status").classes("font-semibold text-gray-800 mb-2")
-                    ui.label("Interface Check").classes("text-sm text-gray-600")
-                    ui.label("System: Online").classes("text-sm text-green-600")
-                    ui.label("Ready").classes("text-sm text-blue-600")
+                # Sensors Table
+                exp11 = ui.expansion(
+                    "System Sensors", icon="thermostat", value=self._expansion_states.get("sensors", False)
+                ).classes("flex-1 bg-amber-50 border border-amber-200")
+                exp11.on_value_change(lambda e: self._expansion_states.update({"sensors": e.value}))
+                with exp11:
+                    try:
+                        temps = psutil.sensors_temperatures()
+                        sensor_data = []
+                        if temps:
+                            for name, entries in temps.items():
+                                for entry in entries[:3]:  # Max 3 sensors per type
+                                    sensor_data.append(
+                                        {
+                                            "Sensor": f"{name} {entry.label or ''}".strip(),
+                                            "Temperature": f"{entry.current:.1f}°C",
+                                            "Status": "🔥" if entry.current > 80 else "✅",
+                                        }
+                                    )
+                        if not sensor_data:
+                            sensor_data = [{"Sensor": "No sensors detected", "Temperature": "N/A", "Status": "i"}]
+                        self._create_table(
+                            [
+                                {"name": "Sensor", "label": "Sensor", "field": "Sensor"},
+                                {"name": "Temperature", "label": "Temperature", "field": "Temperature"},
+                                {"name": "Status", "label": "Status", "field": "Status"},
+                            ],
+                            sensor_data,
+                        )
+                    except Exception:
+                        ui.label("Sensor data unavailable").classes("text-sm text-gray-500")
+
+                # Uptime Table
+                exp12 = ui.expansion(
+                    "System Uptime", icon="schedule", value=self._expansion_states.get("uptime", False)
+                ).classes("flex-1 bg-green-50 border border-green-200")
+                exp12.on_value_change(lambda e: self._expansion_states.update({"uptime": e.value}))
+                with exp12:
+                    boot_time = datetime.fromtimestamp(psutil.boot_time(), tz=timezone.utc)
+                    uptime = datetime.now(tz=timezone.utc) - boot_time
+                    uptime_data = [
+                        {"Event": "System Boot", "Time": boot_time.strftime("%Y-%m-%d %H:%M:%S")},
+                        {
+                            "Event": "Uptime Duration",
+                            "Time": f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m",
+                        },
+                        {"Event": "Current Time", "Time": datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")},
+                    ]
+                    self._create_table(
+                        [
+                            {"name": "Event", "label": "Event", "field": "Event"},
+                            {"name": "Time", "label": "Time", "field": "Time"},
+                        ],
+                        uptime_data,
+                    )
 
         except Exception as e:
-            logging.exception(f"Error building system stats: {e}")
+            logger = logging.getLogger(__name__)
+            logger.exception("Error building system stats")
             ui.label(f"Error loading system statistics: {e}").classes("text-red-600")

@@ -1,8 +1,11 @@
 import json
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from nicegui import ui
+
+logger = logging.getLogger(__name__)
 
 from src.models.configurations import AppConfig
 from src.utils import system
@@ -52,9 +55,9 @@ class Configure:
         if not self._CONFIG_FULL_PATH.exists():
             default_config = AppConfig().model_dump()
             system.save_json(default_config, self._CONFIG_FULL_PATH)
-            logging.debug(f"Config file created at: {self._CONFIG_FULL_PATH}")
+            logger.debug(f"Config file created at: {self._CONFIG_FULL_PATH}")
         else:
-            logging.debug(f"Config found at: {self._CONFIG_FULL_PATH}")
+            logger.debug(f"Config found at: {self._CONFIG_FULL_PATH}")
 
     # ---------------------------------------------------------------------------- #
     #                                  Public API                                  #
@@ -75,7 +78,7 @@ class Configure:
         try:
             system.save_json(cfg.model_dump(), self._CONFIG_FULL_PATH)
             ui.notify("Configuration saved", type="positive")
-        except Exception as e:  # pragma: no cover
+        except Exception as e:
             ui.notify(f"Failed to save: {e}", type="negative")
 
     def load(self) -> AppConfig:
@@ -84,7 +87,56 @@ class Configure:
             data = system.load_json(self._CONFIG_FULL_PATH)
             return AppConfig.model_validate(data)
         except (FileNotFoundError, json.JSONDecodeError) as e:
-            logging.warning(f"Config file issue: {e}. Creating default config.")
+            logger.warning(f"Config file issue: {e}. Creating default config.")
             default_config = AppConfig()
             self.save(default_config)
             return default_config
+
+    def setup_logging(self, level: int = logging.INFO) -> None:
+        """
+        Configure application-wide logging with:
+          - Console output (StreamHandler)
+          - Rotating file logs (RotatingFileHandler)
+        Automatically limits log file size and keeps backup history.
+
+        Parameters
+        ----------
+        level : int
+            Logging level (e.g., logging.DEBUG, logging.INFO, logging.ERROR)
+        """
+        # -------------------------- Determine log file path ------------------------- #
+        log_full_path = self.get_log_full_path()
+
+        # --------------------- Define format and rotation policy -------------------- #
+
+        # Rotate after 5 MB, keep last 5 backups (configurable)
+        file_handler = RotatingFileHandler(
+            filename=log_full_path,
+            maxBytes=20 * 1024 * 1024,  # 5 MB
+            backupCount=10,  # keep all rotated files
+            encoding="utf-8",
+        )
+        console_handler = logging.StreamHandler()
+
+        formatter = logging.Formatter("[%(asctime)s] %(levelname)s [%(name)s]: %(message)s")
+
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+
+        # ---------------------- Attach handlers to root logger ---------------------- #
+        root_logger = logging.getLogger()
+        root_logger.setLevel(level)
+        root_logger.handlers.clear()
+        root_logger.addHandler(file_handler)
+        root_logger.addHandler(console_handler)
+
+        # ----- Optional: suppress overly chatty loggers (like paramiko, asyncio) ---- #
+        for noisy in ("paramiko", "asyncio", "matplotlib"):
+            logging.getLogger(noisy).setLevel(logging.WARNING)
+
+        root_logger.debug(f"Logging initialized at level {logging.getLevelName(level)}")
+
+
+def setup_logging(level: int = logging.INFO) -> None:
+    """Convenience function for setting up logging."""
+    Configure().setup_logging(level)

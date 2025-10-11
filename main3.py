@@ -1,6 +1,6 @@
-import subprocess
 import re
-from typing import Dict, Any, Optional, Union
+import subprocess
+from typing import Any
 
 
 class EthtoolParser:
@@ -22,7 +22,7 @@ class EthtoolParser:
 
     def __init__(self, interface: str):
         self.interface = interface
-        self._cache: Dict[str, Optional[str]] = {}
+        self._cache: dict[str, str | None] = {}
 
         if not self._interface_exists():
             raise ValueError(f"Interface '{interface}' does not exist")
@@ -37,7 +37,7 @@ class EthtoolParser:
         except subprocess.CalledProcessError:
             return False
 
-    def _run_command(self, args: list) -> Optional[str]:
+    def _run_command(self, args: list) -> str | None:
         """
         Safely run a system command and cache output.
         Returns None if command fails (unsupported, missing interface, permission issue).
@@ -60,10 +60,9 @@ class EthtoolParser:
                 print(f"Warning: Cannot run {' '.join(args)} - {stderr}")
                 self._cache[key] = None
                 return None
-            else:
-                print(f"Warning: Command {' '.join(args)} failed - {stderr}")
-                self._cache[key] = None
-                return None
+            print(f"Warning: Command {' '.join(args)} failed - {stderr}")
+            self._cache[key] = None
+            return None
         except FileNotFoundError:
             print(f"Warning: Command not found: {args[0]}")
             self._cache[key] = None
@@ -71,7 +70,7 @@ class EthtoolParser:
 
     # -------------------- Parsers -------------------- #
 
-    def module_info(self) -> Dict[str, Any]:
+    def module_info(self) -> dict[str, Any]:
         """Parse ethtool -m (module EEPROM info) and SFP/QSFP fields."""
         output = self._run_command(["sudo", "ethtool", "-m", self.interface])
         if not output:
@@ -103,7 +102,7 @@ class EthtoolParser:
 
         return data
 
-    def statistics(self) -> Dict[str, int]:
+    def statistics(self) -> dict[str, int]:
         """Parse ethtool -S (interface statistics)."""
         output = self._run_command(["ethtool", "-S", self.interface])
         if not output:
@@ -116,7 +115,7 @@ class EthtoolParser:
                 data[key] = int(value)
         return data
 
-    def ring_params(self) -> Dict[str, Union[int, Dict[str, int]]]:
+    def ring_params(self) -> dict[str, int | dict[str, int]]:
         """Parse ethtool -g (ring/buffer parameters)."""
         output = self._run_command(["ethtool", "-g", self.interface])
         if not output:
@@ -134,7 +133,7 @@ class EthtoolParser:
                     data[current_block][key] = int(value)
         return data
 
-    def features(self) -> Dict[str, bool]:
+    def features(self) -> dict[str, bool]:
         """Parse ethtool -k (offload features)."""
         output = self._run_command(["ethtool", "-k", self.interface])
         if not output:
@@ -147,7 +146,7 @@ class EthtoolParser:
                 data[key] = value.lower() == "on"
         return data
 
-    def coalesce_params(self) -> Dict[str, int]:
+    def coalesce_params(self) -> dict[str, int]:
         """Parse ethtool -c (coalescing parameters)."""
         output = self._run_command(["ethtool", "-c", self.interface])
         if not output:
@@ -162,7 +161,7 @@ class EthtoolParser:
 
     # -------------------- Unified Output -------------------- #
 
-    def all_info(self) -> Dict[str, Any]:
+    def all_info(self) -> dict[str, Any]:
         """Return all parsed ethtool info as a single dictionary."""
         return {
             "module_info": self.module_info(),

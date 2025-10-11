@@ -1,6 +1,7 @@
 """Multi-screen layout mixin for tabs with host cards."""
 
 from abc import ABC, abstractmethod
+
 from nicegui import ui
 
 
@@ -54,7 +55,6 @@ class MultiScreenMixin(ABC):
     @abstractmethod
     def _build_screen(self, screen_num: int, classes: str) -> None:
         """Build individual screen content. Must be implemented by subclass."""
-        pass
 
     def _on_screen_change(self, e):
         """Handle screen count change."""
@@ -71,4 +71,3 @@ class MultiScreenMixin(ABC):
 
     def _update_icon_status(self):
         """Update tab icon color based on connection status."""
-        pass

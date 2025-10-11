@@ -1,6 +1,5 @@
-from src.utils.ssh_connection import SshConnection
-
 from src.utils.commands import Mst
+from src.utils.ssh_connection import SshConnection
 
 
 class MstDevice:
@@ -75,7 +74,7 @@ class MstStatus:
 
         return devices
 
-    def from_system(self, ssh_connection: SshConnection = None) -> MstStatus:
+    def from_system(self, ssh_connection: SshConnection = None) -> "MstStatus":
         out, err = ssh_connection.exec_command(Mst.DEVICES)
 
         if err:

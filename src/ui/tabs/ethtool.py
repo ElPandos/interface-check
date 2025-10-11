@@ -1,18 +1,13 @@
-import datetime as dt
 import logging
-from tkinter import XView
-from typing import Any
-from nicegui import ui
 
-import plotly.graph_objects as go
+from nicegui import ui
 
 from src.models.configurations import AppConfig
 from src.ui.handlers.graph import GraphHandler
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.utils.collector import PlotSampleData, WorkManager, Worker
-from src.utils.commands import Common, Modify, System, Ethtool
+from src.utils.collector import Worker, WorkManager
+from src.utils.commands import Common, Ethtool, Modify, System
 from src.utils.ssh_connection import SshConnection
-
 
 NAME = "ethtool"
 LABEL = "Ethtool"

@@ -1,5 +1,4 @@
-from src.enums.command_types import CommandTypes as ct
-
+from src.enums.command_types import CommandTypes
 
 # ---------------------------------------------------------------------------- #
 #                                 Base command                                 #
@@ -7,10 +6,10 @@ from src.enums.command_types import CommandTypes as ct
 
 
 class Command:
-    cmd_type: ct
+    cmd_type: CommandTypes
     syntax: str
 
-    def __init__(self, cmd_type: ct):
+    def __init__(self, cmd_type: CommandTypes) -> None:
         self.cmd_type = cmd_type
 
 
@@ -20,10 +19,10 @@ class Command:
 
 
 class Modify(Command):
-    def __init__(self):
-        super().__init__(ct.MODIFY)
+    def __init__(self) -> None:
+        super().__init__(CommandTypes.MODIFY)
 
-    def to_list(self, data: str) -> list:
+    def to_list(self, data: str) -> list[str]:
         data = data.strip()
         return data.splitlines()
 
@@ -37,8 +36,8 @@ class System(Command):
     PYTHON_PSUTIL: str = "sudo apt-get install -y python3-psutil"
     PYTHON_UPGRADE_PIP: str = "pip3 install --upgrade pip"
 
-    def __init__(self):
-        super().__init__(ct.SYSTEM)
+    def __init__(self) -> None:
+        super().__init__(CommandTypes.SYSTEM)
 
     def install_psutil(self) -> Command:
         self.syntax = self.PYTHON_PSUTIL
@@ -57,8 +56,8 @@ class System(Command):
 class Python(Command):
     LICENSES: str = "uv run pip-licenses --format=json"
 
-    def __init__(self):
-        super().__init__(ct.PYTHON)
+    def __init__(self) -> None:
+        super().__init__(CommandTypes.PYTHON)
 
     def licenses(self) -> Command:
         self.syntax = self.LICENSES
@@ -73,8 +72,8 @@ class Python(Command):
 class Common(Command):
     INTERFACES: str = "import psutil; print('\\n'.join(psutil.net_if_addrs().keys()))"
 
-    def __init__(self):
-        super().__init__(ct.COMMON)
+    def __init__(self) -> None:
+        super().__init__(CommandTypes.COMMON)
 
     def get_interfaces(self) -> Command:
         self.syntax = f'python3 -c "{self.INTERFACES}"'
@@ -87,8 +86,8 @@ class Common(Command):
 
 
 class Ethtool(Command):
-    def __init__(self):
-        super().__init__(ct.ETHTOOL)
+    def __init__(self) -> None:
+        super().__init__(CommandTypes.ETHTOOL)
 
     def module_info(self, interf: str) -> Command:
         self.syntax = f"sudo ethtool -m {interf}"
@@ -117,14 +116,14 @@ class Ethtool(Command):
 
 
 class Mlxlink(Command):
-    def __init__(self):
-        super().__init__(ct.MLXLINK)
+    def __init__(self) -> None:
+        super().__init__(CommandTypes.MLXLINK)
 
-    def serdes_tx(self, interf: str) -> Command:
+    def serdes_tx(self, interf: str) -> str:
         """Show some MLNX CX-6Lx TX serdes params."""
         return f"sudo mlxlink -d {interf} --show_serdes_tx"
 
-    def rs_fec_err_counters(self, interf: str) -> Command:
+    def rs_fec_err_counters(self, interf: str) -> str:
         """Show MLNX CX-6 Lx RX received signal RS-FEC error counters :"""
         return f"sudo mlxlink -d {interf} --rx_fec_histogram --show_histogram"
 
@@ -135,8 +134,8 @@ class Mlxlink(Command):
 
 
 class Mlxconfig(Command):
-    def __init__(self):
-        super().__init__(ct.MLXCONFIG)
+    def __init__(self) -> None:
+        super().__init__(CommandTypes.MLXCONFIG)
 
     def query(self, interf: str) -> Command:
         self.syntax = f"sudo mlxconfig -d {interf} query"
@@ -152,8 +151,8 @@ class Mst(Command):
     STATUS: str = "sudo mst status -v"
     DEVICES: str = "sudo mst status -v | grep -o '/dev/mst/[^ ]*'"
 
-    def __init__(self):
-        super().__init__(ct.MST)
+    def __init__(self) -> None:
+        super().__init__(CommandTypes.MST)
 
     def status(self) -> Command:
         self.syntax = self.STATUS
@@ -172,8 +171,8 @@ class Mst(Command):
 class Git(Command):
     PATCHSET: str = "git rev-parse --short HEAD"
 
-    def __init__(self):
-        super().__init__(ct.GIT)
+    def __init__(self) -> None:
+        super().__init__(CommandTypes.GIT)
 
     def patchset(self) -> Command:
         self.syntax = self.PATCHSET

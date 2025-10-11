@@ -1,10 +1,10 @@
 """System tab implementation."""
 
-import logging
 from nicegui import ui
+
 from src.models.configurations import AppConfig
-from src.ui.tabs.base import BasePanel, BaseTab
 from src.ui.mixins.multi_screen import MultiScreenMixin
+from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.ssh_connection import SshConnection
 
 NAME = "system"

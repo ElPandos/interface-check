@@ -3,10 +3,12 @@ SSH Host Manager - Optimized Implementation
 Type-safe, secure, and performant SSH host management with route configuration.
 """
 
-import logging
-import json
-from typing import Dict, List, Optional, Any, Callable, TypedDict
+from collections.abc import Callable
 from dataclasses import dataclass
+import json
+import logging
+from typing import Any, TypedDict
+
 from nicegui import ui
 
 # Configure extensive debug logging
@@ -26,7 +28,7 @@ class HostDict(TypedDict):
     password: str
     remote: bool
     jump: bool
-    jump_order: Optional[int]
+    jump_order: int | None
 
 
 class RouteDict(TypedDict):
@@ -36,7 +38,7 @@ class RouteDict(TypedDict):
     remote_host_ip: str
     remote_host_username: str
     remote_host_password: str
-    jump_hosts: List[Dict[str, Any]]
+    jump_hosts: list[dict[str, Any]]
 
 
 @dataclass(frozen=True)
@@ -55,7 +57,7 @@ class HostManager:
     def __init__(self) -> None:
         """Initialize the host manager with default configuration."""
         logger.debug("Initializing HostManager")
-        self._hosts: List[HostDict] = [
+        self._hosts: list[HostDict] = [
             {
                 "ip": "192.168.1.10",
                 "username": "admin",
@@ -82,8 +84,8 @@ class HostManager:
             },
         ]
         logger.debug(f"Initialized with {len(self._hosts)} default hosts")
-        self._remote_index: Optional[int] = None
-        self._routes: List[RouteDict] = [
+        self._remote_index: int | None = None
+        self._routes: list[RouteDict] = [
             {
                 "summary": "192.168.1.10(J1) ⟶ 10.0.0.5(Remote)",
                 "remote_host_ip": "10.0.0.5",
@@ -95,11 +97,11 @@ class HostManager:
         self._styles = UIStyles()
 
         # UI components
-        self.add_route_btn: Optional[ui.button] = None
-        self.table_container: Optional[ui.column] = None
-        self.route_container: Optional[ui.column] = None
-        self.hosts_toggle_btn: Optional[ui.button] = None
-        self.routes_toggle_btn: Optional[ui.button] = None
+        self.add_route_btn: ui.button | None = None
+        self.table_container: ui.column | None = None
+        self.route_container: ui.column | None = None
+        self.hosts_toggle_btn: ui.button | None = None
+        self.routes_toggle_btn: ui.button | None = None
         self.hosts_expanded: bool = True
         self.routes_expanded: bool = True
 
@@ -383,7 +385,7 @@ class HostManager:
         except Exception as e:
             logger.error(f"Error updating jump order: {e}")
 
-    def _get_available_orders(self, current_host: HostDict) -> List[str]:
+    def _get_available_orders(self, current_host: HostDict) -> list[str]:
         """Get available jump orders."""
         used_orders = {h["jump_order"] for h in self._hosts if h["jump_order"] and h != current_host}
         return [str(j) for j in range(1, len(self._hosts)) if j not in used_orders]
@@ -546,11 +548,9 @@ class HostManager:
 
             with ui.card().classes("w-full p-4 bg-gray-50 border border-gray-200 mb-4"):
                 ui.label("Upload file").classes("font-semibold mb-3 text-gray-700")
-                file_upload = (
-                    ui.upload(on_upload=lambda e: self._handle_file_upload(e, dialog), auto_upload=True)
-                    .props('accept=".json"')
-                    .classes("w-full")
-                )
+                ui.upload(on_upload=lambda e: self._handle_file_upload(e, dialog), auto_upload=True).props(
+                    'accept=".json"'
+                ).classes("w-full")
 
             with ui.card().classes("w-full p-4 bg-gray-50 border border-gray-200 mb-4"):
                 ui.label("Paste JSON").classes("font-semibold mb-3 text-gray-700")
@@ -623,7 +623,7 @@ class HostManager:
 def main() -> None:
     """Main application entry point."""
     try:
-        host_manager = HostManager()
+        HostManager()
         ui.run(title="SSH Host Manager", favicon="./assets/icons/interoperability.png", port=8080, dark=False)
     except Exception as e:
         logger.error(f"Failed to start application: {e}")

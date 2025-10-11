@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 
 class NetworkInterfaces:
@@ -7,7 +7,7 @@ class NetworkInterfaces:
     Uses /sys/class/net for discovery (safe, no root required).
     """
 
-    def __init__(self, include_virtual: bool = True, include_loopback: bool = True):
+    def __init__(self, *, include_virtual: bool = True, include_loopback: bool = True):
         """
         :param include_virtual: If False, skip virtual interfaces (veth, docker, etc.)
         :param include_loopback: If False, skip loopback ("lo")
@@ -18,22 +18,16 @@ class NetworkInterfaces:
 
     def _discover_interfaces(self) -> list[str]:
         interfaces = []
-        sys_class_net = "/sys/class/net"
+        sys_class_net = Path("/sys/class/net")
 
-        for iface in os.listdir(sys_class_net):
+        for iface in sys_class_net.iterdir():
+            iface = iface.name
             # Skip loopback if requested
             if not self.include_loopback and iface == "lo":
                 continue
 
             # Skip common virtual interfaces if requested
-            if not self.include_virtual and (
-                iface.startswith("veth")
-                or iface.startswith("docker")
-                or iface.startswith("virbr")
-                or iface.startswith("br-")
-                or iface.startswith("tun")
-                or iface.startswith("tap")
-            ):
+            if not self.include_virtual and iface.startswith(("veth", "docker", "virbr", "br-", "tun", "tap")):
                 continue
 
             interfaces.append(iface)
@@ -54,8 +48,8 @@ class NetworkInterfaces:
 if __name__ == "__main__":
     # Show all interfaces
     all_ifaces = NetworkInterfaces()
-    print(all_ifaces.list())
+    # print(all_ifaces.list())
 
     # Exclude loopback and virtual devices
     physical_ifaces = NetworkInterfaces(include_virtual=False, include_loopback=False)
-    print(physical_ifaces.list())
+    # print(physical_ifaces.list())

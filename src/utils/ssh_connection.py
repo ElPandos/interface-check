@@ -4,6 +4,8 @@ import time
 
 import paramiko
 
+logger = logging.getLogger(__name__)
+
 from src.models.configurations import AppConfig
 
 
@@ -21,25 +23,26 @@ class SshConnection:
         jump_hosts = [h for h in app_config.hosts if h.jump]
         target_hosts = [h for h in app_config.hosts if h.remote]
 
+        # amazonq-ignore-next-line
         if jump_hosts:
             jump_host_config = jump_hosts[0]
             self.jump_host = jump_host_config.ip
             self.jump_user = jump_host_config.username
-            self.jump_pass = jump_host_config.password
+            self.jump_pass = jump_host_config.password.get_secret_value()
         else:
             self.jump_host = "127.0.0.1"
             self.jump_user = "user"
-            self.jump_pass = "pass"
+            self.jump_pass = "pass"  # Default invalid password  # noqa: S105
 
         if target_hosts:
             target_config = target_hosts[0]
             self.target_host = target_config.ip
             self.target_user = target_config.username
-            self.target_pass = target_config.password
+            self.target_pass = target_config.password.get_secret_value()
         else:
             self.target_host = "127.0.0.1"
             self.target_user = "user"
-            self.target_pass = "pass"
+            self.target_pass = "pass"  # Default invalid password  # noqa: S105
 
         self.keepalive_interval = keepalive_interval
 
@@ -83,38 +86,46 @@ class SshConnection:
             # ----------------------------- Channel to target ---------------------------- #
             jump_transport = self._jump_ssh.get_transport()
             if not jump_transport:
-                raise RuntimeError("Failed to get transport from jump host.")
+                msg = "Failed to get transport from jump host."
+                raise RuntimeError(msg)
 
-            logging.info(f"Send keep alive packets every: {self.keepalive_interval} sec.")
+            logger.info(f"Send keep alive packets every: {self.keepalive_interval} sec.")
             jump_transport.set_keepalive(self.keepalive_interval)
             dest_addr = (self.target_host, 22)
             local_addr = (self.jump_host, 22)
             channel = jump_transport.open_channel("direct-tcpip", dest_addr, local_addr)
 
             # -------------------------------- Target host ------------------------------- #
-            self._target_ssh = paramiko.SSHClient()
-            self._target_ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            self._target_ssh.connect(
-                hostname=self.target_host,
-                username=self.target_user,
-                password=self.target_pass,
-                sock=channel,
-                look_for_keys=False,
-                allow_agent=False,
-            )
+            try:
+                self._target_ssh = paramiko.SSHClient()
+                self._target_ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                self._target_ssh.connect(
+                    hostname=self.target_host,
+                    username=self.target_user,
+                    password=self.target_pass,
+                    sock=channel,
+                    look_for_keys=False,
+                    allow_agent=False,
+                )
+            except Exception:
+                # Ensure jump connection is closed if target connection fails
+                if self._jump_ssh:
+                    self._jump_ssh.close()
+                    self._jump_ssh = None
+                raise
 
-            # -------------------------- Start keep‑alive thread ------------------------- #
+            # -------------------------- Start keep-alive thread ------------------------- #
             self._stop_keepalive.clear()
             self._keepalive_thread = threading.Thread(target=self._keepalive_loop, daemon=True)
             self._keepalive_thread.start()
             return True
-        except Exception as e:
-            logging.error(f"Connection failed: {e}")
+        except Exception:
+            logger.exception("Connection failed")
             self.disconnect()
             return False
 
     def disconnect(self) -> None:
-        """Terminate both SSH sessions and stop the keep‑alive thread."""
+        """Terminate both SSH sessions and stop the keep-alive thread."""
         self._stop_keepalive.set()
         if self._keepalive_thread:
             self._keepalive_thread.join(timeout=1)
@@ -133,7 +144,8 @@ class SshConnection:
 
     def exec_command(self, command: str, timeout: int | None = None) -> tuple[str, str]:
         if not self._target_ssh:
-            raise RuntimeError("Not connected – Call connect() first.")
+            msg = "Not connected - Call connect() first."
+            raise RuntimeError(msg)
 
         _, stdout, stderr = self._target_ssh.exec_command(command, timeout=timeout)
 
@@ -143,11 +155,11 @@ class SshConnection:
         return stdout_str, stderr_str
 
     # ---------------------------------------------------------------------------- #
-    #                           Internal keep‑alive logic                          #
+    #                           Internal keep-alive logic                          #
     # ---------------------------------------------------------------------------- #
 
     def _keepalive_loop(self) -> None:
-        """Send a keep‑alive packet on each transport every *keepalive_interval* seconds."""
+        """Send a keep-alive packet on each transport every *keepalive_interval* seconds."""
         while not self._stop_keepalive.is_set():
             if self._jump_ssh:
                 transport = self._jump_ssh.get_transport()
@@ -165,7 +177,7 @@ class SshConnection:
 
     def is_connected(self) -> bool:
         """
-        Return True if both the jump‑host and target SSH transports are alive.
+        Return True if both the jump-host and target SSH transports are alive.
         """
         return (
             self._jump_ssh is not None

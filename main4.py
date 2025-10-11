@@ -1,5 +1,4 @@
 from nicegui import ui
-import asyncio
 
 # Simulated host connection state
 host_connected = False

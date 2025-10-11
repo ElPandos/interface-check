@@ -3,13 +3,22 @@ SSH Host Manager - Optimized Implementation
 Type-safe, secure, and performant SSH host management with route configuration.
 """
 
-import json
-import logging
 from collections.abc import Callable
 from dataclasses import dataclass
+import json
+import logging
+from pathlib import Path
+import re
 from typing import Any, TypedDict
 
 from nicegui import ui
+
+from src.utils.ssh_connection import SshConnection
+
+# Constants
+MAX_INPUT_LENGTH = 255
+CONFIG_DIR = ".interface-check"
+CONFIG_FILE = "ssh_config.json"
 
 
 class HostDict(TypedDict):
@@ -48,7 +57,8 @@ class HostHandler:
 
     def __init__(self) -> None:
         """Initialize the host manager with default configuration."""
-        logging.debug("Initializing HostManager")
+        self._logger = logging.getLogger(__name__)
+        self._logger.debug("Initializing HostManager")
         self._load_config()
         self._remote_index: int | None = None
         self._styles = UIStyles()
@@ -63,7 +73,7 @@ class HostHandler:
         self.routes_expanded: bool = True
         self._on_connection_success: Callable[[], None] | None = None
         self._on_connection_failure: Callable[[], None] | None = None
-        self._ssh_connection: Any | None = None
+        self._ssh_connection: SshConnection | None = None
         self._connected_routes: set[int] = set()
         self._route_buttons: dict[int, ui.button] = {}
 
@@ -73,53 +83,53 @@ class HostHandler:
         self._host_rows: dict[int, ui.row] = {}
         self._route_rows: dict[int, ui.row] = {}
 
-        logging.debug("Starting UI initialization")
+        self._logger.debug("Starting UI initialization")
         self._init_ui()
-        logging.debug("HostManager initialization complete")
+        self._logger.debug("HostManager initialization complete")
 
         # Initialize with red icon (disconnected state)
         self._update_connection_status()
 
     def _load_config(self) -> None:
         """Load configuration from ssh_config.json."""
-        import os
-
         try:
-            config_path = os.path.expanduser("~/.interface-check/ssh_config.json")
-            if os.path.exists(config_path):
-                with open(config_path) as f:
+            config_path = Path.home() / CONFIG_DIR / CONFIG_FILE
+            if config_path.exists():
+                with config_path.open() as f:
                     config = json.load(f)
+                self._validate_config(config)
                 self._hosts = config.get("hosts", [])
                 self._routes = config.get("routes", [])
-                # Reset all host states on load
-                for host in self._hosts:
-                    host["remote"] = False
-                    host["jump"] = False
-                    host["jump_order"] = None
-                self._remote_index = None
-                logging.debug(f"Loaded {len(self._hosts)} hosts and {len(self._routes)} routes")
+                self._reset_host_states()
+                self._logger.debug("Loaded %d hosts and %d routes", len(self._hosts), len(self._routes))
             else:
-                self._hosts = []
-                self._routes = []
-        except (json.JSONDecodeError, Exception) as e:
-            logging.warning(f"Config file corrupted, using defaults: {e}")
-            self._hosts = []
-            self._routes = []
+                self._use_default_config()
+        except json.JSONDecodeError:
+            self._logger.exception("Invalid JSON in config")
+            self._use_default_config()
+        except PermissionError:
+            self._logger.exception("Permission denied accessing config")
+            self._use_default_config()
+        except Exception:
+            self._logger.exception("Unexpected error loading config")
+            self._use_default_config()
 
     def _save_to_file(self) -> None:
         """Save current state to ssh_config.json."""
-        import os
-
         try:
-            config_dir = os.path.expanduser("~/.interface-check")
-            os.makedirs(config_dir, exist_ok=True)
-            config_path = os.path.join(config_dir, "ssh_config.json")
+            config_dir = Path.home() / CONFIG_DIR
+            config_dir.mkdir(exist_ok=True)
+            config_path = config_dir / CONFIG_FILE
 
             config = {"hosts": self._hosts, "routes": self._routes}
-            with open(config_path, "w") as f:
+            with config_path.open("w") as f:
                 json.dump(config, f, indent=2)
-        except Exception as e:
-            logging.exception(f"Error saving to file: {e}")
+        except PermissionError:
+            self._logger.exception("Permission denied saving config")
+            ui.notify("Permission denied saving configuration", color="negative")
+        except Exception:
+            self._logger.exception("Error saving to file")
+            ui.notify("Failed to save configuration", color="negative")
 
     def _init_ui(self) -> None:
         """Initialize the user interface with proper error handling."""
@@ -135,73 +145,111 @@ class HostHandler:
                 warning="#f59e0b",
             )
 
-            with ui.column().classes("w-full h-screen p-4"):
-                with ui.card().classes("w-full h-full p-6 shadow-xl bg-gray-50 border border-gray-200"):
-                    with ui.row().classes("w-full justify-center items-center gap-3 mb-6"):
-                        ui.icon("terminal", size="lg").classes("text-yellow-500")
-                        ui.label("SSH Host Manager").classes("text-2xl font-bold text-gray-800")
+            with (
+                ui.column().classes("w-full h-screen p-4"),
+                ui.card().classes("w-full h-full p-6 shadow-xl bg-gray-50 border border-gray-200"),
+            ):
+                with ui.row().classes("w-full justify-center items-center gap-3 mb-6"):
+                    ui.icon("terminal", size="lg").classes("text-yellow-500")
+                    ui.label("SSH Host Manager").classes("text-2xl font-bold text-gray-800")
+                    ui.space()
+                    ui.button(icon="save", on_click=self._save_config).classes(
+                        "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
+                    )
+                    ui.button(icon="download", text="Import", on_click=self._open_import_dialog).classes(
+                        "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
+                    )
+                    ui.button(icon="upload", text="Export", on_click=self._export_config).classes(
+                        "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
+                    )
+
+                with ui.card().classes("w-full bg-white border border-gray-200 shadow-sm"):
+                    with ui.row().classes("w-full items-center gap-2 mb-4"):
+                        self.hosts_toggle_btn = (
+                            ui.button(icon="expand_less", on_click=self._toggle_hosts)
+                            .props("flat round")
+                            .classes("text-gray-600")
+                        )
+                        ui.icon("computer", size="lg").classes("text-blue-600")
+                        ui.label("Hosts").classes("text-lg font-semibold text-gray-800")
                         ui.space()
-                        ui.button(icon="save", on_click=self._save_config).classes(
+                        ui.button(icon="desktop_windows", text="Add Host", on_click=self._open_add_dialog).classes(
                             "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
                         )
-                        ui.button(icon="download", text="Import", on_click=self._open_import_dialog).classes(
-                            "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
-                        )
-                        ui.button(icon="upload", text="Export", on_click=self._export_config).classes(
-                            "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
-                        )
+                    self.table_container = ui.column().classes("w-full")
 
-                    with ui.card().classes("w-full bg-white border border-gray-200 shadow-sm"):
-                        with ui.row().classes("w-full items-center gap-2 mb-4"):
-                            self.hosts_toggle_btn = (
-                                ui.button(icon="expand_less", on_click=self._toggle_hosts)
-                                .props("flat round")
-                                .classes("text-gray-600")
-                            )
-                            ui.icon("computer", size="lg").classes("text-blue-600")
-                            ui.label("Hosts").classes("text-lg font-semibold text-gray-800")
-                            ui.space()
-                            ui.button(icon="desktop_windows", text="Add Host", on_click=self._open_add_dialog).classes(
-                                "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
-                            )
-                        self.table_container = ui.column().classes("w-full")
-
-                    with ui.card().classes("w-full bg-white border border-gray-200 shadow-sm"):
-                        with ui.row().classes("w-full items-center gap-2 mb-4"):
-                            self.routes_toggle_btn = (
-                                ui.button(icon="expand_less", on_click=self._toggle_routes)
-                                .props("flat round")
-                                .classes("text-gray-600")
-                            )
-                            ui.icon("route", size="lg").classes("text-green-600")
-                            ui.label("Routes").classes("text-lg font-semibold text-gray-800")
-                            ui.space()
-                            self.add_route_btn = (
-                                ui.button(icon="route", text="Add Route", on_click=self._add_route)
-                                .props("disable")
-                                .classes("bg-gray-100 text-gray-400 cursor-not-allowed px-6 py-2 rounded")
-                            )
-                        self.route_container = ui.column().classes("w-full")
+                with ui.card().classes("w-full bg-white border border-gray-200 shadow-sm"):
+                    with ui.row().classes("w-full items-center gap-2 mb-4"):
+                        self.routes_toggle_btn = (
+                            ui.button(icon="expand_less", on_click=self._toggle_routes)
+                            .props("flat round")
+                            .classes("text-gray-600")
+                        )
+                        ui.icon("route", size="lg").classes("text-green-600")
+                        ui.label("Routes").classes("text-lg font-semibold text-gray-800")
+                        ui.space()
+                        self.add_route_btn = (
+                            ui.button(icon="route", text="Add Route", on_click=self._add_route)
+                            .props("disable")
+                            .classes("bg-gray-100 text-gray-400 cursor-not-allowed px-6 py-2 rounded")
+                        )
+                    self.route_container = ui.column().classes("w-full")
 
             self._refresh_table()
             self._refresh_route_table()
 
-        except Exception as e:
-            logging.exception(f"Failed to initialize UI: {e}")
+        except Exception:
+            self._logger.exception("Failed to initialize UI")
             ui.notify("Failed to initialize interface", color="negative")
+
+    def _validate_config(self, config: dict) -> None:
+        """Validate configuration structure."""
+        if not isinstance(config, dict):
+            msg = "Config must be a dictionary"
+            raise TypeError(msg)
+        if "hosts" in config and not isinstance(config["hosts"], list):
+            msg = "Hosts must be a list"
+            raise TypeError(msg)
+        if "routes" in config and not isinstance(config["routes"], list):
+            msg = "Routes must be a list"
+            raise TypeError(msg)
+
+    def _use_default_config(self) -> None:
+        """Initialize with default empty configuration."""
+        self._hosts = []
+        self._routes = []
+        self._remote_index = None
+
+    def _reset_host_states(self) -> None:
+        """Reset all host states on load."""
+        for host in self._hosts:
+            host["remote"] = False
+            host["jump"] = False
+            host["jump_order"] = None
+        self._remote_index = None
 
     def _validate_ip(self, ip: str) -> bool:
         """Validate IP address format."""
-        import re
-
         pattern = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
         return bool(re.match(pattern, ip.strip()))
 
+    def _validate_and_sanitize_input(self, value: str, max_length: int = MAX_INPUT_LENGTH) -> str:
+        """Validate and sanitize user input."""
+        if not isinstance(value, str):
+            msg = "Input must be string"
+            raise TypeError(msg)
+        sanitized = value.strip()
+        if len(sanitized) > max_length:
+            msg = f"Input too long (max {max_length})"
+            raise ValueError(msg)
+        return sanitized
+
     def _sanitize_input(self, value: str) -> str:
         """Sanitize user input to prevent injection attacks."""
-        if not isinstance(value, str):
+        try:
+            return self._validate_and_sanitize_input(value)
+        except ValueError:
             return ""
-        return value.strip()[:255]
 
     def _open_add_dialog(self) -> None:
         """Open dialog to add new host with input validation."""
@@ -230,11 +278,9 @@ class HostHandler:
                         self._sanitize_input(pass_input.value or ""),
                         dialog,
                     ),
-                ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg")
-                ui.space()
-                ui.button(icon="cancel", text="Cancel", on_click=dialog.close).classes(
-                    "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg"
-                )
+                ).classes("bg-blue-500 hover:bg-blue-600 text-white flex-1")
+                ui.button("Cancel", on_click=dialog.close).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 ml-2")
+
         dialog.open()
 
     def _add_host(self, ip: str, username: str, password: str, dialog: ui.dialog) -> None:
@@ -273,8 +319,8 @@ class HostHandler:
             ui.notify(f"Successfully added host {ip}", color="positive")
             self._refresh_table()
 
-        except Exception as e:
-            logging.exception(f"Error adding host: {e}")
+        except Exception:
+            self._logger.exception("Error adding host")
             ui.notify("Failed to add host", color="negative")
 
     def _toggle_routes(self) -> None:
@@ -301,8 +347,8 @@ class HostHandler:
             self._save_to_file()
             self._refresh_table()
 
-        except Exception as e:
-            logging.exception(f"Error deleting host: {e}")
+        except Exception:
+            self._logger.exception("Error deleting host")
 
     def _add_route(self) -> None:
         """Add new route with validation."""
@@ -318,7 +364,7 @@ class HostHandler:
 
             jump_parts = [f"{h['ip']}(J{h['jump_order']})" for h in jump_hosts]
             remote_part = f"{remote_host['ip']}(Remote)"
-            summary = " ⟶ ".join(jump_parts + [remote_part])
+            summary = " ⟶ ".join([*jump_parts, remote_part])
 
             if any(r["summary"] == summary for r in self._routes):
                 ui.notify("Route already exists", color="negative")
@@ -346,8 +392,8 @@ class HostHandler:
             self._refresh_table()
             self._refresh_route_table()
 
-        except Exception as e:
-            logging.exception(f"Error adding route: {e}")
+        except Exception:
+            self._logger.exception("Error adding route")
 
     def _toggle_hosts(self) -> None:
         """Toggle hosts table visibility."""
@@ -365,10 +411,10 @@ class HostHandler:
                 self._save_to_file()
                 ui.notify("Route removed", color="warning")
                 self._refresh_route_table()
-        except Exception as e:
-            logging.exception(f"Error deleting route: {e}")
+        except Exception:
+            self._logger.exception("Error deleting route")
 
-    def _on_remote_toggle(self, checked: bool, index: int) -> None:
+    def _on_remote_toggle(self, *, checked: bool, index: int) -> None:
         """Handle remote host selection."""
         try:
             if not (0 <= index < len(self._hosts)):
@@ -389,10 +435,10 @@ class HostHandler:
 
             self._save_to_file()
             self._refresh_table()
-        except Exception as e:
-            logging.exception(f"Error toggling remote host: {e}")
+        except Exception:
+            self._logger.exception("Error toggling remote host")
 
-    def _on_jump_toggle(self, checked: bool, index: int) -> None:
+    def _on_jump_toggle(self, *, checked: bool, index: int) -> None:
         """Handle jump host selection."""
         try:
             if 0 <= index < len(self._hosts):
@@ -408,8 +454,8 @@ class HostHandler:
                             break
                 self._save_to_file()
                 self._refresh_table()
-        except Exception as e:
-            logging.exception(f"Error toggling jump host: {e}")
+        except Exception:
+            self._logger.exception("Error toggling jump host")
 
     def _on_jump_order_change(self, value: str, index: int) -> None:
         """Handle jump order change."""
@@ -425,8 +471,8 @@ class HostHandler:
                         order = None
                 self._hosts[index]["jump_order"] = order
                 self._save_to_file()
-        except Exception as e:
-            logging.exception(f"Error updating jump order: {e}")
+        except Exception:
+            self._logger.exception("Error updating jump order")
 
     def _get_available_orders(self, current_host: HostDict) -> list[str]:
         """Get available jump orders."""
@@ -462,8 +508,8 @@ class HostHandler:
 
             self._update_route_button()
 
-        except Exception as e:
-            logging.exception(f"Error refreshing table: {e}")
+        except Exception:
+            self._logger.exception("Error refreshing table")
 
     def _render_host_row(self, index: int, host: HostDict) -> None:
         """Render individual host row."""
@@ -496,7 +542,7 @@ class HostHandler:
                 .classes("text-gray-400 mr-2 cursor-pointer")
                 .tooltip("Click to select, then click another row to move")
             )
-            drag_icon.on("click", lambda e, i=index: self._select_host_for_move(i))
+            drag_icon.on("click", lambda _e, i=index: self._select_host_for_move(i))
             ui.label(str(index + 1)).classes("w-6 text-gray-600 text-left")
             ui.label(host["ip"]).classes("w-40 text-gray-800 text-left")
             ui.label(host["username"]).classes("w-36 text-gray-800 text-left")
@@ -571,7 +617,7 @@ class HostHandler:
                                     .classes("text-gray-400 mr-2 cursor-pointer")
                                     .tooltip("Click to select, then click another row to move")
                                 )
-                                drag_icon.on("click", lambda e, idx=i: self._select_route_for_move(idx))
+                                drag_icon.on("click", lambda _e, idx=i: self._select_route_for_move(idx))
                                 ui.label(str(i + 1)).classes("w-6 text-gray-600")
                                 ui.label(route["summary"]).classes("flex-1 truncate text-gray-800 text-center")
                                 with ui.row().classes("gap-2 w-40 justify-center items-center"):
@@ -591,8 +637,8 @@ class HostHandler:
                                         "unelevated"
                                     ).classes("bg-red-300 hover:bg-red-400 text-red-900 w-16 h-8 rounded shadow")
 
-        except Exception as e:
-            logging.exception(f"Error refreshing route table: {e}")
+        except Exception:
+            self._logger.exception("Error refreshing route table")
 
     def _update_route_button(self) -> None:
         """Update route button state."""
@@ -606,10 +652,10 @@ class HostHandler:
                 self.add_route_btn.classes(replace="bg-gray-100 text-gray-400 cursor-not-allowed px-6 py-2 rounded")
 
     def _create_remote_handler(self, index: int) -> Callable[[Any], None]:
-        return lambda e: self._on_remote_toggle(e.value, index)
+        return lambda e: self._on_remote_toggle(checked=e.value, index=index)
 
     def _create_jump_handler(self, index: int) -> Callable[[Any], None]:
-        return lambda e: self._on_jump_toggle(e.value, index)
+        return lambda e: self._on_jump_toggle(checked=e.value, index=index)
 
     def _create_order_handler(self, index: int) -> Callable[[Any], None]:
         return lambda e: self._on_jump_order_change(e.value, index)
@@ -674,13 +720,13 @@ class HostHandler:
                         self._update_connection_status()
                         if self._on_connection_success:
                             self._on_connection_success()
-                    except Exception as e:
-                        logging.exception(f"SSH connection failed: {e}")
+                    except Exception:
+                        self._logger.exception("SSH connection failed")
                         ui.notify("Connection failed", color="negative")
 
                 self._refresh_route_table()
-        except Exception as e:
-            logging.exception(f"Error connecting to route: {e}")
+        except Exception:
+            self._logger.exception("Error connecting to route")
             ui.notify("Connection failed", color="negative")
 
     def _update_connection_status(self) -> None:
@@ -695,20 +741,18 @@ class HostHandler:
 
     def _save_config(self) -> None:
         """Save configuration to ~/.interface-check/ssh_config.json for debug."""
-        import os
-
         try:
-            config_dir = os.path.expanduser("~/.interface-check")
-            os.makedirs(config_dir, exist_ok=True)
-            config_path = os.path.join(config_dir, "ssh_config.json")
+            config_dir = Path.home() / ".interface-check"
+            config_dir.mkdir(exist_ok=True)
+            config_path = config_dir / "ssh_config.json"
 
             config = {"hosts": self._hosts, "routes": self._routes}
-            with open(config_path, "w") as f:
+            with config_path.open("w") as f:
                 json.dump(config, f, indent=2)
 
             ui.notify(f"Configuration saved to {config_path}", color="positive")
-        except Exception as e:
-            logging.exception(f"Error saving config: {e}")
+        except Exception:
+            self._logger.exception("Error saving config")
             ui.notify("Failed to save configuration", color="negative")
 
     def _export_config(self) -> None:
@@ -718,8 +762,8 @@ class HostHandler:
             config_json = json.dumps(config, indent=2)
             ui.download(config_json.encode(), "ssh_config.json")
             ui.notify("Configuration exported successfully", color="positive")
-        except Exception as e:
-            logging.exception(f"Error exporting config: {e}")
+        except Exception:
+            self._logger.exception("Error exporting config")
             ui.notify("Failed to export configuration", color="negative")
 
     def _open_import_dialog(self) -> None:
@@ -729,11 +773,9 @@ class HostHandler:
 
             with ui.card().classes("w-full p-4 bg-gray-50 border border-gray-200 mb-4"):
                 ui.label("Upload file").classes("font-semibold mb-3 text-gray-700")
-                file_upload = (
-                    ui.upload(on_upload=lambda e: self._handle_file_upload(e, dialog), auto_upload=True)
-                    .props('accept=".json"')
-                    .classes("w-full")
-                )
+                ui.upload(on_upload=lambda e: self._handle_file_upload(e, dialog), auto_upload=True).props(
+                    'accept=".json"'
+                ).classes("w-full")
 
             with ui.card().classes("w-full p-4 bg-gray-50 border border-gray-200 mb-4"):
                 ui.label("Paste JSON").classes("font-semibold mb-3 text-gray-700")
@@ -754,8 +796,8 @@ class HostHandler:
         try:
             content = e.content.read().decode("utf-8")
             self._import_config(content, dialog)
-        except Exception as ex:
-            logging.exception(f"Error reading file: {ex}")
+        except Exception:
+            self._logger.exception("Error reading file")
 
     def _import_config(self, config_text: str, dialog: ui.dialog) -> None:
         """Import configuration from JSON."""
@@ -799,8 +841,8 @@ class HostHandler:
 
         except json.JSONDecodeError:
             ui.notify("Invalid JSON format", color="negative")
-        except Exception as e:
-            logging.exception(f"Error importing config: {e}")
+        except Exception:
+            self._logger.exception("Error importing config")
 
     def _select_host_for_move(self, index: int) -> None:
         """Select host for moving."""
@@ -828,20 +870,18 @@ class HostHandler:
             self._selected_route = None
             self._refresh_route_table()
 
-    def _cancel_host_move_if_outside_drag(self, event: Any, index: int) -> None:
+    def _cancel_host_move_if_outside_drag(self, event: Any, _index: int) -> None:
         """Cancel host move if clicking outside drag indicator."""
         # Check if click target is the drag indicator
-        if hasattr(event, "target") and "drag_indicator" not in str(event.target):
-            if self._selected_host is not None:
-                self._selected_host = None
-                ui.notify("Move operation canceled", color="warning")
-                self._refresh_table()
+        if hasattr(event, "target") and "drag_indicator" not in str(event.target) and self._selected_host is not None:
+            self._selected_host = None
+            ui.notify("Move operation canceled", color="warning")
+            self._refresh_table()
 
-    def _cancel_route_move_if_outside_drag(self, event: Any, index: int) -> None:
+    def _cancel_route_move_if_outside_drag(self, event: Any, _index: int) -> None:
         """Cancel route move if clicking outside drag indicator."""
         # Check if click target is the drag indicator
-        if hasattr(event, "target") and "drag_indicator" not in str(event.target):
-            if self._selected_route is not None:
-                self._selected_route = None
-                ui.notify("Move operation canceled", color="warning")
-                self._refresh_route_table()
+        if hasattr(event, "target") and "drag_indicator" not in str(event.target) and self._selected_route is not None:
+            self._selected_route = None
+            ui.notify("Move operation canceled", color="warning")
+            self._refresh_route_table()

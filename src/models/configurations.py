@@ -1,5 +1,6 @@
-from typing import ClassVar, Optional
-from pydantic import BaseModel, Field, ConfigDict
+from typing import ClassVar
+
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from src.ui.enums.settings import Options, Types
 
@@ -7,12 +8,12 @@ from src.ui.enums.settings import Options, Types
 class Host(BaseModel):
     ip: str
     username: str
-    password: str
+    password: SecretStr
     remote: bool = False
     jump: bool = False
-    jump_order: Optional[int] = None
+    jump_order: int | None = None
 
-    _DEFAULT_HOST: ClassVar[dict] = {
+    _DEFAULT_HOST: ClassVar[dict[str, str | bool | int | None]] = {
         "ip": "192.168.1.10",
         "username": "admin",
         "password": "demo123",
@@ -21,7 +22,7 @@ class Host(BaseModel):
         "jump_order": None,
     }
 
-    _DEFAULT_JUMP: ClassVar[dict] = {
+    _DEFAULT_JUMP: ClassVar[dict[str, str | bool | int | None]] = {
         "ip": "10.0.0.5",
         "username": "user",
         "password": "demo456",
@@ -32,16 +33,16 @@ class Host(BaseModel):
 
     @classmethod
     def default_host(cls) -> "Host":
-        """Return a ``Host`` instance pre‑populated with the default host values."""
+        """Return a ``Host`` instance pre-populated with the default host values."""
         return cls._from_defaults(cls._DEFAULT_HOST)
 
     @classmethod
     def default_jump(cls) -> "Host":
-        """Return a ``Host`` instance pre‑populated with the default jump‑host values."""
+        """Return a ``Host`` instance pre-populated with the default jump-host values."""
         return cls._from_defaults(cls._DEFAULT_JUMP)
 
     @classmethod
-    def _from_defaults(cls, defaults: dict) -> "Host":
+    def _from_defaults(cls, defaults: dict[str, str | bool | int | None]) -> "Host":
         """
         Centralised construction helper.
 
@@ -50,12 +51,12 @@ class Host(BaseModel):
         defaults: dict
             Mapping of field names to default values.
 
-        Returns
+        Returns:
         -------
         Host
             A new ``Host`` instance.
         """
-        # ``SecretStr`` is required for the password field – we wrap it here.
+        # ``SecretStr`` is required for the password field - we wrap it here.
         defaults = defaults.copy()
         # Let Pydantic handle conversion to SecretStr by passing the raw string.
         return cls(**defaults)
@@ -63,7 +64,7 @@ class Host(BaseModel):
 
 class Setting(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
-    
+
     name: str
     type: Options
     value: bool | int | str
@@ -98,6 +99,14 @@ class SettingsConfig(BaseModel):
                 min=10,
                 max=100,
             ),
+            # AUTO setting removed - each tab has its own checkbox
+            Setting(
+                name=Types.REFRESH.name,
+                type=Options.SLIDER,
+                value=5,
+                min=1,
+                max=60,
+            ),
             Setting(
                 name=Types.MESSAGE.name,
                 type=Options.TEXT,
@@ -119,17 +128,19 @@ class SettingsConfig(BaseModel):
     def get_command_update_value(self) -> int:
         command_update = next((s for s in self.settings if s.name == Types.COMMAND.name), None)
         if command_update is None:
-            raise ValueError("UPDATE setting not defined in configuration")
+            msg = "UPDATE setting not defined in configuration"
+            raise ValueError(msg)
         return int(command_update.value)
 
     def get_graph_update_value(self) -> int:
         graph_update = next((s for s in self.settings if s.name == Types.GRAPH.name), None)
         if graph_update is None:
-            raise ValueError("UPDATE setting not defined in configuration")
+            msg = "UPDATE setting not defined in configuration"
+            raise ValueError(msg)
         return int(graph_update.value)
 
 
 class AppConfig(BaseModel):
     system: SettingsConfig = Field(default_factory=SettingsConfig)
     hosts: list[Host] = Field(default_factory=lambda: [Host.default_host(), Host.default_jump()])
-    routes: list[dict] = Field(default_factory=list)
+    routes: list[dict[str, str | list[dict[str, str | int]]]] = Field(default_factory=list)
