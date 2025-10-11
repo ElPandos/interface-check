@@ -58,7 +58,7 @@ class Gui:
         self._add_gui_events()
 
     def run(self) -> None:
-        ui.run(reload=True)
+        ui.run(favicon="./assets/icons/interoperability.png", reload=True)
 
     def _build_header(self) -> None:
         with ui.header().classes(replace="row items-center justify-between"):

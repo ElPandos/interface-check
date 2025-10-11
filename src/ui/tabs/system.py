@@ -2,8 +2,9 @@
 
 from nicegui import ui
 
+from src.mixins.multi_screen import MultiScreenMixin
 from src.models.configurations import AppConfig
-from src.ui.mixins.multi_screen import MultiScreenMixin
+from src.ui.components.connection_selector import ConnectionSelector
 from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.ssh_connection import SshConnection
 
@@ -47,20 +48,17 @@ class SystemPanel(BasePanel, MultiScreenMixin):
             self._build_content_base()
 
     def _build_screen(self, screen_num, classes):
-        with ui.card().classes(classes):
-            with ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
-                if self._host_handler:
-                    from src.ui.components.connection_selector import ConnectionSelector
-
-                    ConnectionSelector(
-                        self._host_handler._connected_routes,
-                        self._host_handler._routes,
-                        lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
-                    ).build()
-                ui.button("System Info", on_click=lambda s=screen_num: self._get_system_info(s)).classes(
-                    "bg-green-300 hover:bg-green-400 text-green-900 mt-2"
-                )
-                ui.label(f"System information for host {screen_num}").classes("mt-4")
+        with ui.card().classes(classes), ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
+            if self._host_handler:
+                ConnectionSelector(
+                    self._host_handler._connected_routes,  # noqa: SLF001
+                    self._host_handler._routes,  # noqa: SLF001
+                    lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
+                ).build()
+            ui.button("System Info", on_click=lambda s=screen_num: self._get_system_info(s)).classes(
+                "bg-green-300 hover:bg-green-400 text-green-900 mt-2"
+            )
+            ui.label(f"System information for host {screen_num}").classes("mt-4")
 
     def _get_system_info(self, screen_num):
         ui.notify(f"Getting system info for screen {screen_num}", color="info")

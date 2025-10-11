@@ -23,10 +23,6 @@ class SettingsHandler:
     def _save(self) -> None:
         Configure().save(self._app_config)
 
-    def _toggle_refresh_slider(self, enabled: bool, refresh_setting) -> None:
-        """Enable/disable refresh slider based on auto checkbox."""
-        # This will be handled by the UI binding automatically
-
     def build(self, app_config: AppConfig) -> None:
         """Render settings UI with live bindings to internal values."""
         self._app_config = app_config

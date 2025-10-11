@@ -1,4 +1,4 @@
-from src.enums.command_types import CommandTypes
+from src.enums.command import CommandTypes
 
 # ---------------------------------------------------------------------------- #
 #                                 Base command                                 #

@@ -15,11 +15,10 @@ class MultiScreenMixin(ABC):
 
     def _build_controls_base(self, label: str) -> None:
         """Build standard controls with host selector."""
-        with ui.card().classes("w-full mb-4"):
-            with ui.row().classes("w-full items-center gap-4"):
-                ui.label(label).classes("text-lg font-bold")
-                ui.space()
-                ui.select([1, 2, 3, 4], value=1, label="Hosts").classes("w-32").on_value_change(self._on_screen_change)
+        with ui.card().classes("w-full mb-4"), ui.row().classes("w-full items-center gap-4"):
+            ui.label(label).classes("text-lg font-bold")
+            ui.space()
+            ui.select([1, 2, 3, 4], value=1, label="Hosts").classes("w-32").on_value_change(self._on_screen_change)
 
     def _build_content_base(self) -> None:
         """Build standard content container."""
@@ -68,6 +67,3 @@ class MultiScreenMixin(ABC):
             self.screen_connections = {}
         self.screen_connections[screen_num] = connection_id
         self._update_icon_status()
-
-    def _update_icon_status(self):
-        """Update tab icon color based on connection status."""

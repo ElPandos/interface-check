@@ -2,6 +2,8 @@ import logging
 
 from nicegui import ui
 
+logger = logging.getLogger(__name__)
+
 from src.models.configurations import AppConfig
 from src.ui.handlers.graph import GraphHandler
 from src.ui.tabs.base import BasePanel, BaseTab
@@ -57,17 +59,16 @@ class EthtoolPanel(BasePanel):
 
     def _close_card(self, card: ui.card, interf: str = None, kill_worker: bool = False) -> None:
         if kill_worker:
-            logging.debug("Kill worker")
+            logger.debug("Kill worker")
             self._work_manager.reset()
         card.delete()
-        logging.debug("Card deleted")
+        logger.debug("Card deleted")
 
     def _build_controls(self) -> None:
-        with ui.card().classes("w-full mb-4"):
-            with ui.row().classes("w-full items-center gap-4"):
-                ui.label("Ethtool").classes("text-lg font-bold")
-                ui.space()
-                ui.select([1, 2, 3, 4], value=1, label="Hosts").classes("w-32").on_value_change(self._on_screen_change)
+        with ui.card().classes("w-full mb-4"), ui.row().classes("w-full items-center gap-4"):
+            ui.label("Ethtool").classes("text-lg font-bold")
+            ui.space()
+            ui.select([1, 2, 3, 4], value=1, label="Hosts").classes("w-32").on_value_change(self._on_screen_change)
 
     def _build_content(self) -> None:
         self.content_container = ui.column().classes("w-full h-full")
@@ -139,21 +140,21 @@ class EthtoolPanel(BasePanel):
 
     def _scan_interfaces(self):
         if not self._ssh_connection:
-            logging.warning("No SSH connection object")
+            logger.warning("No SSH connection object")
             return
 
         if not self._ssh_connection.is_connected():
-            logging.warning("No SSH connection established")
+            logger.warning("No SSH connection established")
             return
 
         _, err = self._ssh_connection.exec_command(System().install_psutil().syntax)
         if err:
-            logging.warning("Failed to install python library: psutil")
+            logger.warning("Failed to install python library: psutil")
             return
 
         out, err = self._ssh_connection.exec_command(Common().get_interfaces().syntax)
         if err:
-            logging.warning("Failed to collect host interface names")
+            logger.warning("Failed to collect host interface names")
             return
 
         card = ui.card().classes("w-full")

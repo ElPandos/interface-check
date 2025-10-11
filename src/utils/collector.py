@@ -12,7 +12,7 @@ from pympler import asizeof
 
 logger = logging.getLogger(__name__)
 
-from src.enums.command_types import CommandTypes
+from src.enums.command import CommandTypes
 from src.models.configurations import AppConfig
 from src.models.ethtool import EthtoolParser
 from src.utils.commands import Command

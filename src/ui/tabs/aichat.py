@@ -2,8 +2,8 @@ from datetime import datetime
 
 from nicegui import ui
 
+from src.mixins.multi_screen import MultiScreenMixin
 from src.models.configurations import AppConfig
-from src.ui.mixins.multi_screen import MultiScreenMixin
 from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.ssh_connection import SshConnection
 
@@ -26,6 +26,7 @@ class AichatTab(BaseTab):
 class AichatPanel(BasePanel, MultiScreenMixin):
     def __init__(
         self,
+        *,
         build: bool = False,
         app_config: AppConfig = None,
         ssh_connection: SshConnection = None,
@@ -48,13 +49,12 @@ class AichatPanel(BasePanel, MultiScreenMixin):
             self._build_controls_base("AI Assistant")
             self._build_content_base()
 
-    def _build_screen(self, screen_num, classes):
-        with ui.card().classes(classes):
-            with ui.expansion(f"AI Chat {screen_num}", icon="smart_toy").classes("w-full"):
-                # Chat interface
-                self._build_chat_interface(screen_num)
+    def _build_screen(self, screen_num: int, classes):
+        with ui.card().classes(classes), ui.expansion(f"AI Chat {screen_num}", icon="smart_toy").classes("w-full"):
+            # Chat interface
+            self._build_chat_interface(screen_num)
 
-    def _build_chat_interface(self, screen_num):
+    def _build_chat_interface(self, screen_num: int):
         """Build ChatGPT-like interface for the screen."""
         with ui.column().classes("w-full h-full gap-4"):
             # Model selector and controls
@@ -102,22 +102,24 @@ class AichatPanel(BasePanel, MultiScreenMixin):
                     )
 
             # Quick actions
-            with ui.expansion("Quick Actions", icon="flash_on").classes("w-full mt-4"):
-                with ui.row().classes("w-full gap-2 flex-wrap"):
-                    ui.button(
-                        "Explain Code", on_click=lambda s=screen_num: self._quick_action(s, "explain_code")
-                    ).classes("bg-orange-300 hover:bg-orange-400 text-orange-900")
-                    ui.button("Debug Issue", on_click=lambda s=screen_num: self._quick_action(s, "debug")).classes(
-                        "bg-red-300 hover:bg-red-400 text-red-900"
-                    )
-                    ui.button("Network Help", on_click=lambda s=screen_num: self._quick_action(s, "network")).classes(
-                        "bg-teal-300 hover:bg-teal-400 text-teal-900"
-                    )
-                    ui.button("Generate Script", on_click=lambda s=screen_num: self._quick_action(s, "script")).classes(
-                        "bg-green-300 hover:bg-green-400 text-green-900"
-                    )
+            with (
+                ui.expansion("Quick Actions", icon="flash_on").classes("w-full mt-4"),
+                ui.row().classes("w-full gap-2 flex-wrap"),
+            ):
+                ui.button("Explain Code", on_click=lambda s=screen_num: self._quick_action(s, "explain_code")).classes(
+                    "bg-orange-300 hover:bg-orange-400 text-orange-900"
+                )
+                ui.button("Debug Issue", on_click=lambda s=screen_num: self._quick_action(s, "debug")).classes(
+                    "bg-red-300 hover:bg-red-400 text-red-900"
+                )
+                ui.button("Network Help", on_click=lambda s=screen_num: self._quick_action(s, "network")).classes(
+                    "bg-teal-300 hover:bg-teal-400 text-teal-900"
+                )
+                ui.button("Generate Script", on_click=lambda s=screen_num: self._quick_action(s, "script")).classes(
+                    "bg-green-300 hover:bg-green-400 text-green-900"
+                )
 
-    def _send_message(self, screen_num):
+    def _send_message(self, screen_num: int):
         """Send message to AI."""
         message = self.message_input.value.strip()
         if not message:
@@ -132,21 +134,25 @@ class AichatPanel(BasePanel, MultiScreenMixin):
 
     def _add_message(self, role, content):
         """Add message to chat history and display."""
-        timestamp = datetime.now().strftime("%H:%M")
+        timestamp = datetime.now(datetime.UTC).strftime("%H:%M")
         message = {"role": role, "content": content, "timestamp": timestamp}
         self._chat_history.append(message)
 
         with self.chat_container:
             if role == "user":
-                with ui.row().classes("w-full justify-end mb-2"):
-                    with ui.card().classes("max-w-xs bg-blue-500 text-white p-3 rounded-lg"):
-                        ui.label(content).classes("text-sm")
-                        ui.label(timestamp).classes("text-xs opacity-70 mt-1")
+                with (
+                    ui.row().classes("w-full justify-end mb-2"),
+                    ui.card().classes("max-w-xs bg-blue-500 text-white p-3 rounded-lg"),
+                ):
+                    ui.label(content).classes("text-sm")
+                    ui.label(timestamp).classes("text-xs opacity-70 mt-1")
             else:
-                with ui.row().classes("w-full justify-start mb-2"):
-                    with ui.card().classes("max-w-xs bg-white border p-3 rounded-lg"):
-                        ui.label(content).classes("text-sm")
-                        ui.label(timestamp).classes("text-xs text-gray-500 mt-1")
+                with (
+                    ui.row().classes("w-full justify-start mb-2"),
+                    ui.card().classes("max-w-xs bg-white border p-3 rounded-lg"),
+                ):
+                    ui.label(content).classes("text-sm")
+                    ui.label(timestamp).classes("text-xs text-gray-500 mt-1")
 
     def _simulate_ai_response(self, user_message):
         """Simulate AI response (replace with actual AI API)."""
@@ -168,7 +174,7 @@ class AichatPanel(BasePanel, MultiScreenMixin):
         # Add AI response after a short delay
         ui.timer(1.0, lambda: self._add_message("assistant", response), once=True)
 
-    def _clear_chat(self, screen_num):
+    def _clear_chat(self, screen_num: int):
         """Clear chat history."""
         self._chat_history.clear()
         self.chat_container.clear()
@@ -176,7 +182,7 @@ class AichatPanel(BasePanel, MultiScreenMixin):
             ui.label("👋 Chat cleared. How can I help you?").classes("text-gray-600 italic")
         ui.notify("Chat cleared", color="info")
 
-    def _export_chat(self, screen_num):
+    def _export_chat(self, screen_num: int):
         """Export chat history."""
         if not self._chat_history:
             ui.notify("No chat history to export", color="warning")
@@ -184,28 +190,28 @@ class AichatPanel(BasePanel, MultiScreenMixin):
 
         chat_data = {
             "model": self._current_model,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "messages": self._chat_history,
         }
 
         import json
 
         json_data = json.dumps(chat_data, indent=2, ensure_ascii=False)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
         filename = f"ai_chat_{timestamp}.json"
         ui.download(json_data.encode("utf-8"), filename)
         ui.notify(f"Chat exported to {filename}", color="positive")
 
-    def _add_system_context(self, screen_num):
+    def _add_system_context(self, screen_num: int):
         """Add system context to chat."""
-        context = f"System Context:\n• Current host connections: {len(self._host_handler._connected_routes) if self._host_handler else 0}\n• Model: {self._current_model}\n• Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        context = f"System Context:\n• Current host connections: {len(self._host_handler._connected_routes) if self._host_handler else 0}\n• Model: {self._current_model}\n• Time: {datetime.now(datetime.UTC).strftime('%Y-%m-%d %H:%M:%S')}"
         self._add_message("system", context)
 
-    def _voice_input(self, screen_num):
+    def _voice_input(self, screen_num: int):
         """Voice input placeholder."""
         ui.notify("Voice input feature would be implemented here", color="info")
 
-    def _quick_action(self, screen_num, action_type):
+    def _quick_action(self, screen_num: int, action_type):
         """Handle quick action buttons."""
         actions = {
             "explain_code": "Please paste the code you'd like me to explain.",

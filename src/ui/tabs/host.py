@@ -5,7 +5,7 @@ from src.ui.handlers.host import HostHandler
 from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.ssh_connection import SshConnection
 
-NAME = "host"
+NAME = "hosts"
 LABEL = "Host"
 
 

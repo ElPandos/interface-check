@@ -5,7 +5,7 @@ import logging
 from nicegui import ui
 
 from src.models.configurations import AppConfig
-from src.ui.enums.tools import NetworkTool
+from src.enums.tools import NetworkTool
 from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.ssh_connection import SshConnection
 

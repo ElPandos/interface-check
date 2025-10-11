@@ -1,7 +1,8 @@
 from nicegui import ui
 
+from src.mixins.multi_screen import MultiScreenMixin
 from src.models.configurations import AppConfig
-from src.ui.mixins.multi_screen import MultiScreenMixin
+from src.ui.components.connection_selector import ConnectionSelector
 from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.ssh_connection import SshConnection
 
@@ -45,24 +46,21 @@ class E2ePanel(BasePanel, MultiScreenMixin):
             self._build_content_base()
 
     def _build_screen(self, screen_num, classes):
-        with ui.card().classes(classes):
-            with ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
-                if self._host_handler:
-                    from src.ui.components.connection_selector import ConnectionSelector
+        with ui.card().classes(classes), ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
+            if self._host_handler:
+                # Filter to only show hosts 2, 4, 5, 6, 8
+                allowed_host_ids = {2, 4, 5, 6, 8}
+                filtered_connected_routes = self._host_handler._connected_routes & allowed_host_ids  # noqa: SLF001
 
-                    # Filter to only show hosts 2, 4, 5, 6, 8
-                    allowed_host_ids = {2, 4, 5, 6, 8}
-                    filtered_connected_routes = self._host_handler._connected_routes & allowed_host_ids
-
-                    ConnectionSelector(
-                        filtered_connected_routes,
-                        self._host_handler._routes,
-                        lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
-                    ).build()
-                ui.button("Run E2E Tests", on_click=lambda s=screen_num: self._run_e2e_tests(s)).classes(
-                    "bg-blue-300 hover:bg-blue-400 text-blue-900 mt-2"
-                )
-                ui.label(f"E2E testing for host {screen_num}").classes("mt-4")
+                ConnectionSelector(
+                    filtered_connected_routes,
+                    self._host_handler._routes,  # noqa: SLF001
+                    lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
+                ).build()
+            ui.button("Run E2E Tests", on_click=lambda s=screen_num: self._run_e2e_tests(s)).classes(
+                "bg-blue-300 hover:bg-blue-400 text-blue-900 mt-2"
+            )
+            ui.label(f"E2E testing for host {screen_num}").classes("mt-4")
 
     def _run_e2e_tests(self, screen_num):
         ui.notify(f"Running E2E tests for screen {screen_num}", color="info")

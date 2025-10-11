@@ -1,7 +1,6 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import json
 import logging
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import pprint
 import re
@@ -159,7 +158,7 @@ def dump_lists_to_file(list1: list[Any], list2: list[Any], config_path: Path, fi
 
         logger.info(f"Successfully wrote data to: {full_path}")
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to dump lists to file '{full_path}'")
 
 
@@ -200,8 +199,8 @@ def merge_lists_from_base_and_backups(base_file: str) -> Path:
         def file_sort_key(f: Path):
             match = suffix_pattern.search(f.name)
             if match:
-                return datetime.strptime(match.group(1), "%Y%m%d_%H%M%S").replace(tzinfo=timezone.utc)
-            return datetime.min.replace(tzinfo=timezone.utc)
+                return datetime.strptime(match.group(1), "%Y%m%d_%H%M%S").replace(tzinfo=UTC)
+            return datetime.min.replace(tzinfo=UTC)
 
         files_to_merge.sort(key=file_sort_key)
 
@@ -245,7 +244,7 @@ def merge_lists_from_base_and_backups(base_file: str) -> Path:
 
         if output_file.exists():
             # Backup existing merged file
-            timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
             backup_path = output_file.with_name(f"{output_file.stem}.{timestamp}.bak.xlsx")
             output_file.rename(backup_path)
             logger.info(f"Existing merged file backed up: {backup_path}")
@@ -255,7 +254,7 @@ def merge_lists_from_base_and_backups(base_file: str) -> Path:
 
         return output_file
 
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to merge files")
         return base_path
 
@@ -302,9 +301,6 @@ def run_pip_licenses() -> tuple[str, str]:
 # ---------------------------------------------------------------------------- #
 #                                    Logging                                   #
 # ---------------------------------------------------------------------------- #
-
-
-
 
 
 def log_data(name: str, data, level=logging.DEBUG) -> None:
