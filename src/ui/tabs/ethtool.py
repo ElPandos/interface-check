@@ -5,11 +5,12 @@ from nicegui import ui
 logger = logging.getLogger(__name__)
 
 from src.models.configurations import AppConfig
+from src.ui.components.selector import Selector
 from src.ui.handlers.graph import GraphHandler
 from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.collector import Worker, WorkManager
 from src.utils.commands import Common, Ethtool, Modify, System
-from src.utils.ssh_connection import SshConnection
+from src.utils.connect import Ssh
 
 NAME = "ethtool"
 LABEL = "Ethtool"
@@ -18,7 +19,7 @@ LABEL = "Ethtool"
 class EthtoolTab(BaseTab):
     ICON_NAME: str = "home_repair_service"
 
-    def __init__(self, build: bool = False) -> None:
+    def __init__(self, *, build: bool = False) -> None:
         super().__init__(NAME, LABEL, self.ICON_NAME)
 
         if build:
@@ -33,15 +34,16 @@ class EthtoolPanel(BasePanel):
 
     def __init__(
         self,
+        *,
         build: bool = False,
         app_config: AppConfig = None,
-        ssh_connection: SshConnection = None,
+        ssh: Ssh = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
-        super().__init__(NAME, LABEL)
+        super().__init__(NAME, LABEL, EthtoolTab.ICON_NAME)
         self._app_config = app_config
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._host_handler = host_handler
         self._icon = icon
         self._work_manager = WorkManager()
@@ -57,7 +59,7 @@ class EthtoolPanel(BasePanel):
             if self._icon:
                 self._icon.style("color: #ef4444")
 
-    def _close_card(self, card: ui.card, interf: str = None, kill_worker: bool = False) -> None:
+    def _close_card(self, card: ui.card, _interf: str | None = None, kill_worker: bool = False) -> None:
         if kill_worker:
             logger.debug("Kill worker")
             self._work_manager.reset()
@@ -100,20 +102,17 @@ class EthtoolPanel(BasePanel):
                         self._build_screen(4, "flex-1 h-full")
 
     def _build_screen(self, screen_num, classes):
-        with ui.card().classes(classes):
-            with ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
-                if self._host_handler:
-                    from src.ui.components.connection_selector import ConnectionSelector
-
-                    ConnectionSelector(
-                        self._host_handler._connected_routes,
-                        self._host_handler._routes,
-                        lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
-                    ).build()
-                ui.button("Scan Interfaces", on_click=lambda s=screen_num: self._scan_interfaces(s)).classes(
-                    "bg-red-300 hover:bg-red-400 text-red-900 mt-2"
-                )
-                ui.label(f"Content for host {screen_num}").classes("mt-4")
+        with ui.card().classes(classes), ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
+            if self._host_handler:
+                Selector(
+                    self._host_handler._connect_route,  # noqa: SLF001
+                    self._host_handler._routes,  # noqa: SLF001
+                    lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
+                ).build()
+            ui.button("Scan Interfaces", on_click=lambda s=screen_num: self._scan_interfaces_for_screen(s)).classes(
+                "bg-red-300 hover:bg-red-400 text-red-900 mt-2"
+            )
+            ui.label(f"Content for host {screen_num}").classes("mt-4")
 
     def _on_screen_change(self, e):
         self.num_screens = e.value
@@ -132,27 +131,25 @@ class EthtoolPanel(BasePanel):
         elif self._icon:
             self._icon.style("color: #ef4444")
 
-    def _scan_interfaces(self, screen_num=None):
-        if screen_num:
-            ui.notify(f"Scanning interfaces for screen {screen_num}", color="info")
-        else:
-            ui.notify("Scanning interfaces", color="info")
+    def _scan_interfaces_for_screen(self, screen_num):
+        ui.notify(f"Scanning interfaces for screen {screen_num}", color="info")
+        self._scan_interfaces()
 
     def _scan_interfaces(self):
-        if not self._ssh_connection:
+        if not self._ssh:
             logger.warning("No SSH connection object")
             return
 
-        if not self._ssh_connection.is_connected():
+        if not self._ssh.is_connected():
             logger.warning("No SSH connection established")
             return
 
-        _, err = self._ssh_connection.exec_command(System().install_psutil().syntax)
+        _, err = self._ssh.exec_command(System().install_psutil().syntax)
         if err:
             logger.warning("Failed to install python library: psutil")
             return
 
-        out, err = self._ssh_connection.exec_command(Common().get_interfaces().syntax)
+        out, err = self._ssh.exec_command(Common().get_interfaces().syntax)
         if err:
             logger.warning("Failed to collect host interface names")
             return
@@ -177,9 +174,7 @@ class EthtoolPanel(BasePanel):
 
     def _activate_workers(self, options: list) -> None:
         for interf in options.value:
-            self._work_manager.add(
-                Worker(Ethtool().module_info(interf), interf, self._app_config, self._ssh_connection)
-            )
+            self._work_manager.add(Worker(Ethtool().module_info(interf), interf, self._app_config, self._ssh))
             self._build_source(interf)
 
     def _build_source(self, interf: str) -> None:

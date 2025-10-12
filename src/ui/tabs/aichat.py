@@ -5,7 +5,7 @@ from nicegui import ui
 from src.mixins.multi_screen import MultiScreenMixin
 from src.models.configurations import AppConfig
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.utils.ssh_connection import SshConnection
+from src.utils.connect import Ssh
 
 NAME = "aichat"
 LABEL = "AI Chat"
@@ -29,14 +29,14 @@ class AichatPanel(BasePanel, MultiScreenMixin):
         *,
         build: bool = False,
         app_config: AppConfig = None,
-        ssh_connection: SshConnection = None,
+        ssh: Ssh = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
-        BasePanel.__init__(self, NAME, LABEL)
+        BasePanel.__init__(self, NAME, LABEL, AichatTab.ICON_NAME)
         MultiScreenMixin.__init__(self)
         self._app_config = app_config
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._host_handler = host_handler
         self._icon = icon
         self._chat_history = []
@@ -46,11 +46,14 @@ class AichatPanel(BasePanel, MultiScreenMixin):
 
     def build(self):
         with ui.tab_panel(self.name).classes("w-full h-screen"):
-            self._build_controls_base("AI Assistant")
+            self._build_controls_base("AI Chat")
             self._build_content_base()
 
     def _build_screen(self, screen_num: int, classes):
-        with ui.card().classes(classes), ui.expansion(f"AI Chat {screen_num}", icon="smart_toy").classes("w-full"):
+        with (
+            ui.card().classes(classes),
+            ui.expansion(f"AI Chat {screen_num}", icon="smart_toy", value=True).classes("w-full"),
+        ):
             # Chat interface
             self._build_chat_interface(screen_num)
 
@@ -188,23 +191,19 @@ class AichatPanel(BasePanel, MultiScreenMixin):
             ui.notify("No chat history to export", color="warning")
             return
 
+        from src.utils.json import Json
+
         chat_data = {
             "model": self._current_model,
             "timestamp": datetime.now(datetime.UTC).isoformat(),
             "messages": self._chat_history,
         }
 
-        import json
-
-        json_data = json.dumps(chat_data, indent=2, ensure_ascii=False)
-        timestamp = datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
-        filename = f"ai_chat_{timestamp}.json"
-        ui.download(json_data.encode("utf-8"), filename)
-        ui.notify(f"Chat exported to {filename}", color="positive")
+        Json.export_download(chat_data, "ai_chat", success_message="Chat history exported successfully")
 
     def _add_system_context(self, screen_num: int):
         """Add system context to chat."""
-        context = f"System Context:\n• Current host connections: {len(self._host_handler._connected_routes) if self._host_handler else 0}\n• Model: {self._current_model}\n• Time: {datetime.now(datetime.UTC).strftime('%Y-%m-%d %H:%M:%S')}"
+        context = f"System Context:\n• Current host connections: {len(self._host_handler._connect_route) if self._host_handler else 0}\n• Model: {self._current_model}\n• Time: {datetime.now(datetime.UTC).strftime('%Y-%m-%d %H:%M:%S')}"
         self._add_message("system", context)
 
     def _voice_input(self, screen_num: int):

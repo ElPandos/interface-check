@@ -1,34 +1,38 @@
 import logging
+import subprocess
 from typing import Any
 
 from nicegui import nicegui, ui
 
 from src.models.configurations import AppConfig
 from src.ui.handlers.settings import settings
+from src.ui.handlers.style import apply_global_theme
+from src.ui.tabs.agent import AgentPanel, AgentTab
 from src.ui.tabs.aichat import AichatPanel, AichatTab
 from src.ui.tabs.cable import CablePanel, CableTab
-from src.ui.tabs.dashboard import DashboardPanel, DashboardTab
 from src.ui.tabs.database import DatabasePanel, DatabaseTab
 from src.ui.tabs.e2e import E2ePanel, E2eTab
-from src.ui.tabs.ethtool import EthtoolPanel, EthtoolTab
+from src.ui.tabs.ethtool import EthtoolPanel
 from src.ui.tabs.host import HostPanel, HostTab
-from src.ui.tabs.info import InfoPanel, InfoTab
-from src.ui.tabs.ipmitool import IpmitoolPanel, IpmitoolTab
+from src.ui.tabs.info import InfoPanel
+from src.ui.tabs.ipmitool import IpmitoolPanel
+from src.ui.tabs.local import LocalPanel, LocalTab
 from src.ui.tabs.log import LogPanel, LogTab
-from src.ui.tabs.mlxconfig import MlxconfigPanel, MlxconfigTab
-from src.ui.tabs.mlxlink import MlxlinkPanel, MlxlinkTab
+from src.ui.tabs.mlxconfig import MlxconfigPanel
+from src.ui.tabs.mlxlink import MlxlinkPanel
 from src.ui.tabs.slx import SlxPanel, SlxTab
 from src.ui.tabs.system import SystemPanel, SystemTab
 from src.ui.tabs.toolbox import ToolboxPanel, ToolboxTab
-from src.utils.ssh_connection import SshConnection
-from src.utils.system import get_patchset
+from src.utils.commands import Git
+from src.utils.connect import Ssh
+from src.utils.terminal import Cli
 
 logger = logging.getLogger(__name__)
 
 
 class Gui:
     _app_config: AppConfig
-    _ssh_connection: SshConnection
+    _ssh: Ssh
     _tabs: ui.tabs
     _right_drawer: ui.right_drawer
     footer: ui.footer
@@ -41,13 +45,14 @@ class Gui:
         logger.debug(f"Nicegui version: {nicegui.__version__}")
 
         self._app_config = app_config
-        self._ssh_connection = SshConnection(self._app_config)
+        self._ssh = Ssh(self._app_config)
         self._tab_content = {}
         self._panel_content = {}
 
         self.build()
 
     def build(self) -> None:
+        apply_global_theme()
         self._add_custom_styles()
         self._build_right_drawer()
         self._build_header()
@@ -63,79 +68,76 @@ class Gui:
     def _build_header(self) -> None:
         with ui.header().classes(replace="row items-center justify-between"):
             with ui.tabs() as self._tabs:
+                self._tab_content[LocalTab().name] = LocalTab(build=True)
                 self._tab_content[HostTab().name] = HostTab(build=True)
-                self._tab_content[DashboardTab().name] = DashboardTab(build=True)
-                self._tab_content[MlxconfigTab().name] = MlxconfigTab(build=True)
-                self._tab_content[MlxlinkTab().name] = MlxlinkTab(build=True)
-                self._tab_content[IpmitoolTab().name] = IpmitoolTab(build=True)
-                self._tab_content[EthtoolTab().name] = EthtoolTab(build=True)
                 self._tab_content[ToolboxTab().name] = ToolboxTab(build=True)
                 self._tab_content[SlxTab().name] = SlxTab(build=True)
                 self._tab_content[CableTab().name] = CableTab(build=True)
                 self._tab_content[E2eTab().name] = E2eTab(build=True)
-                self._tab_content[DatabaseTab().name] = DatabaseTab(build=True)
                 self._tab_content[SystemTab().name] = SystemTab(build=True)
-                self._tab_content[InfoTab().name] = InfoTab(build=True)
+                self._tab_content[DatabaseTab().name] = DatabaseTab(build=True)
                 self._tab_content[LogTab().name] = LogTab(build=True)
+                self._tab_content[AgentTab().name] = AgentTab(build=True)
                 self._tab_content[AichatTab().name] = AichatTab(build=True)
 
             # Right drawer button (Toggle will show the right drawer)
             ui.button(on_click=self._right_drawer.toggle, icon="settings").props("flat color=white")
 
     def _build_body(self) -> None:
-        with ui.tab_panels(self._tabs, value=HostTab().name).classes("w-full h-fit bg-gray-100"):
+        with ui.tab_panels(self._tabs, value=LocalTab().name).classes("w-full h-fit bg-gray-100"):
+            dashboard_panel = LocalPanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            self._panel_content[dashboard_panel.name] = dashboard_panel
+
             host_panel = HostPanel(
                 build=True,
                 app_config=self._app_config,
-                ssh_connection=self._ssh_connection,
+                ssh=self._ssh,
                 icon=self._tab_content[HostTab().name].icon,
             )
             self._panel_content[host_panel.name] = host_panel
-            dashboard_panel = DashboardPanel(
-                build=True, app_config=self._app_config, ssh_connection=self._ssh_connection
-            )
-            self._panel_content[dashboard_panel.name] = dashboard_panel
 
-            toolbox_panel = ToolboxPanel(build=True, app_config=self._app_config, ssh_connection=self._ssh_connection)
+            toolbox_panel = ToolboxPanel(build=True, app_config=self._app_config, ssh=self._ssh)
             self._panel_content[toolbox_panel.name] = toolbox_panel
 
-            e2e_panel = E2ePanel(build=True, app_config=self._app_config, ssh_connection=self._ssh_connection)
-            self._panel_content[e2e_panel.name] = e2e_panel
-
-            aichat_panel = AichatPanel(build=True, app_config=self._app_config, ssh_connection=self._ssh_connection)
-            self._panel_content[aichat_panel.name] = aichat_panel
-
-            mlxconfig_panel = MlxconfigPanel(
-                build=True, app_config=self._app_config, ssh_connection=self._ssh_connection
-            )
-            self._panel_content[mlxconfig_panel.name] = mlxconfig_panel
-
-            mlxlink_panel = MlxlinkPanel(build=True, app_config=self._app_config, ssh_connection=self._ssh_connection)
-            self._panel_content[mlxlink_panel.name] = mlxlink_panel
-
-            slx_panel = SlxPanel(build=True, app_config=self._app_config, ssh_connection=self._ssh_connection)
+            slx_panel = SlxPanel(build=True, app_config=self._app_config, ssh=self._ssh)
             self._panel_content[slx_panel.name] = slx_panel
 
-            cable_panel = CablePanel(build=True, app_config=self._app_config, ssh_connection=self._ssh_connection)
+            cable_panel = CablePanel(build=True, app_config=self._app_config, ssh=self._ssh)
             self._panel_content[cable_panel.name] = cable_panel
 
-            database_panel = DatabasePanel(build=True, app_config=self._app_config, ssh_connection=self._ssh_connection)
-            self._panel_content[database_panel.name] = database_panel
+            e2e_panel = E2ePanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            self._panel_content[e2e_panel.name] = e2e_panel
 
-            system_panel = SystemPanel(build=True, app_config=self._app_config, ssh_connection=self._ssh_connection)
+            system_panel = SystemPanel(build=True, app_config=self._app_config, ssh=self._ssh)
             self._panel_content[system_panel.name] = system_panel
 
-            ipmitool_panel = IpmitoolPanel(build=True, app_config=self._app_config, ssh_connection=self._ssh_connection)
+            database_panel = DatabasePanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            self._panel_content[database_panel.name] = database_panel
+
+            log_panel = LogPanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            self._panel_content[log_panel.name] = log_panel
+
+            agent_panel = AgentPanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            self._panel_content[agent_panel.name] = agent_panel
+
+            aichat_panel = AichatPanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            self._panel_content[aichat_panel.name] = aichat_panel
+
+            # Additional panels not in main tabs
+            mlxconfig_panel = MlxconfigPanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            self._panel_content[mlxconfig_panel.name] = mlxconfig_panel
+
+            mlxlink_panel = MlxlinkPanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            self._panel_content[mlxlink_panel.name] = mlxlink_panel
+
+            ipmitool_panel = IpmitoolPanel(build=True, app_config=self._app_config, ssh=self._ssh)
             self._panel_content[ipmitool_panel.name] = ipmitool_panel
 
-            ethtool_panel = EthtoolPanel(build=True, app_config=self._app_config, ssh_connection=self._ssh_connection)
+            ethtool_panel = EthtoolPanel(build=True, app_config=self._app_config, ssh=self._ssh)
             self._panel_content[ethtool_panel.name] = ethtool_panel
 
-            info_panel = InfoPanel(build=True, app_config=self._app_config, ssh_connection=self._ssh_connection)
+            info_panel = InfoPanel(build=True, app_config=self._app_config, ssh=self._ssh)
             self._panel_content[info_panel.name] = info_panel
-
-            log_panel = LogPanel(build=True, app_config=self._app_config, ssh_connection=self._ssh_connection)
-            self._panel_content[log_panel.name] = log_panel
 
     def _build_right_drawer(self) -> None:
         with ui.right_drawer().classes("bg-blue-100") as self._right_drawer:
@@ -144,7 +146,12 @@ class Gui:
 
     def _build_footer(self) -> None:
         with ui.footer(value=False) as self.footer:
-            stdout, _ = get_patchset()
+            try:
+                proc = Cli().run(Git().patchset().syntax)
+                stdout, _, returncode = Cli().get_output(proc)
+                stdout = stdout.strip() if returncode == 0 else "unknown"
+            except (subprocess.SubprocessError, OSError, ValueError):
+                stdout = "unknown"
             with ui.row().classes("w-full items-center"):
                 # This header is needed to ba able to load icon
                 ui.add_head_html(
@@ -208,8 +215,18 @@ class Gui:
             border-radius: 12px;
             padding: 4px;
         }
+
+        /* Fix inconsistent tab sliding direction */
+        .q-tab-panels {
+            overflow: hidden;
+        }
+
+        .q-tab-panel {
+            animation: none !important;
+            transition: none !important;
+        }
         </style>
         """)
 
     def disconnect(self) -> None:
-        self._ssh_connection.disconnect()
+        self._ssh.disconnect()

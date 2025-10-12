@@ -4,9 +4,9 @@ from nicegui import ui
 
 from src.mixins.multi_screen import MultiScreenMixin
 from src.models.configurations import AppConfig
-from src.ui.components.connection_selector import ConnectionSelector
+from src.ui.components.selector import Selector
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.utils.ssh_connection import SshConnection
+from src.utils.connect import Ssh
 
 NAME = "system"
 LABEL = "System"
@@ -29,14 +29,14 @@ class SystemPanel(BasePanel, MultiScreenMixin):
         self,
         build: bool = False,
         app_config: AppConfig = None,
-        ssh_connection: SshConnection = None,
+        ssh: Ssh = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
-        BasePanel.__init__(self, NAME, LABEL)
+        BasePanel.__init__(self, NAME, LABEL, SystemTab.ICON_NAME)
         MultiScreenMixin.__init__(self)
         self._app_config = app_config
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._host_handler = host_handler
         self._icon = icon
         if build:
@@ -50,8 +50,8 @@ class SystemPanel(BasePanel, MultiScreenMixin):
     def _build_screen(self, screen_num, classes):
         with ui.card().classes(classes), ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
             if self._host_handler:
-                ConnectionSelector(
-                    self._host_handler._connected_routes,  # noqa: SLF001
+                Selector(
+                    self._host_handler._connect_route,  # noqa: SLF001
                     self._host_handler._routes,  # noqa: SLF001
                     lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
                 ).build()

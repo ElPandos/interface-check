@@ -171,7 +171,7 @@ class SSHConnectionPool:
 
 ### Command Batching
 ```python
-def batch_ssh_commands(commands: List[str], ssh_connection: SshConnection) -> Dict[str, tuple[str, str]]:
+def batch_ssh_commands(commands: List[str], route: SshConnection) -> Dict[str, tuple[str, str]]:
     """Execute multiple commands in a single SSH session."""
     # Combine commands with separators
     combined_command = " && ".join([
@@ -179,7 +179,7 @@ def batch_ssh_commands(commands: List[str], ssh_connection: SshConnection) -> Di
         for i, cmd in enumerate(commands)
     ])
     
-    stdout, stderr = ssh_connection.exec_command(combined_command)
+    stdout, stderr = route.exec_command(combined_command)
     
     # Parse combined output
     results = {}

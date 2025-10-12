@@ -61,7 +61,7 @@ src/
 │   ├── handlers/       # Business logic handlers
 │   └── components/     # Reusable UI components
 ├── utils/
-│   ├── ssh_connection.py  # SSH management
+│   ├── route.py  # SSH management
 │   ├── commands.py        # Command execution
 │   └── system.py          # System operations
 └── models/

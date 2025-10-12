@@ -1,4 +1,3 @@
-import json
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -9,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 from src.models.configurations import AppConfig
 from src.utils import system
+from src.utils.system import create_dir
 
 
 class Configure:
@@ -44,7 +44,7 @@ class Configure:
 
     def _ensure_dir(self) -> None:
         """Create `~/.interface-check` if it does not exist."""
-        system.create_dir(self._CONFIG_DIR)
+        create_dir(self._CONFIG_DIR)
 
     def _setup(self) -> None:
         """
@@ -73,20 +73,22 @@ class Configure:
         self._setup()
         return self._CONFIG_FULL_PATH
 
-    def save(self, cfg: AppConfig) -> None:
+    def save(self, app_config: AppConfig) -> None:
         """Persist *cfg* to the JSON file."""
         try:
-            system.save_json(cfg.model_dump(), self._CONFIG_FULL_PATH)
+            system.save_json(app_config.model_dump(), self._CONFIG_FULL_PATH)
             ui.notify("Configuration saved", type="positive")
         except Exception as e:
             ui.notify(f"Failed to save: {e}", type="negative")
 
-    def load(self) -> AppConfig:
+    def load(self, external: dict | None = None) -> AppConfig:
         """Load the JSON file and return a validated `AppConfig` instance."""
         try:
             data = system.load_json(self._CONFIG_FULL_PATH)
+            if external is not None:
+                data = external  # Load external appconfig
             return AppConfig.model_validate(data)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
+        except (FileNotFoundError, ValueError) as e:
             logger.warning(f"Config file issue: {e}. Creating default config.")
             default_config = AppConfig()
             self.save(default_config)

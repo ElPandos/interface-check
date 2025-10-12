@@ -6,7 +6,7 @@ from src.mixins.tool import Tool
 from src.tools.dmesg import DmesgTool
 from src.tools.ethtool import EthtoolTool
 from src.tools.mlxconfig import MlxconfigTool
-from src.utils.ssh_connection import SshConnection
+from src.utils.connect import Ssh
 
 
 class ToolFactory:
@@ -19,12 +19,12 @@ class ToolFactory:
     }
 
     @classmethod
-    def create_tool(cls, tool_name: str, ssh_connection: SshConnection, interface: str | None = None) -> Tool:
+    def create_tool(cls, tool_name: str, ssh: Ssh, interface: str | None = None) -> Tool:
         """Create a tool instance.
 
         Args:
             tool_name: Name of the tool to create
-            ssh_connection: SSH connection for command execution
+            ssh: SSH connection for command execution
             interface: Optional interface name
 
         Returns:
@@ -38,7 +38,7 @@ class ToolFactory:
             raise ValueError(f"Unknown tool '{tool_name}'. Available: {available}")
 
         tool_class = cls._TOOLS[tool_name]
-        return tool_class(ssh_connection, interface)
+        return tool_class(ssh, interface)
 
     @classmethod
     def get_available_tools(cls) -> list[str]:

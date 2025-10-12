@@ -23,7 +23,7 @@ ui.button("Click", on_click=create_button_handler("item1"))
 # Refreshable components for dynamic updates
 @ui.refreshable
 def status_display():
-    if ssh_connection.is_connected():
+    if route.is_connected():
         ui.badge("Connected", color="positive")
     else:
         ui.badge("Disconnected", color="negative")

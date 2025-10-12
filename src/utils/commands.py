@@ -1,4 +1,4 @@
-from src.enums.command import CommandTypes
+from src.enums.command import CommandType
 
 # ---------------------------------------------------------------------------- #
 #                                 Base command                                 #
@@ -6,11 +6,11 @@ from src.enums.command import CommandTypes
 
 
 class Command:
-    cmd_type: CommandTypes
+    command_type: CommandType
     syntax: str
 
-    def __init__(self, cmd_type: CommandTypes) -> None:
-        self.cmd_type = cmd_type
+    def __init__(self, command_type: CommandType) -> None:
+        self.command_type = command_type
 
 
 # ---------------------------------------------------------------------------- #
@@ -20,7 +20,7 @@ class Command:
 
 class Modify(Command):
     def __init__(self) -> None:
-        super().__init__(CommandTypes.MODIFY)
+        super().__init__(CommandType.MODIFY)
 
     def to_list(self, data: str) -> list[str]:
         data = data.strip()
@@ -37,7 +37,7 @@ class System(Command):
     PYTHON_UPGRADE_PIP: str = "pip3 install --upgrade pip"
 
     def __init__(self) -> None:
-        super().__init__(CommandTypes.SYSTEM)
+        super().__init__(CommandType.SYSTEM)
 
     def install_psutil(self) -> Command:
         self.syntax = self.PYTHON_PSUTIL
@@ -57,7 +57,7 @@ class Python(Command):
     LICENSES: str = "uv run pip-licenses --format=json"
 
     def __init__(self) -> None:
-        super().__init__(CommandTypes.PYTHON)
+        super().__init__(CommandType.PYTHON)
 
     def licenses(self) -> Command:
         self.syntax = self.LICENSES
@@ -73,7 +73,7 @@ class Common(Command):
     INTERFACES: str = "import psutil; print('\\n'.join(psutil.net_if_addrs().keys()))"
 
     def __init__(self) -> None:
-        super().__init__(CommandTypes.COMMON)
+        super().__init__(CommandType.COMMON)
 
     def get_interfaces(self) -> Command:
         self.syntax = f'python3 -c "{self.INTERFACES}"'
@@ -87,26 +87,18 @@ class Common(Command):
 
 class Ethtool(Command):
     def __init__(self) -> None:
-        super().__init__(CommandTypes.ETHTOOL)
+        super().__init__(CommandType.ETHTOOL)
 
     def module_info(self, interf: str) -> Command:
         self.syntax = f"sudo ethtool -m {interf}"
         return self
 
-    def nic_statistics(self, interf: str) -> Command:
+    def stats(self, interf: str) -> Command:
         self.syntax = f"sudo ethtool -S {interf}"
         return self
 
-    def ring_parameters(self, interf: str) -> Command:
-        self.syntax = f"sudo ethtool -g {interf}"
-        return self
-
-    def offload_features(self, interf: str) -> Command:
-        self.syntax = f"sudo ethtool -k {interf}"
-        return self
-
-    def coalescing_parameters(self, interf: str) -> Command:
-        self.syntax = f"sudo ethtool -c {interf}"
+    def info(self, interf: str) -> Command:
+        self.syntax = f"sudo ethtool {interf}"
         return self
 
 
@@ -117,7 +109,7 @@ class Ethtool(Command):
 
 class Mlxlink(Command):
     def __init__(self) -> None:
-        super().__init__(CommandTypes.MLXLINK)
+        super().__init__(CommandType.MLXLINK)
 
     def serdes_tx(self, interf: str) -> str:
         """Show some MLNX CX-6Lx TX serdes params."""
@@ -135,7 +127,7 @@ class Mlxlink(Command):
 
 class Mlxconfig(Command):
     def __init__(self) -> None:
-        super().__init__(CommandTypes.MLXCONFIG)
+        super().__init__(CommandType.MLXCONFIG)
 
     def query(self, interf: str) -> Command:
         self.syntax = f"sudo mlxconfig -d {interf} query"
@@ -152,7 +144,7 @@ class Mst(Command):
     DEVICES: str = "sudo mst status -v | grep -o '/dev/mst/[^ ]*'"
 
     def __init__(self) -> None:
-        super().__init__(CommandTypes.MST)
+        super().__init__(CommandType.MST)
 
     def status(self) -> Command:
         self.syntax = self.STATUS
@@ -172,7 +164,7 @@ class Git(Command):
     PATCHSET: str = "git rev-parse --short HEAD"
 
     def __init__(self) -> None:
-        super().__init__(CommandTypes.GIT)
+        super().__init__(CommandType.GIT)
 
     def patchset(self) -> Command:
         self.syntax = self.PATCHSET

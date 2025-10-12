@@ -1,13 +1,21 @@
 import asyncio
-from datetime import datetime as dt
+from datetime import UTC, datetime as dt
+from typing import TYPE_CHECKING
 
 from nicegui import ui
-from nicegui.elements.log import Log
 
 from src.models.configurations import AppConfig
 from src.ui.enums.log_level import LogLevel
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.utils.ssh_connection import SshConnection
+from src.utils.connect import Ssh
+
+if TYPE_CHECKING:
+    from nicegui.elements.log import Log
+
+try:
+    from src.ui.components.selector import Selector
+except ImportError:
+    Selector = None
 
 NAME = "log"
 LABEL = "Log"
@@ -28,52 +36,52 @@ class LogTab(BaseTab):
 
 class LogPanel(BasePanel):
     _MAX_LINES: int = 500
-    _log: Log
 
     def __init__(
         self,
         build: bool = False,
-        app_config: AppConfig = None,
-        ssh_connection: SshConnection = None,
+        app_config: AppConfig | None = None,
+        ssh: Ssh | None = None,
         host_handler=None,
-        icon: ui.icon = None,
-    ):
-        super().__init__(NAME, LABEL)
+        icon: ui.icon | None = None,
+    ) -> None:
+        super().__init__(NAME, LABEL, "article")
 
         self._app_config = app_config
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._host_handler = host_handler
         self._icon = icon
         self._selected_connection = None
         self.num_screens = 1
-        self.screen_connections = {}
+        self.screen_connections: dict[int, str] = {}
+        self._logs: dict[int, Log] = {}
 
         if build:
             self.build()
 
     def _time(self) -> str:
-        return dt.now().strftime("%Y-%m-%d %H:%M:%S")
+        return dt.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
     def _log_text(self, text: str, level: LogLevel) -> str:
         return f"{self._time()} [{level.name}] - {text}"
 
-    def _debug_log(self) -> None:
+    def _debug_log(self, screen_num: int = 1) -> None:
         text = "Test"
-        self.debug(text)
-        self.info(text)
-        self.warning(text)
-        self.error(text)
-        self.critical(text)
+        self.debug(text, screen_num)
+        self.info(text, screen_num)
+        self.warning(text, screen_num)
+        self.error(text, screen_num)
+        self.critical(text, screen_num)
 
     async def _run_remote(self) -> None:
         if (
             self._selected_connection is not None
             and self._host_handler
-            and self._selected_connection in self._host_handler._connected_routes
+            and self._selected_connection in getattr(self._host_handler, "_connect_route", {})
         ):
 
-            async def get_text_input(prompt: str) -> str:
-                """Show a dialog with a text input and return the user’s input."""
+            async def get_text_input(prompt: str) -> str | None:
+                """Show a dialog with a text input and return the user's input."""
                 future = asyncio.get_event_loop().create_future()
                 dialog = ui.dialog()
 
@@ -104,7 +112,7 @@ class LogPanel(BasePanel):
                 ui.notify("Command cancelled", color="info")
                 return
 
-            out, err = self._ssh_connection.exec_command(command, 10)
+            out, err = self._ssh.exec_command(command, 10)
             self.debug(f"STDOUT: {out}")
             self.debug(f"STDERR: {err}")
         else:
@@ -113,25 +121,25 @@ class LogPanel(BasePanel):
     def _dump_settings(self) -> None:
         self.debug(f"Dump settings: {self._app_config.model_dump_json()}")
 
-    def debug(self, text: str) -> None:
-        if self._log is not None:
-            self._log.push(self._log_text(text, LogLevel.DEBUG), classes=LogLevel.DEBUG.color)
+    def debug(self, text: str, screen_num: int = 1) -> None:
+        if screen_num in self._logs:
+            self._logs[screen_num].push(self._log_text(text, LogLevel.DEBUG), classes=LogLevel.DEBUG.color)
 
-    def info(self, text: str) -> None:
-        if self._log is not None:
-            self._log.push(self._log_text(text, LogLevel.INFO), classes=LogLevel.INFO.color)
+    def info(self, text: str, screen_num: int = 1) -> None:
+        if screen_num in self._logs:
+            self._logs[screen_num].push(self._log_text(text, LogLevel.INFO), classes=LogLevel.INFO.color)
 
-    def warning(self, text: str) -> None:
-        if self._log is not None:
-            self._log.push(self._log_text(text, LogLevel.WARNING), classes=LogLevel.WARNING.color)
+    def warning(self, text: str, screen_num: int = 1) -> None:
+        if screen_num in self._logs:
+            self._logs[screen_num].push(self._log_text(text, LogLevel.WARNING), classes=LogLevel.WARNING.color)
 
-    def error(self, text: str) -> None:
-        if self._log is not None:
-            self._log.push(self._log_text(text, LogLevel.ERROR), classes=LogLevel.ERROR.color)
+    def error(self, text: str, screen_num: int = 1) -> None:
+        if screen_num in self._logs:
+            self._logs[screen_num].push(self._log_text(text, LogLevel.ERROR), classes=LogLevel.ERROR.color)
 
-    def critical(self, text: str) -> None:
-        if self._log is not None:
-            self._log.push(self._log_text(text, LogLevel.CRITICAL), classes=LogLevel.CRITICAL.color)
+    def critical(self, text: str, screen_num: int = 1) -> None:
+        if screen_num in self._logs:
+            self._logs[screen_num].push(self._log_text(text, LogLevel.CRITICAL), classes=LogLevel.CRITICAL.color)
 
     def build(self) -> None:
         with ui.tab_panel(self.name).classes("w-full h-screen"):
@@ -139,20 +147,20 @@ class LogPanel(BasePanel):
             self._build_content()
 
     def _build_controls(self) -> None:
-        with ui.card().classes("w-full mb-4"):
-            with ui.row().classes("w-full items-center gap-4"):
-                ui.label("Log").classes("text-lg font-bold")
-                ui.space()
-                ui.select([1, 2, 3, 4], value=1, label="Hosts").classes("w-32").on_value_change(self._on_screen_change)
+        with ui.card().classes("w-full mb-4"), ui.row().classes("w-full items-center gap-4"):
+            if self._icon_name:
+                ui.icon(self._icon_name, size="lg").classes("text-blue-600")
+            ui.label("Log").classes("text-lg font-bold")
+            ui.space()
+            ui.select([1, 2, 3, 4], value=1, label="Hosts").classes("w-32").on_value_change(self._on_screen_change)
 
     def _build_content(self) -> None:
         with ui.column().classes("w-full h-full gap-4"):
-            # Host cards at top
             self.content_container = ui.column().classes("w-full")
             with self.content_container:
                 self._render_screens()
 
-    def _render_screens(self):
+    def _render_screens(self) -> None:
         self.content_container.clear()
         with self.content_container:
             if self.num_screens == 1:
@@ -176,84 +184,82 @@ class LogPanel(BasePanel):
                         self._build_screen(3, "flex-1")
                         self._build_screen(4, "flex-1")
 
-    def _build_screen(self, screen_num, classes):
-        with ui.card().classes(classes):
-            with ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
-                if self._host_handler:
-                    from src.ui.components.connection_selector import ConnectionSelector
+    def _build_screen(self, screen_num: int, classes: str) -> None:
+        with ui.card().classes(classes), ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
+            if self._host_handler and Selector:
+                Selector(
+                    getattr(self._host_handler, "_connect_route", {}),
+                    getattr(self._host_handler, "_routes", {}),
+                    lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
+                ).build()
 
-                    ConnectionSelector(
-                        self._host_handler._connected_routes,
-                        self._host_handler._routes,
-                        lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
-                    ).build()
+            with ui.row().classes("w-full gap-2 mt-2 flex-wrap"):
+                ui.button(
+                    icon="cleaning_services", text="Clear", on_click=lambda s=screen_num: self._clear_log(s)
+                ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs")
+                ui.button(icon="bug_report", text="Debug", on_click=lambda s=screen_num: self._debug_log(s)).classes(
+                    "bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs"
+                )
+                ui.button(
+                    icon="terminal", text="Remote", on_click=lambda s=screen_num: self._run_remote_for_host(s)
+                ).classes("bg-blue-300 hover:bg-blue-400 text-blue-900 px-2 py-1 text-xs")
+                ui.button(icon="settings", text="Settings", on_click=self._dump_settings).classes(
+                    "bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs"
+                )
+                ui.space()
+                ui.button(icon="save", text="Save", on_click=lambda s=screen_num: self._save_log(s)).classes(
+                    "bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs"
+                )
 
-                # All log buttons in this host card
-                with ui.row().classes("w-full gap-2 mt-2 flex-wrap"):
-                    ui.button(icon="clear", text="Clear", on_click=self.clear).classes(
-                        "bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs"
-                    )
-                    ui.button(icon="bug_report", text="Debug", on_click=self._debug_log).classes(
-                        "bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs"
-                    )
-                    ui.button(
-                        icon="terminal", text="Remote", on_click=lambda s=screen_num: self._run_remote_for_host(s)
-                    ).classes("bg-blue-300 hover:bg-blue-400 text-blue-900 px-2 py-1 text-xs")
-                    ui.button(icon="settings", text="Settings", on_click=self._dump_settings).classes(
-                        "bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs"
-                    )
-                    ui.space()
-                    ui.button(icon="save", text="Save", on_click=self._save_log).classes(
-                        "bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs"
-                    )
-                    self._log = ui.log(max_lines=self._MAX_LINES).classes("w-full h-full overflow-auto p-5 bg-gray-200")
+            # Log component outside expansion
+            self._logs[screen_num] = ui.log(max_lines=self._MAX_LINES).classes(
+                "w-full h-64 overflow-auto p-2 bg-gray-100"
+            )
 
-    def clear(self) -> None:
-        self._log.clear()
+    def _clear_log(self, screen_num: int = 1) -> None:
+        if screen_num in self._logs:
+            self._logs[screen_num].clear()
 
-    def _on_connection_change(self, connection_id, screen_num=None):
+    def _on_connection_change(self, connection_id: str | None, screen_num: int | None = None) -> None:
         """Handle connection selection change."""
         if screen_num is not None:
-            if not hasattr(self, "screen_connections"):
-                self.screen_connections = {}
             self.screen_connections[screen_num] = connection_id
             self._update_icon_status()
         else:
             self._selected_connection = connection_id
 
-    def _on_screen_change(self, e):
+    def _on_screen_change(self, e) -> None:
         self.num_screens = e.value
         self._render_screens()
         self._update_icon_status()
 
-    def _update_icon_status(self):
+    def _update_icon_status(self) -> None:
         pass
 
-    def _run_remote_for_host(self, screen_num):
+    def _run_remote_for_host(self, screen_num: int) -> None:
         """Run remote command for specific host."""
-        if hasattr(self, "screen_connections") and screen_num in self.screen_connections:
+        if screen_num in self.screen_connections:
             self._selected_connection = self.screen_connections[screen_num]
-            asyncio.create_task(self._run_remote())
+            _task = asyncio.create_task(self._run_remote())
         else:
             ui.notify(f"No connection selected for Host {screen_num}", color="warning")
 
-    def _save_log(self) -> None:
+    def _save_log(self, screen_num: int = 1) -> None:
         """Save log contents to file."""
         try:
-            from datetime import datetime
+            if screen_num not in self._logs:
+                ui.notify("No log available for this screen", color="warning")
+                return
 
-            # Get log content
-            log_content = "\n".join([entry for entry in self._log.content])
+            log_content = "\n".join(list(self._logs[screen_num].content))
 
             if not log_content.strip():
                 ui.notify("No log content to save", color="warning")
                 return
 
-            # Generate filename with timestamp
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"interface_check_log_{timestamp}.txt"
+            timestamp = dt.now(UTC).strftime("%Y%m%d_%H%M%S")
+            filename = f"interface_check_log_host{screen_num}_{timestamp}.txt"
 
-            # Download the log file
             ui.download(log_content.encode(), filename)
             ui.notify(f"Log saved as {filename}", color="positive")
 

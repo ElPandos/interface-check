@@ -3,13 +3,13 @@
 ## SSH Connection Lifecycle
 ```python
 # Proper connection usage
-if not ssh_connection.is_connected():
-    if not ssh_connection.connect():
+if not route.is_connected():
+    if not route.connect():
         logger.error("Failed to establish SSH connection")
         return
 
 try:
-    stdout, stderr = ssh_connection.exec_command("ethtool eth0")
+    stdout, stderr = route.exec_command("ethtool eth0")
     if stderr:
         logger.warning(f"Command stderr: {stderr}")
     return parse_output(stdout)

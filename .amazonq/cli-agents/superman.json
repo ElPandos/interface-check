@@ -1,0 +1,105 @@
+{
+  "name": "Super DevOps & Code Intelligence Agent",
+  "description": "An autonomous, secure, multi-language super agent specialized in Python, and CI/CD tasks with code cleaning, optimization, and automation capabilities.",
+  "version": "3.0.0",
+
+  "mcpServers": {
+    "fetch": {
+      "command": "fetch3.1",
+      "args": []
+    },
+    "git": {
+      "command": "git-mcp",
+      "args": []
+    },
+    "lint": {
+      "command": "lint-mcp",
+      "args": ["--fix", "--report"]
+    }
+  },
+
+  "tools": ["*"],
+
+  "toolAliases": {
+    "@git/git_status": "status",
+    "@git/git_commit": "commit",
+    "@git/git_push": "push",
+    "@fetch/fetch_url": "get",
+    "@lint/run": "lint",
+    "@build/compile": "build"
+  },
+
+  "allowedTools": ["*"],
+
+  "toolsSettings": {
+    "fs_write": {
+      "allowedPaths": ["src/**", "tests/**", "scripts/**", "docs/**"]
+    },
+    "execute_bash": {
+      "timeout": 30,
+      "workingDir": "./",
+      "allowedCommands": ["uv*", "git*", "python*", "find*"]
+    }
+  },
+
+  "resources": [
+    "file://tasks.md",
+    "file://docs/**/*.md",
+    "file://src/**/*.rs",
+    "file://src/**/*.py",
+    "file://tests/**/*.rs",
+    "file://tests/**/*.py"
+  ],
+
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "git status"
+      }
+    ],
+    "userPromptSubmit": [
+      {
+        "command": "ls -la"
+      },
+      {
+        "command": "pytest --maxfail=1 --disable-warnings -q"
+      },
+      {
+        "command": "ruff check . --fix"
+      }
+    ],
+    "codeUpdate": [
+      {
+        "command": "lint --fix"
+      },
+      {
+        "command": "build"
+      }
+    ]
+  },
+
+  "logging": {
+    "level": "INFO",
+    "file": "logs/super_agent.log",
+    "rotate": true,
+    "maxSizeMB": 5,
+    "keepFiles": 3
+  },
+
+  "security": {
+    "sandboxMode": true,
+    "networkAccess": ["github.com", , "pypi.org", "aws.amazon.com"]
+  },
+
+  "capabilities": {
+    "languages": ["Rust", "Python", "Bash"],
+    "awsIntegration": true,
+    "ciCdSupport": true,
+    "autoFixWarnings": true,
+    "autoOptimizeCode": true,
+    "generateDocumentation": true
+  },
+
+  "useLegacyMcpJson": true,
+  "model": "claude-sonnet-4"
+}

@@ -6,6 +6,7 @@
 - Ensure async-safe, secure, and maintainable patterns.
 - Use reproducible execution (e.g., virtualenvs or tools like uv).
 - Align linting, typing, and testing with shared dependencies.
+- Do not add import in the code. Only in the header of the file
 
 ## Execution
 - Run scripts in isolated environments for reproducibility.

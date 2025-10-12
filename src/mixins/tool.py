@@ -2,12 +2,22 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-import json
 from pathlib import Path
 import time
 from typing import Any
 
-from src.utils.ssh_connection import SshConnection
+from src.utils.connect import Ssh
+
+
+@dataclass(frozen=True)
+class ValueCollection:
+    """Holds a numeric value and its corresponding unit."""
+
+    value: float = None
+    unit: str = None
+    info: str = None
+    state: bool = None
+    raw: str = None
 
 
 @dataclass(frozen=True)
@@ -24,24 +34,25 @@ class CommandResult:
 class Tool(ABC):
     """Abstract base class for CLI diagnostic tools."""
 
-    def __init__(self, ssh_connection: SshConnection, interface: str | None = None):
+    def __init__(self, ssh: Ssh, interface: str):
         """Initialize tool with SSH connection and optional interface.
 
         Args:
-            ssh_connection: SSH connection for command execution
+            self._ssh: SSH connection for command execution
             interface: Network interface name (e.g., 'eth0')
         """
-        self.ssh_connection = ssh_connection
-        self.interface = interface
+        self._ssh = ssh
+        self._interface = interface
+
         self._cached_data: dict[str, Any] = {}
 
     @property
     @abstractmethod
-    def tool_name(self) -> str:
+    def name(self) -> str:
         """Name of the CLI tool (e.g., 'ethtool', 'mlxconfig')."""
 
     @abstractmethod
-    def get_commands(self) -> dict[str, str]:
+    def available_commands(self) -> dict[str, str]:
         """Get available commands for this tool.
 
         Returns:
@@ -59,6 +70,10 @@ class Tool(ABC):
         Returns:
             Parsed data structure specific to the tool
         """
+
+    @abstractmethod
+    def test(self, raw: str) -> dict[str, str]:
+        """Test method for verification of parsing."""
 
     def execute_command(self, command_name: str, timeout: int = 30) -> CommandResult:
         """Execute a specific command and return result.
@@ -81,7 +96,7 @@ class Tool(ABC):
         start_time = time.perf_counter()
 
         try:
-            stdout, stderr = self.ssh_connection.exec_command(command, timeout=timeout)
+            stdout, stderr = self._ssh.exec_command(command, timeout=timeout)
             success = len(stderr.strip()) == 0
         except (RuntimeError, OSError, TimeoutError) as e:
             stdout, stderr = "", f"Command failed: {e}"
@@ -100,15 +115,15 @@ class Tool(ABC):
             Dict mapping command names to parsed data
         """
         results = {}
-        for command_name in self.get_commands():
+        for command in self.get_commands():
             try:
-                result = self.execute_command(command_name)
+                result = self.execute_command(command)
                 if result.success:
-                    results[command_name] = self.parse_output(command_name, result.stdout)
+                    results[command] = self.parse_output(command, result.stdout)
                 else:
-                    results[command_name] = None
+                    results[command] = None
             except (ValueError, RuntimeError, OSError):
-                results[command_name] = None
+                results[command] = None
 
         self._cached_data.update(results)
         return results
@@ -119,7 +134,7 @@ class Tool(ABC):
         Args:
             output_path: Path to output file
         """
-        data = self._cached_data if self._cached_data else self.collect_all()
+        from src.utils.json import Json
 
-        with output_path.open("w") as f:
-            json.dump(data, f, indent=2, default=str)
+        data = self._cached_data if self._cached_data else self.collect_all()
+        Json.save(data, output_path)

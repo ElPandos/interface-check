@@ -1,7 +1,6 @@
 """Dashboard tab implementation."""
 
-from datetime import datetime, timezone
-import json
+from datetime import UTC, datetime
 import logging
 import platform
 import socket
@@ -11,13 +10,13 @@ import psutil
 
 from src.models.configurations import AppConfig
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.utils.ssh_connection import SshConnection
+from src.utils.connect import Ssh
 
-NAME = "dashboard"
-LABEL = "Dashboard"
+NAME = "local"
+LABEL = "Local"
 
 
-class DashboardTab(BaseTab):
+class LocalTab(BaseTab):
     ICON_NAME: str = "dashboard"
 
     def __init__(self, build: bool = False) -> None:
@@ -29,23 +28,26 @@ class DashboardTab(BaseTab):
         super().build()
 
 
-class DashboardPanel(BasePanel):
+class LocalPanel(BasePanel):
     def __init__(
         self,
         build: bool = False,
         app_config: AppConfig = None,
-        ssh_connection: SshConnection = None,
+        ssh: Ssh = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
-        super().__init__(NAME, LABEL)
+        super().__init__(NAME, LABEL, "dashboard")
         self._app_config = app_config
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._host_handler = host_handler
         self._icon = icon
         self._expansion_states = {}
         self._auto_refresh = False
         self._refresh_timer = None
+        self._all_expanded = False
+        self._expand_button = None
+        self._expansions = {}
         if build:
             self.build()
 
@@ -53,26 +55,42 @@ class DashboardPanel(BasePanel):
         # Add global CSS for left-aligned table cells
         ui.add_head_html("<style>.q-table td, .q-table th { text-align: left !important; }</style>")
 
-        with ui.tab_panel(self.name).classes("w-full h-screen"):
-            with ui.column().classes("w-full h-full p-4"):
-                with ui.card().classes("w-full h-full p-6 shadow-lg bg-white border border-gray-200"):
-                    with ui.row().classes("w-full items-center gap-3 mb-6"):
-                        ui.icon("dashboard", size="lg").classes("text-blue-600")
-                        ui.label("System Dashboard").classes("text-2xl font-bold text-gray-800")
-                        ui.space()
-                        ui.checkbox(
-                            "Auto Refresh", value=self._auto_refresh, on_change=self._toggle_auto_refresh
-                        ).classes("mr-4")
-                        ui.button("Refresh", icon="refresh", on_click=self._refresh_stats).classes(
-                            "bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
-                        )
-                        ui.button("Export", icon="upload", on_click=self._export_data).classes(
-                            "bg-blue-300 hover:bg-blue-400 text-blue-900 px-4 py-2 rounded ml-2"
-                        )
+        with (
+            ui.tab_panel(self.name).classes("w-full h-screen"),
+            ui.column().classes("w-full h-full p-4"),
+            ui.card().classes("w-full h-full p-6 shadow-lg bg-white border border-gray-200"),
+        ):
+            with ui.row().classes("w-full items-center gap-3 mb-6"):
+                ui.icon("dashboard", size="lg").classes("text-blue-600")
+                ui.label("Local System").classes("text-2xl font-bold text-gray-800")
+                ui.space()
+                ui.checkbox("Refresh", value=self._auto_refresh, on_change=self._toggle_auto_refresh).classes("mr-4")
+                ui.button("Export", icon="upload", on_click=self._export_data).classes(
+                    "bg-blue-300 hover:bg-blue-400 text-blue-900 px-4 py-2 rounded ml-2"
+                )
+                self._expand_button = ui.button(icon="sym_r_expand_all", on_click=self._toggle_all_expansions).classes(
+                    "bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                )
 
-                    self.stats_container = ui.column().classes("w-full gap-4")
-                    with self.stats_container:
-                        self._build_system_stats()
+            self.stats_container = ui.column().classes("w-full gap-4")
+            with self.stats_container:
+                self._build_system_stats()
+
+    def _toggle_all_expansions(self):
+        """Toggle all expansion panels and update button icon."""
+        self._all_expanded = not self._all_expanded
+
+        # Update all expansion panels directly
+        for expansion in self._expansions.values():
+            expansion.value = self._all_expanded
+
+        # Update expansion states
+        for key in self._expansion_states:
+            self._expansion_states[key] = self._all_expanded
+
+        # Update button icon
+        if self._expand_button:
+            self._expand_button.props(f"icon={'sym_r_collapse_all' if self._all_expanded else 'sym_r_expand_all'}")
 
     def _refresh_stats(self):
         """Refresh system statistics."""
@@ -102,15 +120,10 @@ class DashboardPanel(BasePanel):
 
     def _export_data(self):
         """Export all dashboard data to JSON."""
-        try:
-            data = self._collect_all_data()
-            json_data = json.dumps(data, indent=2, default=str, ensure_ascii=False)
-            timestamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
-            filename = f"system_dashboard_{timestamp}.json"
-            ui.download(json_data.encode("utf-8"), filename)
-            ui.notify(f"Data exported to {filename}", color="positive")
-        except Exception as e:
-            ui.notify(f"Export failed: {e}", color="negative")
+        from src.utils.json import Json
+
+        data = self._collect_all_data()
+        Json.export_download(data, "system_dashboard", success_message="System dashboard data exported successfully")
 
     def _get_system_info(self):
         """Get system information."""
@@ -133,7 +146,7 @@ class DashboardPanel(BasePanel):
     def _collect_all_data(self):
         """Collect all system data for export."""
         data = {
-            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+            "timestamp": datetime.now(tz=UTC).isoformat(),
             "system_info": self._get_system_info(),
             "performance": self._get_performance_data(),
             "network": dict(psutil.net_io_counters()._asdict()),
@@ -147,7 +160,7 @@ class DashboardPanel(BasePanel):
             "uptime": {
                 "boot_time": psutil.boot_time(),
                 "uptime_seconds": (
-                    datetime.now(tz=timezone.utc) - datetime.fromtimestamp(psutil.boot_time(), tz=timezone.utc)
+                    datetime.now(tz=UTC) - datetime.fromtimestamp(psutil.boot_time(), tz=UTC)
                 ).total_seconds(),
             },
         }
@@ -195,6 +208,7 @@ class DashboardPanel(BasePanel):
                     "System Info", icon="computer", value=self._expansion_states.get("system", False)
                 ).classes("flex-1 bg-blue-50 border border-blue-200")
                 exp1.on_value_change(lambda e: self._expansion_states.update({"system": e.value}))
+                self._expansions["system"] = exp1
                 with exp1:
                     system_data = [
                         {"Property": "Operating System", "Value": system_info["os"]},
@@ -215,6 +229,7 @@ class DashboardPanel(BasePanel):
                     "Performance", icon="memory", value=self._expansion_states.get("performance", False)
                 ).classes("flex-1 bg-orange-50 border border-orange-200")
                 exp2.on_value_change(lambda e: self._expansion_states.update({"performance": e.value}))
+                self._expansions["performance"] = exp2
                 with exp2:
                     memory = psutil.virtual_memory()
                     disk = psutil.disk_usage("/")
@@ -249,11 +264,12 @@ class DashboardPanel(BasePanel):
                     "Network", icon="network_check", value=self._expansion_states.get("network", False)
                 ).classes("flex-1 bg-teal-50 border border-teal-200")
                 exp3.on_value_change(lambda e: self._expansion_states.update({"network": e.value}))
+                self._expansions["network"] = exp3
                 with exp3:
                     net_io = psutil.net_io_counters()
                     try:
                         connections = len(psutil.net_connections())
-                    except:
+                    except (OSError, psutil.AccessDenied):
                         connections = "N/A"
                     net_data = [
                         {"Metric": "Bytes Sent", "Value": f"{net_io.bytes_sent / (1024**2):.0f} MB"},
@@ -276,6 +292,7 @@ class DashboardPanel(BasePanel):
                     "Top CPU Processes", icon="trending_up", value=self._expansion_states.get("top_cpu", False)
                 ).classes("flex-1 bg-red-50 border border-red-200")
                 exp4.on_value_change(lambda e: self._expansion_states.update({"top_cpu": e.value}))
+                self._expansions["top_cpu"] = exp4
                 with exp4:
                     try:
                         top_cpu = sorted(
@@ -308,6 +325,7 @@ class DashboardPanel(BasePanel):
                     "Top Memory Processes", icon="storage", value=self._expansion_states.get("top_memory", False)
                 ).classes("flex-1 bg-purple-50 border border-purple-200")
                 exp5.on_value_change(lambda e: self._expansion_states.update({"top_memory": e.value}))
+                self._expansions["top_memory"] = exp5
                 with exp5:
                     try:
                         top_mem = sorted(
@@ -340,6 +358,7 @@ class DashboardPanel(BasePanel):
                     "Process Health", icon="health_and_safety", value=self._expansion_states.get("health", False)
                 ).classes("flex-1 bg-yellow-50 border border-yellow-200")
                 exp6.on_value_change(lambda e: self._expansion_states.update({"health": e.value}))
+                self._expansions["health"] = exp6
                 with exp6:
                     try:
                         status_counts = {}
@@ -370,9 +389,10 @@ class DashboardPanel(BasePanel):
             with ui.row().classes("w-full gap-2 mb-2"):
                 # Disk I/O Table
                 exp7 = ui.expansion(
-                    "Disk I/O", icon="hard_drive", value=self._expansion_states.get("disk_io", False)
+                    "Disk I/O", icon="storage", value=self._expansion_states.get("disk_io", False)
                 ).classes("flex-1 bg-cyan-50 border border-cyan-200")
                 exp7.on_value_change(lambda e: self._expansion_states.update({"disk_io": e.value}))
+                self._expansions["disk_io"] = exp7
                 with exp7:
                     try:
                         disk_io = psutil.disk_io_counters()
@@ -409,6 +429,7 @@ class DashboardPanel(BasePanel):
                     "System Load", icon="analytics", value=self._expansion_states.get("load", False)
                 ).classes("flex-1 bg-lime-50 border border-lime-200")
                 exp8.on_value_change(lambda e: self._expansion_states.update({"load": e.value}))
+                self._expansions["load"] = exp8
                 with exp8:
                     try:
                         load_avg = psutil.getloadavg()
@@ -437,6 +458,7 @@ class DashboardPanel(BasePanel):
                     "Active Users", icon="security", value=self._expansion_states.get("security", False)
                 ).classes("flex-1 bg-pink-50 border border-pink-200")
                 exp9.on_value_change(lambda e: self._expansion_states.update({"security": e.value}))
+                self._expansions["security"] = exp9
                 with exp9:
                     try:
                         users = psutil.users()
@@ -464,6 +486,7 @@ class DashboardPanel(BasePanel):
                     "Application Stats", icon="code", value=self._expansion_states.get("application", False)
                 ).classes("flex-1 bg-indigo-50 border border-indigo-200")
                 exp10.on_value_change(lambda e: self._expansion_states.update({"application": e.value}))
+                self._expansions["application"] = exp10
                 with exp10:
                     current_process = psutil.Process()
                     app_data = [
@@ -485,6 +508,7 @@ class DashboardPanel(BasePanel):
                     "System Sensors", icon="thermostat", value=self._expansion_states.get("sensors", False)
                 ).classes("flex-1 bg-amber-50 border border-amber-200")
                 exp11.on_value_change(lambda e: self._expansion_states.update({"sensors": e.value}))
+                self._expansions["sensors"] = exp11
                 with exp11:
                     try:
                         temps = psutil.sensors_temperatures()
@@ -517,16 +541,17 @@ class DashboardPanel(BasePanel):
                     "System Uptime", icon="schedule", value=self._expansion_states.get("uptime", False)
                 ).classes("flex-1 bg-green-50 border border-green-200")
                 exp12.on_value_change(lambda e: self._expansion_states.update({"uptime": e.value}))
+                self._expansions["uptime"] = exp12
                 with exp12:
-                    boot_time = datetime.fromtimestamp(psutil.boot_time(), tz=timezone.utc)
-                    uptime = datetime.now(tz=timezone.utc) - boot_time
+                    boot_time = datetime.fromtimestamp(psutil.boot_time(), tz=UTC)
+                    uptime = datetime.now(tz=UTC) - boot_time
                     uptime_data = [
                         {"Event": "System Boot", "Time": boot_time.strftime("%Y-%m-%d %H:%M:%S")},
                         {
                             "Event": "Uptime Duration",
                             "Time": f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m",
                         },
-                        {"Event": "Current Time", "Time": datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")},
+                        {"Event": "Current Time", "Time": datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S")},
                     ]
                     self._create_table(
                         [

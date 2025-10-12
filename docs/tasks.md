@@ -27,7 +27,7 @@
 - [ ] Fix keepalive thread not being properly cleaned up
 - [ ] Add connection timeout and error recovery
 - **Impact**: Performance, reliability, multi-host support
-- **Files**: `src/utils/ssh_connection.py`, `src/ui/handlers/host.py`
+- **Files**: `src/utils/route.py`, `src/ui/handlers/host.py`
 - **Severity**: Architecture limitation
 
 ### 4. **Fix Graph Handler Parameter Order Bug**
@@ -66,7 +66,7 @@
 - [ ] **HostHandler**: Fix inconsistent type annotations
 - [ ] Use modern union syntax (Type | None) consistently
 - **Impact**: Type safety, IDE support, runtime error prevention
-- **Files**: `src/utils/collector.py`, `src/utils/ssh_connection.py`, `src/ui/handlers/host.py`
+- **Files**: `src/utils/collector.py`, `src/utils/route.py`, `src/ui/handlers/host.py`
 
 ### 8. **Standardize Button Styling**
 - [ ] **LogPanel**: Replace 6 hardcoded button style strings with ButtonStyles constants
@@ -78,7 +78,7 @@
 - **Files**: All tab files, `src/ui/components/button_styles.py`
 
 ### 9. **Fix Host Handler Architecture Issues**
-- [ ] Fix direct assignment to `handler._ssh_connection` in HostPanel.build()
+- [ ] Fix direct assignment to `handler._route` in HostPanel.build()
 - [ ] Implement proper dependency injection pattern
 - [ ] Fix unused connection callback methods in HostPanel
 - [ ] Add proper error handling for host handler initialization
@@ -107,13 +107,13 @@
 ### 12. **Extract Configuration Constants**
 - [ ] Move magic numbers to configuration:
   - `MAX_RECONNECT=10` in collector.py
-  - `keepalive_interval=30` in ssh_connection.py
+  - `keepalive_interval=30` in route.py
   - `_MAX_LINES=500` in log.py
 - [ ] Create settings dataclass for UI constants
 - [ ] Add environment-based configuration loading
 - [ ] Centralize timeout values and retry limits
 - **Impact**: Configurability, maintainability
-- **Files**: `src/utils/ssh_connection.py`, `src/utils/collector.py`, `src/ui/tabs/log.py`
+- **Files**: `src/utils/route.py`, `src/utils/collector.py`, `src/ui/tabs/log.py`
 
 ### 13. **Fix Dialog System Issues**
 - [ ] Fix duplicate dialog implementation in log.py (should use DialogFactory)
@@ -279,7 +279,7 @@
 1. **`src/ui/tabs/ethtool.py`** - CRITICAL: Duplicate method causing crashes
 2. **`src/utils/collector.py`** - CRITICAL: Memory leaks in Worker threads
 3. **`src/ui/handlers/graph.py`** - CRITICAL: Parameter order bug
-4. **`src/utils/ssh_connection.py`** - HIGH: Connection architecture issues
+4. **`src/utils/route.py`** - HIGH: Connection architecture issues
 5. **`src/ui/tabs/mlxlink.py`** - HIGH: Code duplication (80 lines)
 6. **`src/ui/tabs/info.py`** - HIGH: Code duplication (75 lines)
 7. **`src/ui/tabs/log.py`** - MEDIUM: Code duplication (45 lines)

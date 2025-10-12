@@ -1,6 +1,5 @@
 from collections import defaultdict
-from datetime import datetime as dt, timezone
-import json
+from datetime import UTC, datetime as dt
 import logging
 from pathlib import Path
 import queue
@@ -10,52 +9,55 @@ from typing import Any
 
 from pympler import asizeof
 
-logger = logging.getLogger(__name__)
-
-from src.enums.command import CommandTypes
+from src.enums.command import CommandType
 from src.models.configurations import AppConfig
-from src.models.ethtool import EthtoolParser
+from src.tools.ethtool import EthtoolTool
 from src.utils.commands import Command
-from src.utils.ssh_connection import SshConnection
+from src.utils.connect import Ssh
+
+logger = logging.getLogger(__name__)
 
 
 class Sample:
-    begin: dt = None
-    end: dt = None
+    _start: dt = None
+    _stop: dt = None
 
-    _interf: str
+    _interface: str
     _app_config: AppConfig
-    _ssh_connection: SshConnection
+    _ssh: Ssh
 
     snapshot: Any = None
 
-    def __init__(self, interf: str, app_config: AppConfig, ssh_connection: SshConnection) -> None:
-        self._interf = interf
+    def __init__(self, interface: str, app_config: AppConfig, ssh: Ssh) -> None:
+        self._interface = interface
         self._app_config = app_config
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
 
-    def begin(self) -> None:
-        self.begin = dt.now(tz=timezone.utc)
+    @property
+    def start(self) -> dt:
+        return self._start
 
-    def end(self) -> None:
-        self.end = dt.now(tz=timezone.utc)
+    @property
+    def stop(self) -> dt:
+        return self._stop
 
-    def new(self, cmd: Command) -> Any:
-        self.begin()
-        match cmd.cmd_type:
-            case CommandTypes.MODIFY, CommandTypes.SYSTEM, CommandTypes.COMMON:
+    def collect(self, cmd: Command) -> Any:
+        self._start = dt.now(tz=UTC)
+
+        match cmd.command_type:
+            case CommandType.MODIFY, CommandType.SYSTEM, CommandType.COMMON:
                 pass  # Not implemented
-            case CommandTypes.ETHTOOL:
-                self.snapshot = EthtoolParser(self._interf, self._app_config, self._ssh_connection).all_info()
-            case CommandTypes.MLXLINK:
+            case CommandType.ETHTOOL:
+                self.snapshot = EthtoolTool(self._interface, self._app_config, self._ssh).parse_output(cmd)
+            case CommandType.MLXLINK:
                 pass  # Not implemented
-            case CommandTypes.MLXCONFIG:
+            case CommandType.MLXCONFIG:
                 pass  # Not implemented
-            case CommandTypes.MST:
+            case CommandType.MST:
                 pass  # Not implemented
             case _:
                 pass  # Unknown command
-        self.end()
+        self._stop = dt.now(tz=UTC)
 
         return self
 
@@ -84,13 +86,16 @@ class PlotSampleData:
         self._x_value = sample.begin
         self._y_value = snap_value_first.value
 
-    def get_data_x(self) -> dt:
+    @property
+    def x(self) -> dt:
         return self._x_value
 
-    def get_data_y(self) -> float:
+    @property
+    def y(self) -> float:
         return self._y_value
 
-    def get_label_y(self) -> str:
+    @property
+    def y_label(self) -> str:
         return self._y_axis_label
 
 
@@ -100,36 +105,35 @@ class Worker(threading.Thread):
     _start: dt = None
     _stop: dt = None
 
-    _interf: str
+    _interface: str
     _app_config: AppConfig
-    _ssh_connection: SshConnection
+    _ssh: Ssh
 
-    _collected_samples: queue.Queue = queue.Queue()
-    _extracted_samples: list[Sample] = []
+    _collected_samples: queue.Queue = queue.Queue()  # Thread safe queue
+    _extracted_samples: list[Sample]
 
-    def __init__(
-        self, cmd: Command, interf: str, app_config: AppConfig, ssh_connection: SshConnection, name: str = "Worker"
-    ) -> None:
+    def __init__(self, cmd: Command, interface: str, app_config: AppConfig, ssh: Ssh, name: str = "Worker") -> None:
         super().__init__(name=name, daemon=True)  # daemon=True means it won’t block program exit
         self._cmd = cmd
         self._stop_event = threading.Event()
+        self._extracted_samples = [Sample]
 
-        self._interf = interf
+        self._interface = interface
         self._app_config = app_config
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
 
     def run(self) -> None:
         """Thread main logic (executed when start() is called)."""
-        self.work_start()
+        self._start = dt.now(tz=UTC)
+
         reconnect = 1
         while not self._stop_event.is_set():
             try:
                 if reconnect > self._MAX_RECONNECT:
                     logger.info("Reconnect failed 10 times. Exiting thread...")
                     reconnect = 0
-                    self.stop()
                     break
-                sample = Sample(self._interf, self._app_config, self._ssh_connection).new(self._cmd)
+                sample = Sample(self._interface, self._app_config, self._ssh).collect(self._cmd)
                 self._collected_samples.put(sample)
                 time.sleep(self._app_config.system.get_command_update_value())
             except KeyboardInterrupt:
@@ -137,41 +141,43 @@ class Worker(threading.Thread):
             except Exception:
                 logger.exception("Collection stopped unexpectedly")
                 try:
-                    self._ssh_connection.connect()
-                    if self._ssh_connection.is_connected():
+                    self._ssh.connect()
+                    if self._ssh.is_connected():
                         logger.info("Reconnected to SSH session")
                     else:
                         logger.exception(f"Failed to reconnect to SSH session ({reconnect}/{self._MAX_RECONNECT})")
                 except Exception:
                     logger.exception("SSH reconnect failed")
             reconnect += 1
-        self.work_stop()
 
-    def stop(self) -> None:
+        self._stop = dt.now(tz=UTC)
+
+    def close(self) -> None:
         self._stop_event.set()
         logger.debug("Stop event set")
 
-    def stop_and_wait(self) -> None:
+    def close_and_wait(self) -> None:
         self._stop_event.set()
         while self.is_alive():
             time.sleep(0.1)
 
-    def stopped(self) -> bool:
+    def is_closed(self) -> bool:
         """Return True if stop signal is active."""
         return self._stop_event.is_set()
 
-    def work_start(self) -> None:
-        self._start = dt.now(tz=timezone.utc)
+    @property
+    def interface(self) -> str:
+        return self._interface
 
-    def get_work_start(self) -> None:
+    @property
+    def start(self) -> dt:
         return self._start
 
-    def work_stop(self) -> None:
-        self._stop = dt.now(tz=timezone.utc)
-
-    def get_work_stop(self) -> None:
+    @property
+    def stop(self) -> dt:
         return self._stop
 
+    @property
     def duration(self) -> str:
         if not self._start:
             return "Begin time not available"
@@ -193,12 +199,12 @@ class Worker(threading.Thread):
             f"Mem size of extracted list: {round(asizeof.asizeof(self._extracted_samples) / (1024 * 1024), 2)} Mb"
         )
 
-    def get_all_samples(self) -> list[Sample]:
+    def all_samples(self) -> list[Sample]:
         self._collect_all_samples()
         self.log_extracted_size()
         return self._extracted_samples
 
-    def get_first_sample(self) -> Sample:
+    def first_sample(self) -> Sample:
         if not self._extracted_samples:
             self._collect_sample()
         self.log_extracted_size()
@@ -226,8 +232,9 @@ class Worker(threading.Thread):
         return dict(groups)
 
     def export_json(self, full_path: Path) -> None:
-        with full_path.open("w", encoding="utf-8") as f:
-            json.dump(self.get_samples(), f, default=str, indent=2)
+        from src.utils.json import Json
+
+        Json.save(self.get_samples(), full_path)
 
     def summary(self) -> str:
         """One-line textual summary of the collected sample data."""
@@ -242,14 +249,14 @@ class WorkManager:
     def __init__(self) -> None:
         self._work_pool = []
 
-    def add(self, new_worker: Worker) -> None:
-        old_worker = self.get_worker(new_worker._interf)
+    def add(self, worker: Worker) -> None:
+        old_worker = self.get_worker(worker.interface)
         if old_worker is None:
-            new_worker.start()
-            self._work_pool.append(new_worker)
+            worker.start()
+            self._work_pool.append(worker)
         else:
             old_worker.start()
-            logger.debug(f"Worker already exists for: {old_worker._interf}")
+            logger.debug(f"Worker already exists for: {old_worker.interface}")
 
     def clear(self) -> None:
         logger.debug(f"Clearing {len(self._work_pool)} workers from pool")
@@ -270,12 +277,12 @@ class WorkManager:
         self.clear()
         logger.debug("Work manager has been resetted")
 
-    def get_worker(self, interf: str) -> Worker | None:
+    def get_worker(self, interface: str) -> Worker | None:
         for w in self._work_pool:
-            if w._interf == interf:
-                logger.debug(f"Found worker: {w._interf}")
+            if w.interface == interface:
+                logger.debug(f"Found worker: {w.interface}")
                 return w
-        logger.debug(f"Did not find any old worker for interface: {interf}")
+        logger.debug(f"Did not find any old worker for interface: {interface}")
         return None
 
     def summary(self) -> str:

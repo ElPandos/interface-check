@@ -2,7 +2,7 @@ from nicegui import ui
 
 from src.models.configurations import AppConfig
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.utils.ssh_connection import SshConnection
+from src.utils.connect import Ssh
 
 NAME = "mlxlink"
 LABEL = "Mlxlink"
@@ -26,13 +26,13 @@ class MlxlinkPanel(BasePanel):
         self,
         build: bool = False,
         app_config: AppConfig = None,
-        ssh_connection: SshConnection = None,
+        ssh: Ssh = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
-        super().__init__(NAME, LABEL)
+        super().__init__(NAME, LABEL, MlxlinkTab.ICON_NAME)
         self._app_config = app_config
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._host_handler = host_handler
         self._icon = icon
         self.num_screens = 1
@@ -48,11 +48,10 @@ class MlxlinkPanel(BasePanel):
                 self._icon.style("color: #ef4444")
 
     def _build_controls(self) -> None:
-        with ui.card().classes("w-full mb-4"):
-            with ui.row().classes("w-full items-center gap-4"):
-                ui.label("Mlxlink").classes("text-lg font-bold")
-                ui.space()
-                ui.select([1, 2, 3, 4], value=1, label="Hosts").classes("w-32").on_value_change(self._on_screen_change)
+        with ui.card().classes("w-full mb-4"), ui.row().classes("w-full items-center gap-4"):
+            ui.label("Mlxlink").classes("text-lg font-bold")
+            ui.space()
+            ui.select([1, 2, 3, 4], value=1, label="Hosts").classes("w-32").on_value_change(self._on_screen_change)
 
     def _build_content(self) -> None:
         self.content_container = ui.column().classes("w-full h-full")
@@ -84,20 +83,19 @@ class MlxlinkPanel(BasePanel):
                         self._build_screen(4, "flex-1 h-full")
 
     def _build_screen(self, screen_num, classes):
-        with ui.card().classes(classes):
-            with ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
-                if self._host_handler:
-                    from src.ui.components.connection_selector import ConnectionSelector
+        with ui.card().classes(classes), ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
+            if self._host_handler:
+                from src.ui.components.selector import Selector
 
-                    ConnectionSelector(
-                        self._host_handler._connected_routes,
-                        self._host_handler._routes,
-                        lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
-                    ).build()
-                ui.button("Scan Interfaces", on_click=lambda s=screen_num: self._scan_interfaces(s)).classes(
-                    "bg-red-300 hover:bg-red-400 text-red-900 mt-2"
-                )
-                ui.label(f"Content for host {screen_num}").classes("mt-4")
+                Selector(
+                    self._host_handler._connect_route,
+                    self._host_handler._routes,
+                    lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
+                ).build()
+            ui.button("Scan Interfaces", on_click=lambda s=screen_num: self._scan_interfaces(s)).classes(
+                "bg-red-300 hover:bg-red-400 text-red-900 mt-2"
+            )
+            ui.label(f"Content for host {screen_num}").classes("mt-4")
 
     def _on_screen_change(self, e):
         self.num_screens = e.value

@@ -16,6 +16,7 @@ class MultiScreenMixin(ABC):
     def _build_controls_base(self, label: str) -> None:
         """Build standard controls with host selector."""
         with ui.card().classes("w-full mb-4"), ui.row().classes("w-full items-center gap-4"):
+            ui.icon(self._icon_name, size="lg").classes("text-blue-600")
             ui.label(label).classes("text-lg font-bold")
             ui.space()
             ui.select([1, 2, 3, 4], value=1, label="Hosts").classes("w-32").on_value_change(self._on_screen_change)
@@ -59,11 +60,13 @@ class MultiScreenMixin(ABC):
         """Handle screen count change."""
         self.num_screens = e.value
         self._render_screens()
-        self._update_icon_status()
+        if hasattr(self, "_update_icon_status"):
+            self._update_icon_status()
 
     def _on_connection_change(self, connection_id, screen_num):
         """Handle connection selection change."""
         if not hasattr(self, "screen_connections"):
             self.screen_connections = {}
         self.screen_connections[screen_num] = connection_id
-        self._update_icon_status()
+        if hasattr(self, "_update_icon_status"):
+            self._update_icon_status()

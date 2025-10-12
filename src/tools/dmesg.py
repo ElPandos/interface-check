@@ -33,7 +33,7 @@ class DmesgTool(Tool):
             "all": "dmesg -T",
         }
 
-    def parse_output(self, command_name: str, raw_output: str) -> Any:
+    def parse_output(self, _command_name: str, raw_output: str) -> Any:
         """Parse dmesg command output."""
         return self._parse_dmesg_entries(raw_output)
 

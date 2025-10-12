@@ -8,7 +8,7 @@
 
 ## SSH Connection Management
 - **Shared Instance**: Single `SshConnection` passed to all components
-- **Context Manager**: Use `with ssh_connection:` for automatic cleanup
+- **Context Manager**: Use `with route:` for automatic cleanup
 - **Connection Status**: Check `is_connected()` before operations
 - **Error Handling**: Graceful degradation on connection failures
 
@@ -23,10 +23,10 @@ class ExampleTab(BaseTab):
 
 # Panel implementation  
 class ExamplePanel(BasePanel):
-    def __init__(self, build: bool, app_config: AppConfig, ssh_connection: SshConnection):
+    def __init__(self, build: bool, app_config: AppConfig, route: SshConnection):
         super().__init__("example", "Example")
         self._app_config = app_config
-        self._ssh_connection = ssh_connection
+        self._ssh = route
         if build:
             self.build()
 ```

@@ -12,17 +12,17 @@ import pytest
 from unittest.mock import Mock, patch
 
 @pytest.fixture
-def mock_ssh_connection():
+def mock_route():
     mock = Mock()
     mock.is_connected.return_value = True
     mock.exec_command.return_value = ("output", "")
     return mock
 
-def test_command_execution(mock_ssh_connection):
-    handler = CommandHandler(mock_ssh_connection)
+def test_command_execution(mock_route):
+    handler = CommandHandler(mock_route)
     result = handler.execute_ethtool("eth0")
     assert result is not None
-    mock_ssh_connection.exec_command.assert_called_once()
+    mock_route.exec_command.assert_called_once()
 ```
 
 ## Test Categories

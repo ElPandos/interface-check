@@ -1,4 +1,4 @@
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
@@ -6,29 +6,34 @@ from src.ui.enums.settings import Options, Types
 
 
 class Host(BaseModel):
-    ip: str
-    username: str
-    password: SecretStr
+    summary: str = ""
+    ip: str = ""
+    username: str = ""
+    password: SecretStr = SecretStr("")
     remote: bool = False
     jump: bool = False
     jump_order: int | None = None
 
+    model_config = ConfigDict(json_encoders={SecretStr: lambda v: v.get_secret_value()})
+
     _DEFAULT_HOST: ClassVar[dict[str, str | bool | int | None]] = {
-        "ip": "192.168.1.10",
-        "username": "admin",
-        "password": "demo123",
+        "summary": "",
+        "ip": "137.58.231.134",
+        "username": "emvekta",
+        "password": "a",
         "remote": False,
         "jump": False,
         "jump_order": None,
     }
 
     _DEFAULT_JUMP: ClassVar[dict[str, str | bool | int | None]] = {
-        "ip": "10.0.0.5",
-        "username": "user",
-        "password": "demo456",
+        "summary": "",
+        "ip": "172.16.180.1",
+        "username": "hts",
+        "password": "a",
         "remote": False,
-        "jump": True,
-        "jump_order": 1,
+        "jump": False,
+        "jump_order": None,
     }
 
     @classmethod
@@ -65,9 +70,9 @@ class Host(BaseModel):
 class Setting(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
-    name: str
-    type: Options
-    value: bool | int | str
+    name: str = ""
+    type: Options = Options.SWITCH
+    value: bool | int | str = False
     min: int | None = None
     max: int | None = None
 
@@ -143,4 +148,16 @@ class SettingsConfig(BaseModel):
 class AppConfig(BaseModel):
     system: SettingsConfig = Field(default_factory=SettingsConfig)
     hosts: list[Host] = Field(default_factory=lambda: [Host.default_host(), Host.default_jump()])
-    routes: list[dict[str, str | list[dict[str, str | int]]]] = Field(default_factory=list)
+    routes: list[dict[str, Any]] = Field(
+        default_factory=lambda: [
+            {
+                "summary": "137.58.231.134(J1) ⟶ 172.16.180.1(Remote)",
+                "remote_host_ip": "172.16.180.1",
+                "remote_host_username": "hts",
+                "remote_host_password": "hts",
+                "jump_hosts": [
+                    {"ip": "137.58.231.134", "username": "emvekta", "password": "emvekta", "order": 1, "jump": False}
+                ],
+            }
+        ]
+    )

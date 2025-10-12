@@ -18,7 +18,7 @@ class GraphView:
         self._source = source
         self._value = value
 
-    def _close_card(self, card: ui.card, interf: str = None, kill_worker: bool = False) -> None:
+    def _close_card(self, card: ui.card, _interf: str | None = None, _kill_worker: bool = False) -> None:
         card.delete()
         logger.debug("Card deleted")
 
