@@ -73,6 +73,7 @@ class SystemContent:
         self._config = config
         self._selected_connection: str | None = None
         self._system_info_container: ui.column | None = None
+        self._buttons: dict[str, ui.button] = {}
 
     def build(self, screen_num: int) -> None:
         """Build system interface for the screen."""
@@ -81,24 +82,24 @@ class SystemContent:
             Selector(
                 getattr(self._host_handler, "_connect_route", {}),
                 getattr(self._host_handler, "_routes", {}),
-                lambda conn_id: self._on_connection_change(conn_id),
+                self._on_connection_change,
             ).build()
 
         # System controls
         with ui.row().classes("w-full gap-2 mt-2 flex-wrap"):
-            ui.button("System Info", icon="info", on_click=self._get_system_info).classes(
+            self._buttons["system"] = ui.button("System Info", icon="info", on_click=self._get_system_info).classes(
                 "bg-green-500 hover:bg-green-600 text-white"
             )
 
-            ui.button("CPU Info", icon="memory", on_click=self._get_cpu_info).classes(
+            self._buttons["cpu"] = ui.button("CPU Info", icon="memory", on_click=self._get_cpu_info).classes(
                 "bg-blue-500 hover:bg-blue-600 text-white"
             )
 
-            ui.button("Memory Info", icon="storage", on_click=self._get_memory_info).classes(
+            self._buttons["memory"] = ui.button("Memory Info", icon="storage", on_click=self._get_memory_info).classes(
                 "bg-purple-500 hover:bg-purple-600 text-white"
             )
 
-            ui.button("Clear", icon="clear", on_click=self._clear_info).classes(
+            self._buttons["clear"] = ui.button("Clear", icon="clear", on_click=self._clear_info).classes(
                 "bg-gray-500 hover:bg-gray-600 text-white"
             )
 
@@ -106,102 +107,111 @@ class SystemContent:
         with ui.column().classes("w-full mt-4"):
             ui.label("System Information").classes("text-lg font-bold")
             self._system_info_container = ui.column().classes("w-full gap-2")
-            with self._system_info_container:
-                ui.label("No system information retrieved yet").classes("text-gray-500 italic")
+            self._show_empty_state()
+
+        self._update_button_states()
 
     def _on_connection_change(self, connection_id: str | None) -> None:
         """Handle connection selection change."""
         self._selected_connection = connection_id
+        self._update_button_states()
+
+    def _is_connected(self) -> bool:
+        """Check if SSH connection is available."""
+        return self._ssh_connection is not None and self._ssh_connection.is_connected()
+
+    def _update_button_states(self) -> None:
+        """Update button states based on connection status."""
+        is_connected = self._is_connected()
+        for button_name in ("system", "cpu", "memory"):
+            if button := self._buttons.get(button_name):
+                if is_connected:
+                    button.enable()
+                else:
+                    button.disable()
+
+    def _show_empty_state(self) -> None:
+        """Show empty state in results area."""
+        if self._system_info_container:
+            with self._system_info_container:
+                ui.label("No system information retrieved yet").classes("text-gray-500 italic")
+
+    def _execute_command(self, cmd: str, timeout: int = 5) -> tuple[str, str]:
+        """Execute SSH command with error handling."""
+        try:
+            return self._ssh_connection.exec_command(cmd, timeout=timeout)
+        except Exception:
+            return "", "Command execution failed"
 
     def _get_system_info(self) -> None:
         """Get general system information."""
-        if not self._ssh_connection or not self._ssh_connection.is_connected():
+        if not self._is_connected() or not self._system_info_container:
             ui.notify("SSH connection required", color="negative")
             return
 
-        if not self._system_info_container:
-            return
+        commands = [
+            ("uname -a", "System"),
+            ("uptime", "Uptime"),
+            ("whoami", "Current User"),
+            ("pwd", "Current Directory"),
+        ]
 
-        try:
-            # Execute system info commands
-            commands = [
-                ("uname -a", "System"),
-                ("uptime", "Uptime"),
-                ("whoami", "Current User"),
-                ("pwd", "Current Directory"),
-            ]
+        with self._system_info_container:
+            with ui.card().classes("w-full p-4 border"):
+                ui.label("General System Information").classes("font-bold text-green-600 mb-2")
 
-            with self._system_info_container:
-                with ui.card().classes("w-full p-4 border"):
-                    ui.label("General System Information").classes("font-bold text-green-600 mb-2")
+                for cmd, label in commands:
+                    stdout, stderr = self._execute_command(cmd)
+                    if stdout:
+                        ui.label(f"{label}: {stdout.strip()}").classes("text-sm")
+                    elif stderr:
+                        ui.label(f"{label}: Error - {stderr.strip()}").classes("text-sm text-red-600")
 
-                    for cmd, label in commands:
-                        stdout, stderr = self._ssh_connection.exec_command(cmd, timeout=5)
-                        if stdout:
-                            ui.label(f"{label}: {stdout.strip()}").classes("text-sm")
-                        elif stderr:
-                            ui.label(f"{label}: Error - {stderr.strip()}").classes("text-sm text-red-600")
-
-            ui.notify("System information retrieved", color="positive")
-        except Exception as e:
-            ui.notify(f"Failed to get system info: {e}", color="negative")
+        ui.notify("System information retrieved", color="positive")
 
     def _get_cpu_info(self) -> None:
         """Get CPU information."""
-        if not self._ssh_connection or not self._ssh_connection.is_connected():
+        if not self._is_connected() or not self._system_info_container:
             ui.notify("SSH connection required", color="negative")
             return
 
-        if not self._system_info_container:
-            return
+        stdout, stderr = self._execute_command("cat /proc/cpuinfo | head -20")
 
-        try:
-            stdout, stderr = self._ssh_connection.exec_command("cat /proc/cpuinfo | head -20", timeout=5)
+        with self._system_info_container:
+            with ui.card().classes("w-full p-4 border"):
+                ui.label("CPU Information").classes("font-bold text-blue-600 mb-2")
+                if stdout:
+                    ui.code(stdout).classes("text-xs")
+                elif stderr:
+                    ui.label(f"Error: {stderr}").classes("text-sm text-red-600")
 
-            with self._system_info_container:
-                with ui.card().classes("w-full p-4 border"):
-                    ui.label("CPU Information").classes("font-bold text-blue-600 mb-2")
-                    if stdout:
-                        ui.code(stdout).classes("text-xs")
-                    elif stderr:
-                        ui.label(f"Error: {stderr}").classes("text-sm text-red-600")
-
-            ui.notify("CPU information retrieved", color="positive")
-        except Exception as e:
-            ui.notify(f"Failed to get CPU info: {e}", color="negative")
+        ui.notify("CPU information retrieved", color="positive")
 
     def _get_memory_info(self) -> None:
         """Get memory information."""
-        if not self._ssh_connection or not self._ssh_connection.is_connected():
+        if not self._is_connected() or not self._system_info_container:
             ui.notify("SSH connection required", color="negative")
             return
 
-        if not self._system_info_container:
-            return
+        commands = [("free -h", "Memory Usage"), ("df -h", "Disk Usage")]
 
-        try:
-            commands = [("free -h", "Memory Usage"), ("df -h", "Disk Usage")]
+        with self._system_info_container:
+            with ui.card().classes("w-full p-4 border"):
+                ui.label("Memory & Storage Information").classes("font-bold text-purple-600 mb-2")
 
-            with self._system_info_container:
-                with ui.card().classes("w-full p-4 border"):
-                    ui.label("Memory & Storage Information").classes("font-bold text-purple-600 mb-2")
+                for cmd, label in commands:
+                    stdout, stderr = self._execute_command(cmd)
+                    if stdout:
+                        ui.label(label).classes("font-semibold text-sm mt-2")
+                        ui.code(stdout).classes("text-xs")
+                    elif stderr:
+                        ui.label(f"{label}: Error - {stderr}").classes("text-sm text-red-600")
 
-                    for cmd, label in commands:
-                        stdout, stderr = self._ssh_connection.exec_command(cmd, timeout=5)
-                        if stdout:
-                            ui.label(label).classes("font-semibold text-sm mt-2")
-                            ui.code(stdout).classes("text-xs")
-                        elif stderr:
-                            ui.label(f"{label}: Error - {stderr}").classes("text-sm text-red-600")
-
-            ui.notify("Memory information retrieved", color="positive")
-        except Exception as e:
-            ui.notify(f"Failed to get memory info: {e}", color="negative")
+        ui.notify("Memory information retrieved", color="positive")
 
     def _clear_info(self) -> None:
         """Clear system information display."""
         if self._system_info_container:
             self._system_info_container.clear()
-            with self._system_info_container:
-                ui.label("No system information retrieved yet").classes("text-gray-500 italic")
+            self._show_empty_state()
         ui.notify("System information cleared", color="info")

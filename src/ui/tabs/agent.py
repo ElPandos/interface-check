@@ -76,6 +76,31 @@ class AgentContent:
         self._task_command: ui.input | None = None
         self._task_interval: ui.number | None = None
         self._task_repeat: ui.number | None = None
+        self._buttons: dict[str, ui.button] = {}
+
+        # Task configurations cache
+        self._task_configs = {
+            "health_check": {
+                "name": "Interface Health Check",
+                "commands": ["ethtool eth0", "ip link show", "cat /proc/net/dev"],
+                "description": "Check interface status and basic health metrics",
+            },
+            "performance": {
+                "name": "Performance Monitor",
+                "commands": ["ethtool -S eth0", "sar -n DEV 1 5", "ss -i"],
+                "description": "Monitor interface performance and statistics",
+            },
+            "diagnostics": {
+                "name": "Link Diagnostics",
+                "commands": ["ethtool -t eth0", "mii-tool eth0", "ethtool --show-ring eth0"],
+                "description": "Run comprehensive link diagnostics",
+            },
+            "backup": {
+                "name": "Config Backup",
+                "commands": ["ip addr show", "ip route show", "cat /etc/network/interfaces"],
+                "description": "Backup current network configuration",
+            },
+        }
 
     def build(self, screen_num: int) -> None:
         """Build the network agent automation interface."""
@@ -83,15 +108,17 @@ class AgentContent:
             # Agent status and controls
             with ui.row().classes("w-full items-center gap-4 mb-4"):
                 self._status_badge = ui.badge("Ready", color="positive").classes("text-sm")
-                ui.button("Start Agent", icon="play_arrow", on_click=lambda: self._start_agent(screen_num)).classes(
-                    "bg-green-500 hover:bg-green-600 text-white"
-                )
-                ui.button("Stop Agent", icon="stop", on_click=lambda: self._stop_agent(screen_num)).classes(
+                self._buttons["start"] = ui.button(
+                    "Start Agent", icon="play_arrow", on_click=self._start_agent
+                ).classes("bg-green-500 hover:bg-green-600 text-white")
+                self._buttons["stop"] = ui.button("Stop Agent", icon="stop", on_click=self._stop_agent).classes(
                     "bg-red-500 hover:bg-red-600 text-white"
                 )
-                ui.button("Clear Tasks", icon="clear_all", on_click=lambda: self._clear_tasks(screen_num)).classes(
+                self._buttons["clear"] = ui.button("Clear Tasks", icon="clear_all", on_click=self._clear_tasks).classes(
                     "bg-gray-500 hover:bg-gray-600 text-white"
                 )
+
+            self._update_button_states()
 
             # Quick automation tasks
             with ui.expansion("Quick Tasks", icon="flash_on", value=True).classes("w-full"):
@@ -174,9 +201,38 @@ class AgentContent:
                             on_click=lambda: self._add_custom_task(screen_num),
                         ).classes("bg-indigo-500 hover:bg-indigo-600 text-white")
 
-    def _start_agent(self, screen_num: int):
+    def _is_connected(self) -> bool:
+        """Check if SSH connection is available."""
+        return self._ssh_connection is not None and self._ssh_connection.is_connected()
+
+    def _update_button_states(self) -> None:
+        """Update button states based on connection status."""
+        is_connected = self._is_connected()
+        for button_name in ("start", "stop"):
+            if button := self._buttons.get(button_name):
+                if is_connected:
+                    button.enable()
+                else:
+                    button.disable()
+
+    def _create_task(
+        self, task_id: str, name: str, commands: list[str], description: str, task_type: str, **kwargs
+    ) -> dict[str, Any]:
+        """Create a standardized task dictionary."""
+        return {
+            "id": task_id,
+            "name": name,
+            "commands": commands,
+            "description": description,
+            "status": "queued",
+            "created": datetime.now().strftime("%H:%M:%S"),
+            "type": task_type,
+            **kwargs,
+        }
+
+    def _start_agent(self):
         """Start the network agent."""
-        if not self._agent or not self._ssh_connection or not self._ssh_connection.is_connected():
+        if not self._agent or not self._is_connected():
             ui.notify("SSH connection required", color="negative")
             return
 
@@ -188,7 +244,7 @@ class AgentContent:
         else:
             ui.notify("Failed to start agent", color="negative")
 
-    def _stop_agent(self, screen_num: int):
+    def _stop_agent(self):
         """Stop the network agent."""
         if self._agent:
             self._agent.stop()
@@ -198,7 +254,7 @@ class AgentContent:
             self._status_badge.color = "negative"
         ui.notify("Network agent stopped", color="warning")
 
-    def _clear_tasks(self, screen_num: int):
+    def _clear_tasks(self):
         """Clear all tasks."""
         self._tasks.clear()
         self._running_tasks.clear()
@@ -206,45 +262,17 @@ class AgentContent:
         if self._results_container:
             self._results_container.clear()
         ui.notify("Tasks cleared", color="info")
+        ui.notify("Tasks cleared", color="info")
 
     def _add_task(self, screen_num: int, task_type: str):
         """Add a predefined task to the queue."""
-        task_configs = {
-            "health_check": {
-                "name": "Interface Health Check",
-                "commands": ["ethtool eth0", "ip link show", "cat /proc/net/dev"],
-                "description": "Check interface status and basic health metrics",
-            },
-            "performance": {
-                "name": "Performance Monitor",
-                "commands": ["ethtool -S eth0", "sar -n DEV 1 5", "ss -i"],
-                "description": "Monitor interface performance and statistics",
-            },
-            "diagnostics": {
-                "name": "Link Diagnostics",
-                "commands": ["ethtool -t eth0", "mii-tool eth0", "ethtool --show-ring eth0"],
-                "description": "Run comprehensive link diagnostics",
-            },
-            "backup": {
-                "name": "Config Backup",
-                "commands": ["ip addr show", "ip route show", "cat /etc/network/interfaces"],
-                "description": "Backup current network configuration",
-            },
-        }
-
-        config = task_configs.get(task_type)
+        config = self._task_configs.get(task_type)
         if not config:
             return
 
-        task = {
-            "id": f"{task_type}_{len(self._tasks)}",
-            "name": config["name"],
-            "commands": config["commands"],
-            "description": config["description"],
-            "status": "queued",
-            "created": datetime.now().strftime("%H:%M:%S"),
-            "type": task_type,
-        }
+        task = self._create_task(
+            f"{task_type}_{len(self._tasks)}", config["name"], config["commands"], config["description"], task_type
+        )
 
         self._tasks.append(task)
         self._update_task_display()
@@ -256,17 +284,15 @@ class AgentContent:
             ui.notify("Task name and command are required", color="negative")
             return
 
-        task = {
-            "id": f"custom_{len(self._tasks)}",
-            "name": self._task_name.value,
-            "commands": [self._task_command.value],
-            "description": f"Custom task: {self._task_command.value}",
-            "status": "queued",
-            "created": datetime.now().strftime("%H:%M:%S"),
-            "type": "custom",
-            "interval": self._task_interval.value if self._task_interval else 60,
-            "repeat": self._task_repeat.value if self._task_repeat else 1,
-        }
+        task = self._create_task(
+            f"custom_{len(self._tasks)}",
+            self._task_name.value,
+            [self._task_command.value],
+            f"Custom task: {self._task_command.value}",
+            "custom",
+            interval=self._task_interval.value if self._task_interval else 60,
+            repeat=self._task_repeat.value if self._task_repeat else 1,
+        )
 
         self._tasks.append(task)
         self._update_task_display()

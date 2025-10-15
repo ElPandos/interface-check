@@ -74,28 +74,30 @@ class ToolboxContent:
         self._config = config
         self._selected_connection: str | None = None
         self._tool_results: ui.column | None = None
+        self._buttons: dict[str, ui.button] = {}
 
     def build(self, screen_num: int) -> None:
         """Build toolbox interface for the screen."""
+
         # Connection selector
         if self._host_handler:
             Selector(
                 getattr(self._host_handler, "_connect_route", {}),
                 getattr(self._host_handler, "_routes", {}),
-                lambda conn_id: self._on_connection_change(conn_id),
+                self._on_connection_change,
             ).build()
 
         # Toolbox controls
         with ui.row().classes("w-full gap-2 mt-2 flex-wrap"):
-            ui.button("Scan Interfaces", icon="search", on_click=self._scan_interfaces).classes(
+            self._buttons["scan"] = ui.button("Scan Interfaces", icon="search", on_click=self._scan_interfaces).classes(
                 "bg-red-500 hover:bg-red-600 text-white"
             )
 
-            ui.button("Network Tools", icon="build", on_click=self._network_tools).classes(
+            self._buttons["tools"] = ui.button("Network Tools", icon="build", on_click=self._network_tools).classes(
                 "bg-blue-500 hover:bg-blue-600 text-white"
             )
 
-            ui.button("Clear Results", icon="clear", on_click=self._clear_results).classes(
+            self._buttons["clear"] = ui.button("Clear Results", icon="clear", on_click=self._clear_results).classes(
                 "bg-gray-500 hover:bg-gray-600 text-white"
             )
 
@@ -103,49 +105,66 @@ class ToolboxContent:
         with ui.column().classes("w-full mt-4"):
             ui.label("Toolbox Results").classes("text-lg font-bold")
             self._tool_results = ui.column().classes("w-full gap-2")
-            with self._tool_results:
-                ui.label("No tools executed yet").classes("text-gray-500 italic")
+            self._show_empty_state()
+
+        self._update_button_states()
 
     def _on_connection_change(self, connection_id: str | None) -> None:
         """Handle connection selection change."""
         self._selected_connection = connection_id
+        self._update_button_states()
 
-    def _scan_interfaces(self) -> None:
-        """Scan network interfaces."""
-        if not self._ssh_connection or not self._ssh_connection.is_connected():
-            ui.notify("SSH connection required", color="negative")
-            return
+    def _is_connected(self) -> bool:
+        """Check if SSH connection is available."""
+        return self._ssh_connection is not None and self._ssh_connection.is_connected()
 
+    def _update_button_states(self) -> None:
+        """Update button states based on connection status."""
+        is_connected = self._is_connected()
+        for button_name in ("scan", "tools"):
+            if button := self._buttons.get(button_name):
+                if is_connected:
+                    button.enable()
+                else:
+                    button.disable()
+
+    def _show_empty_state(self) -> None:
+        """Show empty state in results area."""
+        if self._tool_results:
+            with self._tool_results:
+                ui.label("No tools executed yet").classes("text-gray-500 italic")
+
+    def _add_result_card(self, title: str, content: str, color: str) -> None:
+        """Add a result card to the results area."""
         if not self._tool_results:
             return
 
         with self._tool_results:
             with ui.card().classes("w-full p-4 border"):
-                ui.label("Interface Scan Completed").classes("font-bold text-red-600")
-                ui.label("Network interface information would appear here").classes("text-sm text-gray-600")
+                ui.label(title).classes(f"font-bold text-{color}-600")
+                ui.label(content).classes("text-sm text-gray-600")
 
+    def _scan_interfaces(self) -> None:
+        """Scan network interfaces."""
+        if not self._is_connected():
+            ui.notify("SSH connection required", color="negative")
+            return
+
+        self._add_result_card("Interface Scan Completed", "Network interface information would appear here", "red")
         ui.notify("Interface scan completed", color="positive")
 
     def _network_tools(self) -> None:
         """Run network tools."""
-        if not self._ssh_connection or not self._ssh_connection.is_connected():
+        if not self._is_connected():
             ui.notify("SSH connection required", color="negative")
             return
 
-        if not self._tool_results:
-            return
-
-        with self._tool_results:
-            with ui.card().classes("w-full p-4 border"):
-                ui.label("Network Tools Executed").classes("font-bold text-blue-600")
-                ui.label("Network diagnostic tools results would appear here").classes("text-sm text-gray-600")
-
+        self._add_result_card("Network Tools Executed", "Network diagnostic tools results would appear here", "blue")
         ui.notify("Network tools completed", color="positive")
 
     def _clear_results(self) -> None:
         """Clear tool results."""
         if self._tool_results:
             self._tool_results.clear()
-            with self._tool_results:
-                ui.label("No tools executed yet").classes("text-gray-500 italic")
+            self._show_empty_state()
         ui.notify("Results cleared", color="info")

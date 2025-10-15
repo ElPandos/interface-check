@@ -3,7 +3,6 @@ SSH Host Manager - Fixed Implementation
 Clean, working SSH host management with proper structure.
 """
 
-from collections.abc import Callable
 import logging
 import re
 from typing import Any
@@ -16,7 +15,7 @@ from src.core.json import Json
 from src.core.screen import SingleScreen
 from src.models.config import Config, Host, Networks, Route
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.ui.theme.style import CURRENT_THEME, apply_global_theme
+from src.ui.theme.style import apply_global_theme
 
 logger = logging.getLogger(__name__)
 
@@ -28,11 +27,22 @@ MAX_INPUT_LENGTH = 255
 class HostValidator:
     """Validates host-related inputs."""
 
-    @staticmethod
-    def validate_ip(ip: str) -> bool:
-        """Validate IP address format."""
-        pattern = r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
-        return bool(re.match(pattern, ip.strip()))
+    _IP_PATTERN = re.compile(
+        r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+    )
+    _validation_cache: dict[str, bool] = {}
+
+    @classmethod
+    def validate_ip(cls, ip: str) -> bool:
+        """Validate IP address format with caching."""
+        stripped_ip = ip.strip()
+        if stripped_ip in cls._validation_cache:
+            return cls._validation_cache[stripped_ip]
+
+        result = bool(cls._IP_PATTERN.match(stripped_ip))
+        if len(cls._validation_cache) < 100:  # Limit cache size
+            cls._validation_cache[stripped_ip] = result
+        return result
 
     @staticmethod
     def sanitize_input(value: str) -> str:
@@ -106,7 +116,6 @@ class HostContent:
 
         # Core components
         self.config = HostConfigManager()
-        self.route_buttons: dict[int, ui.button] = {}
         self.selected_host_index: int | None = None
         self.selected_route_index: int | None = None
 
@@ -121,22 +130,20 @@ class HostContent:
         self.host_rows: dict[int, ui.row] = {}
         self.route_rows: dict[int, ui.row] = {}
 
+        # Cached data
+        self._cached_remote_hosts: list[dict[str, Any]] | None = None
+        self._cached_jump_hosts: list[dict[str, Any]] | None = None
+        self._cache_dirty = True
+
         # Load configuration
         self.config.load()
 
-        # Connection callbacks
-        self._on_connection_success: Callable[[], None] | None = None
-        self._on_connection_failure: Callable[[], None] | None = None
-
-        # Current SSH connection
+        # Connection state
         self._current_ssh: SshConnection | None = None
-
-        # Styles
-        self._styles = CURRENT_THEME
+        self._connection_status: dict[int, bool] = {}
 
         # Initialize UI
         self._init_ui()
-        self._update_connection_status()
 
     def build(self) -> None:
         """Build method for compatibility."""
@@ -151,6 +158,24 @@ class HostContent:
         except Exception:
             logger.exception("Failed to initialize UI")
             ui.notify("Failed to initialize interface", color="negative")
+
+    def _invalidate_cache(self) -> None:
+        """Invalidate cached host data."""
+        self._cache_dirty = True
+        self._cached_remote_hosts = None
+        self._cached_jump_hosts = None
+
+    def _get_remote_hosts(self) -> list[dict[str, Any]]:
+        """Get cached remote hosts."""
+        if self._cache_dirty or self._cached_remote_hosts is None:
+            self._cached_remote_hosts = [h for h in self.config.hosts if h.get("remote", False)]
+        return self._cached_remote_hosts
+
+    def _get_jump_hosts(self) -> list[dict[str, Any]]:
+        """Get cached jump hosts."""
+        if self._cache_dirty or self._cached_jump_hosts is None:
+            self._cached_jump_hosts = [h for h in self.config.hosts if h.get("jump", False)]
+        return self._cached_jump_hosts
 
     def _build_main_layout(self) -> None:
         """Build the main UI layout."""
@@ -247,8 +272,11 @@ class HostContent:
                         HostValidator.sanitize_input(pass_input.value or ""),
                         dialog,
                     ),
-                ).classes("bg-blue-500 hover:bg-blue-600 text-white flex-1")
-                ui.button("Cancel", on_click=dialog.close).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 ml-2")
+                ).classes("bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded")
+                ui.space()
+                ui.button("Cancel", on_click=dialog.close).classes(
+                    "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
+                )
 
         dialog.open()
 
@@ -304,9 +332,9 @@ class HostContent:
     def _add_route(self) -> None:
         """Add new route."""
         try:
-            # Find remote and jump hosts
-            remote_hosts = [h for h in self.config.hosts if h.get("remote", False)]
-            jump_hosts = [h for h in self.config.hosts if h.get("jump", False)]
+            # Use cached host data
+            remote_hosts = self._get_remote_hosts()
+            jump_hosts = self._get_jump_hosts()
 
             if not remote_hosts:
                 ui.notify("Please select a target host first", color="negative")
@@ -314,46 +342,40 @@ class HostContent:
 
             # Create route with proper target and jumps
             remote_host = remote_hosts[0]
-            jump_summary = " ⟶ ".join([f"{h['ip']}" for h in jump_hosts])
-            summary = (
-                f"{jump_summary} ⟶ {remote_host['ip']} (Target)"
-                if jump_hosts
-                else f"Direct ⟶ {remote_host['ip']} (Target)"
-            )
+
+            # Build summary efficiently
+            if jump_hosts:
+                # Sort jump hosts by order for consistent summary
+                sorted_jumps = sorted(jump_hosts, key=lambda h: h.get("jump_order", 0))
+                jump_summary = " ⟶ ".join(h["ip"] for h in sorted_jumps)
+                summary = f"{jump_summary} ⟶ {remote_host['ip']} (Target)"
+            else:
+                summary = f"Direct ⟶ {remote_host['ip']} (Target)"
+
+            # Check for duplicate routes early
+            existing_summaries = {
+                r.get("summary") if isinstance(r, dict) else getattr(r, "summary", str(r)) for r in self.config.routes
+            }
+            if summary in existing_summaries:
+                ui.notify("Route already exists", color="negative")
+                return
 
             route_data = {
                 "summary": summary,
-                "target": {
-                    "ip": remote_host["ip"],
-                    "username": remote_host["username"],
-                    "password": remote_host["password"],
-                },
-                "jumps": [
-                    {"ip": jump["ip"], "username": jump["username"], "password": jump["password"]}
-                    for jump in jump_hosts
-                ],
+                "target": {k: remote_host[k] for k in ("ip", "username", "password")},
+                "jumps": [{k: jump[k] for k in ("ip", "username", "password")} for jump in jump_hosts],
             }
-
-            # Check for duplicate routes
-            route_summary = route_data.get("summary", "")
-            existing_summaries = [
-                r.get("summary") if isinstance(r, dict) else getattr(r, "summary", str(r)) for r in self.config.routes
-            ]
-            if route_summary in existing_summaries:
-                ui.notify("Route already exists", color="negative")
-                return
 
             self.config.add_route(route_data)
             self.config.save()
 
-            # Reset host selections after adding route
+            # Reset host selections efficiently
             for host in self.config.hosts:
-                host["remote"] = False
-                host["jump"] = False
-                host["jump_order"] = None
+                host.update({"remote": False, "jump": False, "jump_order": None})
             self.config.remote_index = None
+            self._invalidate_cache()
 
-            ui.notify(f"Route added: {route_data['summary']}", color="positive")
+            ui.notify(f"Route added: {summary}", color="positive")
             self._refresh_hosts_table()
             self._refresh_routes_table()
         except Exception:
@@ -545,16 +567,19 @@ class HostContent:
 
     def _update_add_route_button(self) -> None:
         """Update add route button state."""
-        has_remote = any(h.get("remote", False) for h in self.config.hosts)
-        if self.add_route_btn:
-            if has_remote:
-                self.add_route_btn.props(remove="disable").classes(
-                    remove="bg-gray-100 text-gray-400 cursor-not-allowed"
-                ).classes(add="bg-blue-500 hover:bg-blue-600 text-white")
-            else:
-                self.add_route_btn.props(add="disable").classes(
-                    add="bg-gray-100 text-gray-400 cursor-not-allowed"
-                ).classes(remove="bg-blue-500 hover:bg-blue-600 text-white")
+        if not self.add_route_btn:
+            return
+
+        has_remote = bool(self._get_remote_hosts())
+
+        if has_remote:
+            self.add_route_btn.props(remove="disable").classes(
+                remove="bg-gray-100 text-gray-400 cursor-not-allowed"
+            ).classes(add="bg-blue-500 hover:bg-blue-600 text-white")
+        else:
+            self.add_route_btn.props(add="disable").classes(add="bg-gray-100 text-gray-400 cursor-not-allowed").classes(
+                remove="bg-blue-500 hover:bg-blue-600 text-white"
+            )
 
     def _on_remote_toggle(self, *, checked: bool, index: int) -> None:
         """Handle remote host selection."""
@@ -563,7 +588,7 @@ class HostContent:
                 return
 
             if checked:
-                # Clear all remote flags
+                # Clear all remote flags efficiently
                 for host in self.config.hosts:
                     host["remote"] = False
                 # Set this one as remote
@@ -573,6 +598,7 @@ class HostContent:
                 self.config.remote_index = None
                 self.config.hosts[index]["remote"] = False
 
+            self._invalidate_cache()
             self.config.save()
             self._refresh_hosts_table()
         except Exception:
@@ -581,23 +607,24 @@ class HostContent:
     def _on_jump_toggle(self, *, checked: bool, index: int) -> None:
         """Handle jump host selection."""
         try:
-            if 0 <= index < len(self.config.hosts):
-                self.config.hosts[index]["jump"] = checked
-                if not checked:
-                    self.config.hosts[index]["jump_order"] = None
-                else:
-                    # Auto-assign order
-                    used_orders = {
-                        h.get("jump_order")
-                        for h in self.config.hosts
-                        if h.get("jump_order") and h != self.config.hosts[index]
-                    }
-                    for order in range(1, len(self.config.hosts) + 1):
-                        if order not in used_orders:
-                            self.config.hosts[index]["jump_order"] = order
-                            break
-                self.config.save()
-                self._refresh_hosts_table()
+            if not (0 <= index < len(self.config.hosts)):
+                return
+
+            host = self.config.hosts[index]
+            host["jump"] = checked
+
+            if not checked:
+                host["jump_order"] = None
+            else:
+                # Auto-assign order efficiently
+                used_orders = {h.get("jump_order") for h in self.config.hosts if h.get("jump_order") and h != host}
+                host["jump_order"] = next(
+                    (order for order in range(1, len(self.config.hosts) + 1) if order not in used_orders), 1
+                )
+
+            self._invalidate_cache()
+            self.config.save()
+            self._refresh_hosts_table()
         except Exception:
             logger.exception("Error toggling jump host")
 
@@ -888,6 +915,12 @@ class HostConfigManager:
         """Add new host."""
         self.hosts.append(host_data)
         self._reset_host_states()
+
+    def batch_update_hosts(self, updates: list[tuple[int, dict[str, Any]]]) -> None:
+        """Batch update multiple hosts efficiently."""
+        for index, update_data in updates:
+            if 0 <= index < len(self.hosts):
+                self.hosts[index].update(update_data)
 
     def get_available_jump_orders(self, current_host: dict) -> list[str]:
         """Get available jump orders for host."""

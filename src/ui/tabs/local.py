@@ -50,9 +50,7 @@ class LocalPanel(BasePanel):
     def build(self):
         with ui.tab_panel(self.name).classes("w-full h-screen"):
             if not self._local_content:
-                self._local_content = LocalContent(
-                    self._ssh_connection, self._host_handler, self._config
-                )
+                self._local_content = LocalContent(self._ssh_connection, self._host_handler, self._config)
             self._local_content.build()
 
 
@@ -80,15 +78,13 @@ class LocalContent:
                 ui.icon("dashboard", size="lg").classes("text-blue-600")
                 ui.label("Local System").classes("text-2xl font-bold text-gray-800")
                 ui.space()
-                ui.checkbox("Refresh", value=self._auto_refresh, on_change=self._toggle_auto_refresh).classes(
-                    "mr-4"
-                )
+                ui.checkbox("Refresh", value=self._auto_refresh, on_change=self._toggle_auto_refresh).classes("mr-4")
                 ui.button("Export", icon="upload", on_click=self._export_data).classes(
                     "bg-blue-300 hover:bg-blue-400 text-blue-900 px-4 py-2 rounded ml-2"
                 )
-                self._expand_button = ui.button(
-                    icon="sym_r_expand_all", on_click=self._toggle_all_expansions
-                ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded")
+                self._expand_button = ui.button(icon="sym_r_expand_all", on_click=self._toggle_all_expansions).classes(
+                    "bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                )
 
             self.stats_container = ui.column().classes("w-full gap-4")
             with self.stats_container:
@@ -161,15 +157,18 @@ class LocalContent:
 
     def _collect_all_data(self):
         """Collect all system data for export."""
+        # Cache process list to avoid multiple iterations
+        processes = list(psutil.process_iter(["name", "cpu_percent", "memory_percent", "status"]))
+
         data = {
             "timestamp": datetime.now(tz=UTC).isoformat(),
             "system_info": self._get_system_info(),
             "performance": self._get_performance_data(),
             "network": dict(psutil.net_io_counters()._asdict()),
             "processes": {
-                "total": len(list(psutil.process_iter())),
+                "total": len(processes),
                 "by_status": {
-                    status: sum(1 for p in psutil.process_iter() if p.status() == status)
+                    status: sum(1 for p in processes if p.info.get("status") == status)
                     for status in ["running", "sleeping", "zombie", "stopped"]
                 },
             },
@@ -182,23 +181,13 @@ class LocalContent:
         }
 
         try:
+            # Sort processes once and slice for both CPU and memory
+            cpu_sorted = sorted(processes, key=lambda x: x.info.get("cpu_percent") or 0, reverse=True)[:10]
+            mem_sorted = sorted(processes, key=lambda x: x.info.get("memory_percent") or 0, reverse=True)[:10]
+
             data["top_processes"] = {
-                "cpu": [
-                    {"name": p.info["name"], "cpu_percent": p.info["cpu_percent"]}
-                    for p in sorted(
-                        psutil.process_iter(["name", "cpu_percent"]),
-                        key=lambda x: x.info["cpu_percent"] or 0,
-                        reverse=True,
-                    )[:10]
-                ],
-                "memory": [
-                    {"name": p.info["name"], "memory_percent": p.info["memory_percent"]}
-                    for p in sorted(
-                        psutil.process_iter(["name", "memory_percent"]),
-                        key=lambda x: x.info["memory_percent"] or 0,
-                        reverse=True,
-                    )[:10]
-                ],
+                "cpu": [{"name": p.info["name"], "cpu_percent": p.info["cpu_percent"]} for p in cpu_sorted],
+                "memory": [{"name": p.info["name"], "memory_percent": p.info["memory_percent"]} for p in mem_sorted],
             }
         except Exception:
             data["top_processes"] = {"cpu": [], "memory": []}
@@ -214,8 +203,12 @@ class LocalContent:
     def _build_system_stats(self):
         """Build comprehensive system statistics display."""
         try:
+            # Cache system data to avoid repeated calls
             system_info = self._get_system_info()
             perf_data = self._get_performance_data()
+            memory = psutil.virtual_memory()
+            disk = psutil.disk_usage("/")
+            net_io = psutil.net_io_counters()
 
             # Row 1: System Overview Tables
             with ui.row().classes("w-full gap-2 mb-2"):

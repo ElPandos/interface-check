@@ -76,6 +76,7 @@ class LogContent:
         self._config = config
         self._selected_connection: str | None = None
         self._log_component: ui.log | None = None
+        self._buttons: dict[str, ui.button] = {}
 
     def build(self, screen_num: int) -> None:
         """Build log interface for the screen."""
@@ -87,32 +88,57 @@ class LogContent:
                 Selector(
                     getattr(self._host_handler, "_connect_route", {}),
                     getattr(self._host_handler, "_routes", {}),
-                    lambda conn_id: self._on_connection_change(conn_id),
+                    self._on_connection_change,
                 ).build()
             except ImportError:
                 pass
 
         # Control buttons
         with ui.row().classes("w-full gap-2 mt-2 flex-wrap"):
-            ui.button(icon="cleaning_services", text="Clear", on_click=lambda: self._clear_log()).classes(
+            self._buttons["clear"] = ui.button(
+                icon="cleaning_services", text="Clear", on_click=self._clear_log
+            ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs")
+            self._buttons["debug"] = ui.button(icon="bug_report", text="Debug", on_click=self._debug_log).classes(
                 "bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs"
             )
-            ui.button(icon="bug_report", text="Debug", on_click=lambda: self._debug_log()).classes(
-                "bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs"
-            )
-            ui.button(icon="terminal", text="Remote", on_click=lambda: asyncio.create_task(self._run_remote())).classes(
-                "bg-blue-300 hover:bg-blue-400 text-blue-900 px-2 py-1 text-xs"
-            )
-            ui.button(icon="settings", text="Settings", on_click=self._dump_settings).classes(
-                "bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs"
-            )
+            self._buttons["remote"] = ui.button(
+                icon="terminal", text="Remote", on_click=self._run_remote_async
+            ).classes("bg-blue-300 hover:bg-blue-400 text-blue-900 px-2 py-1 text-xs")
+            self._buttons["settings"] = ui.button(
+                icon="settings", text="Settings", on_click=self._dump_settings
+            ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs")
             ui.space()
-            ui.button(icon="save", text="Save", on_click=lambda: self._save_log()).classes(
+            self._buttons["save"] = ui.button(icon="save", text="Save", on_click=self._save_log).classes(
                 "bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs"
             )
 
+        self._update_button_states()
+
         # Log component
         self._log_component = ui.log(max_lines=self._MAX_LINES).classes("w-full h-64 overflow-auto p-2 bg-gray-100")
+
+    def _is_connected(self) -> bool:
+        """Check if SSH connection is available."""
+        return self._ssh_connection is not None and self._ssh_connection.is_connected()
+
+    def _update_button_states(self) -> None:
+        """Update button states based on connection status."""
+        if remote_btn := self._buttons.get("remote"):
+            if self._is_connected():
+                remote_btn.enable()
+            else:
+                remote_btn.disable()
+
+    def _run_remote_async(self) -> None:
+        """Wrapper to run remote command asynchronously."""
+        asyncio.create_task(self._run_remote())
+
+    def _log(self, text: str, level: LogLevel) -> None:
+        """Unified logging method."""
+        if self._log_component:
+            timestamp = dt.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+            formatted_text = f"{timestamp} [{level.name}] - {text}"
+            self._log_component.push(formatted_text, classes=level.color)
 
     def _time(self) -> str:
         return dt.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
@@ -129,7 +155,7 @@ class LogContent:
         self.critical(text)
 
     async def _run_remote(self) -> None:
-        if not self._ssh_connection or not self._ssh_connection.is_connected():
+        if not self._is_connected():
             ui.notify("Not connected", color="warning")
             return
 
@@ -176,24 +202,19 @@ class LogContent:
             self.debug("No configuration available")
 
     def debug(self, text: str) -> None:
-        if self._log_component:
-            self._log_component.push(self._log_text(text, LogLevel.DEBUG), classes=LogLevel.DEBUG.color)
+        self._log(text, LogLevel.DEBUG)
 
     def info(self, text: str) -> None:
-        if self._log_component:
-            self._log_component.push(self._log_text(text, LogLevel.INFO), classes=LogLevel.INFO.color)
+        self._log(text, LogLevel.INFO)
 
     def warning(self, text: str) -> None:
-        if self._log_component:
-            self._log_component.push(self._log_text(text, LogLevel.WARNING), classes=LogLevel.WARNING.color)
+        self._log(text, LogLevel.WARNING)
 
     def error(self, text: str) -> None:
-        if self._log_component:
-            self._log_component.push(self._log_text(text, LogLevel.ERROR), classes=LogLevel.ERROR.color)
+        self._log(text, LogLevel.ERROR)
 
     def critical(self, text: str) -> None:
-        if self._log_component:
-            self._log_component.push(self._log_text(text, LogLevel.CRITICAL), classes=LogLevel.CRITICAL.color)
+        self._log(text, LogLevel.CRITICAL)
 
     def _clear_log(self) -> None:
         if self._log_component:
@@ -202,6 +223,7 @@ class LogContent:
     def _on_connection_change(self, connection_id: str | None) -> None:
         """Handle connection selection change."""
         self._selected_connection = connection_id
+        self._update_button_states()
 
     def _save_log(self) -> None:
         """Save log contents to file."""

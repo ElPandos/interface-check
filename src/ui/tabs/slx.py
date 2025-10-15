@@ -71,24 +71,26 @@ class SlxContent:
         self._config = config
         self._selected_connection: str | None = None
         self._slx_results: ui.column | None = None
+        self._buttons: dict[str, ui.button] = {}
 
     def build(self, screen_num: int) -> None:
         """Build SLX interface for the screen."""
+
         # Connection selector
         if self._host_handler:
             Selector(
                 getattr(self._host_handler, "_connect_route", {}),
                 getattr(self._host_handler, "_routes", {}),
-                lambda conn_id: self._on_connection_change(conn_id),
+                self._on_connection_change,
             ).build()
 
         # SLX controls
         with ui.row().classes("w-full gap-2 mt-2"):
-            ui.button("Scan Interfaces", icon="router", on_click=self._scan_interfaces).classes(
+            self._buttons["scan"] = ui.button("Scan Interfaces", icon="router", on_click=self._scan_interfaces).classes(
                 "bg-red-500 hover:bg-red-600 text-white"
             )
 
-            ui.button("Clear Results", icon="clear", on_click=self._clear_results).classes(
+            self._buttons["clear"] = ui.button("Clear Results", icon="clear", on_click=self._clear_results).classes(
                 "bg-gray-500 hover:bg-gray-600 text-white"
             )
 
@@ -96,33 +98,55 @@ class SlxContent:
         with ui.column().classes("w-full mt-4"):
             ui.label("SLX Results").classes("text-lg font-bold")
             self._slx_results = ui.column().classes("w-full gap-2")
-            with self._slx_results:
-                ui.label("No SLX operations performed yet").classes("text-gray-500 italic")
+            self._show_empty_state()
+
+        self._update_button_states()
 
     def _on_connection_change(self, connection_id: str | None) -> None:
         """Handle connection selection change."""
         self._selected_connection = connection_id
+        self._update_button_states()
 
-    def _scan_interfaces(self) -> None:
-        """Scan SLX interfaces."""
-        if not self._ssh_connection or not self._ssh_connection.is_connected():
-            ui.notify("SSH connection required", color="negative")
-            return
+    def _is_connected(self) -> bool:
+        """Check if SSH connection is available."""
+        return self._ssh_connection is not None and self._ssh_connection.is_connected()
 
+    def _update_button_states(self) -> None:
+        """Update button states based on connection status."""
+        if scan_btn := self._buttons.get("scan"):
+            if self._is_connected():
+                scan_btn.enable()
+            else:
+                scan_btn.disable()
+
+    def _show_empty_state(self) -> None:
+        """Show empty state in results area."""
+        if self._slx_results:
+            with self._slx_results:
+                ui.label("No SLX operations performed yet").classes("text-gray-500 italic")
+
+    def _add_result_card(self, title: str, content: str, color: str) -> None:
+        """Add a result card to the results area."""
         if not self._slx_results:
             return
 
         with self._slx_results:
             with ui.card().classes("w-full p-4 border"):
-                ui.label("SLX Interface Scan Completed").classes("font-bold text-red-600")
-                ui.label("SLX router information would appear here").classes("text-sm text-gray-600")
+                ui.label(title).classes(f"font-bold text-{color}-600")
+                ui.label(content).classes("text-sm text-gray-600")
 
+    def _scan_interfaces(self) -> None:
+        """Scan SLX interfaces."""
+        if not self._is_connected():
+            ui.notify("SSH connection required", color="negative")
+            return
+
+        self._add_result_card("SLX Interface Scan Completed", "SLX router information would appear here", "red")
         ui.notify("SLX interface scan completed", color="positive")
 
     def _clear_results(self) -> None:
         """Clear SLX results."""
         if self._slx_results:
             self._slx_results.clear()
-            with self._slx_results:
-                ui.label("No SLX operations performed yet").classes("text-gray-500 italic")
+            self._show_empty_state()
         ui.notify("Results cleared", color="info")
