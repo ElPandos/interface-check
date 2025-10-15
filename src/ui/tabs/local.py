@@ -79,11 +79,13 @@ class LocalContent:
                 ui.label("Local System").classes("text-2xl font-bold text-gray-800")
                 ui.space()
                 ui.checkbox("Refresh", value=self._auto_refresh, on_change=self._toggle_auto_refresh).classes("mr-4")
-                ui.button("Export", icon="upload", on_click=self._export_data).classes(
+                ui.button(icon="upload", on_click=self._export_data).classes(
                     "bg-blue-300 hover:bg-blue-400 text-blue-900 px-4 py-2 rounded ml-2"
-                )
-                self._expand_button = ui.button(icon="sym_r_expand_all", on_click=self._toggle_all_expansions).classes(
-                    "bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                ).tooltip("Export system data")
+                self._expand_button = (
+                    ui.button(icon="sym_r_expand_all", on_click=self._toggle_all_expansions)
+                    .classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded")
+                    .tooltip("Expand or collapse all")
                 )
 
             self.stats_container = ui.column().classes("w-full gap-4")

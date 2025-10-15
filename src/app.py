@@ -3,7 +3,7 @@ import logging
 from dotenv import load_dotenv
 
 from src.ui.gui import Gui
-from src.core.configure import Configure
+from src.core.config import Configure
 
 logger = logging.getLogger(__name__)
 

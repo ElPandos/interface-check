@@ -7,7 +7,3 @@ class Option(Enum):
     TEXT = "Text"
     BUTTON = "Button"
     INFO = "Info"
-
-    @property
-    def name(self) -> str:
-        return self.value

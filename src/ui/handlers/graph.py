@@ -5,7 +5,7 @@ from nicegui import ui
 import plotly.graph_objects as go
 
 from src.models.config import Config
-from src.utils.collector import PlotSampleData, WorkManager
+from src.platform.collector import PlotSampleData, WorkManager
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +18,13 @@ class GraphView:
         self._source = source
         self._value = value
 
-    def _close_card(self, card: ui.card, _interf: str | None = None, _kill_worker: bool = False) -> None:
+    def _close_card(self, card: ui.card) -> None:
         card.delete()
         logger.debug("Card deleted")
 
-    def _update_traces(self, add_x: Any, add_y: Any, index: int = 0) -> None:
+    def _update_traces(self, add_x: Any, add_y: Any) -> None:
         self._fig.update_traces(
-            x=[*list(self._fig.data[index].x), add_x], y=[*list(self._fig.data[index].y), add_y], selector=index
+            x=[*list(self._fig.data[0].x), add_x], y=[*list(self._fig.data[0].y), add_y], selector=0
         )
 
     def update(self) -> None:
@@ -50,7 +50,7 @@ class GraphView:
             margin={"l": 10, "r": 10, "t": 30, "b": 10},
             title=f"Interface: {self._interf} - Source: {self._source} - Value: {self._value}",
             xaxis_title="",
-            yaxis_title=f"{y_axis_label}",
+            yaxis_title=y_axis_label,
             legend_title="Legend",
             xaxis={"type": "date", "tickformat": "%d %b %H:%M:%S", "tickangle": -45},
         )
@@ -74,21 +74,18 @@ class GraphView:
 
             # Buttons
             ui.button("Update graph", on_click=self.update)
-            self._auto_update = ui.checkbox("Auto").on_value_change(self.update_auto())
+            self._auto_update = ui.checkbox("Auto").on_value_change(self.update_auto)
             ui.space()
             ui.button("X", on_click=lambda c=self._card: self._close_card(c))
 
 
 class GraphHandler:
-    _graphs: dict[str, GraphView] = {}
-
     def __init__(self) -> None:
-        pass
+        self._graphs: dict[str, GraphView] = {}
 
     def add(self, work_manager: WorkManager, config: Config, interf: str, source: str, value: str) -> None:
         self._graphs[value] = GraphView(work_manager, config, interf, source, value)
         self._graphs[value].build()
 
     def remove(self, value: str) -> None:
-        self._graphs[value].remove()
-        self._graphs.pop(value)
+        del self._graphs[value]

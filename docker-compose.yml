@@ -1,20 +1,12 @@
 services:
 
-    proxy-tunnel:
+    interface-check:
         build: .
-        container_name: proxy-tunnel
+        container_name: interface-check
         working_dir: /app
         volumes:
-            - ./tunnel.py:/app/tunnel.py
+            - ./:/app/
         ports:
             - "80:80"
-        environment:
-            - ENV_IP_AI_REMOTE_HOST=${ENV_IP_AI_REMOTE_HOST}
-            - ENV_USER_AI_REMOTE_HOST=${ENV_USER_AI_REMOTE_HOST}
-            - ENV_PASS_AI_REMOTE_HOST=${ENV_PASS_AI_REMOTE_HOST}
-            - ENV_IP_JUMP_HOST=${ENV_IP_JUMP_HOST}
-            - ENV_USER_JUMP_HOST=${ENV_USER_JUMP_HOST}
-            - ENV_PASS_JUMP_HOST=${ENV_PASS_JUMP_HOST}
-            - ENV_IDENTITY_FILE=${ENV_IDENTITY_FILE}
         restart: always
         network_mode: "host"

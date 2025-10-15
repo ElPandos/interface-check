@@ -1,36 +1,44 @@
-# .dockerignore
+# Python
 **/__pycache__
 **/.venv
-**/.classpath
-**/.dockerignore
-**/.env
+
+# Development tools
 **/.git
-**/.gitignore
-**/.project
-**/.settings
-**/.toolstarget
-**/.vs
 **/.vscode
-**/*.*proj.user
-**/*.dbmdl
-**/*.jfm
-**/bin
-**/charts
+**/.env
+.editorconfig
+.pre-commit-config
+Taskfile.yaml
+
+# Docker
+**/.dockerignore
 **/docker-compose*
 **/compose*
 **/Dockerfile*
-**/node_modules
-**/npm-debug.log
-**/obj
-**/secrets.dev.yaml
-**/values.dev.yaml
+
+# Documentation & CI
 LICENSE
 README.md
-Taskfile.yaml
-.editorconfig
-.pre-commit-config
 tests/
 .github
+
+# IDE & Build artifacts
+**/.classpath
+**/.project
+**/.settings
+**/.vs
+**/bin
+**/obj
+**/node_modules
+
+# Misc
+**/.gitignore
+**/.toolstarget
+**/*.*proj.user
+**/*.dbmdl
+**/*.jfm
+**/charts
+**/npm-debug.log
+**/secrets.dev.yaml
+**/values.dev.yaml
 .roo*
-
-

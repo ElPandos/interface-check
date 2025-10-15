@@ -4,8 +4,8 @@ from typing import Any
 
 from nicegui import ui
 
+from src.core.agent import Agent
 from src.core.connect import SshConnection
-from src.core.network_agent import NetworkAgent
 from src.core.screen import MultiScreen
 from src.models.config import Config
 from src.ui.tabs.base import BasePanel, BaseTab
@@ -65,7 +65,7 @@ class AgentContent:
         self._ssh_connection = ssh_connection
         self._tasks: list[dict[str, Any]] = []
         self._running_tasks: set[str] = set()
-        self._agent = NetworkAgent(ssh_connection) if ssh_connection else None
+        self._agent = Agent(ssh_connection) if ssh_connection else None
 
         # UI components
         self._status_badge: ui.badge | None = None
@@ -318,7 +318,9 @@ class AgentContent:
             for task in self._tasks:
                 with ui.card().classes("w-full border border-gray-200 shadow-sm hover:shadow-md transition-shadow"):
                     # Modern header with gradient background
-                    with ui.row().classes("w-full items-center justify-between bg-gradient-to-r from-slate-50 to-gray-100 px-3 py-2"):
+                    with ui.row().classes(
+                        "w-full items-center justify-between bg-gradient-to-r from-slate-50 to-gray-100 px-3 py-2"
+                    ):
                         ui.label(task["name"]).classes("font-bold text-gray-800")
                         ui.label(f"Created: {task['created']}").classes("text-xs text-gray-500")
 
@@ -326,7 +328,9 @@ class AgentContent:
                     with ui.row().classes("w-full items-center px-3 py-2 gap-2"):
                         # Command/description
                         if task.get("type") == "custom" and task.get("commands"):
-                            ui.label(task["commands"][0]).classes("text-sm font-mono bg-gray-100 px-2 py-1 rounded border flex-1 select-text")
+                            ui.label(task["commands"][0]).classes(
+                                "text-sm font-mono bg-gray-100 px-2 py-1 rounded border flex-1 select-text"
+                            )
                         else:
                             ui.label(task["description"]).classes("text-sm text-gray-600 flex-1")
 

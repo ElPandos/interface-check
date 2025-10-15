@@ -9,7 +9,7 @@ from typing import Any
 
 from nicegui import ui
 
-from src.core.configure import Configure
+from src.core.config import Configure
 from src.core.connect import SshConnection
 from src.core.json import Json
 from src.core.screen import SingleScreen
@@ -103,7 +103,7 @@ class HostPanel(BasePanel, SingleScreen):
         with ui.tab_panel(self.name).classes("w-full h-screen"):
             self._build_content_base()
 
-    def _build_screen(self, screen_num: int, classes: str) -> None:
+    def _build_single_screen_content(self, classes: str) -> None:
         if not self._host_content:
             self._host_content = HostContent()
             self._host_content.build()
@@ -578,11 +578,15 @@ class HostContent:
                 if is_connected:
                     ui.button(icon="power_off", on_click=lambda idx=index: self._disconnect_route(idx)).props(
                         "unelevated"
-                    ).classes("bg-red-500 hover:bg-red-600 text-white w-16 h-8 rounded shadow").tooltip("Disconnect from route")
+                    ).classes("bg-red-500 hover:bg-red-600 text-white w-16 h-8 rounded shadow").tooltip(
+                        "Disconnect from route"
+                    )
                 else:
                     ui.button(icon="power", on_click=lambda idx=index: self._connect_route(idx)).props(
                         "unelevated"
-                    ).classes("bg-green-500 hover:bg-green-600 text-white w-16 h-8 rounded shadow").tooltip("Connect to route")
+                    ).classes("bg-green-500 hover:bg-green-600 text-white w-16 h-8 rounded shadow").tooltip(
+                        "Connect to route"
+                    )
                 # Delete button
                 ui.button(icon="delete", on_click=lambda idx=index: self._delete_route(idx)).props(
                     "unelevated"

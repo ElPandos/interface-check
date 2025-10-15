@@ -10,16 +10,7 @@ class LogLevel(Enum):
     ERROR = ("error", "text-red-500")
     CRITICAL = ("critical", "text-red-800")
 
-    def __init__(self, value: str, color: str) -> None:
-        self._value = value
-        self._color = color
-
-    @property
-    def name(self) -> str:
-        """Return the enum value name."""
-        return self._value
-
     @property
     def color(self) -> str:
         """Return the associated color for this log level."""
-        return self._color
+        return self.value[1]

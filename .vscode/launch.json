@@ -9,7 +9,7 @@
             "cwd": "${workspaceFolder}",
             "env": {
                 "PYTHONPATH": "${cwd}"
-            },
+            }
         },
         {
             "name": "Debug: Active terminal",
@@ -21,7 +21,7 @@
             "cwd": "${workspaceFolder}",
             "env": {
                 "PYTHONPATH": "${cwd}"
-            },
+            }
         },
         {
             "name": "Debug: gather_templates.py [lm_studio]",
@@ -104,7 +104,7 @@
                 "--main-template-file",
                 "${cwd}/scripts/litellm_tasks/main_template.yaml",
                 "--output-file",
-                "config/litellm.yaml",
+                "config/litellm.yaml"
             ]
         },
         {

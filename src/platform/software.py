@@ -2,7 +2,19 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from enum import Enum
 import re
+
+
+class Software(Enum):
+    """Network diagnostic and configuration SW tools."""
+
+    MLXCONFIG = "mlxconfig"
+    MLXLINK = "mlxlink"
+    IPMITOOL = "ipmitool"
+    ETHTOOL = "ethtool"
+    MFT = "mft"
+    DMESG = "dmesg"
 
 
 @dataclass(frozen=True)

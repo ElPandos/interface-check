@@ -21,37 +21,31 @@
     ],
     "servers": {
         "powertools": {
+            "type": "stdio",
             "command": "npx",
-            "args": [
-                "-y",
-                "powertools-for-aws-mcp"
-            ]
+            "args": ["-y", "powertools-for-aws-mcp"]
         },
         "github": {
             "type": "http",
             "url": "https://api.githubcopilot.com/mcp/"
         },
         "hf-mcp-server": {
+            "type": "http",
             "url": "https://huggingface.co/mcp?login"
         },
         "deepwiki": {
+            "type": "http",
             "url": "https://mcp.deepwiki.com/sse"
         },
         "sequentialthinking": {
             "type": "stdio",
             "command": "npx",
-            "args": [
-                "-y",
-                "@modelcontextprotocol/server-sequential-thinking@latest"
-            ]
+            "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"]
         },
         "memory": {
             "type": "stdio",
             "command": "npx",
-            "args": [
-                "-y",
-                "@modelcontextprotocol/server-memory@latest"
-            ],
+            "args": ["-y", "@modelcontextprotocol/server-memory@latest"],
             "env": {
                 "MEMORY_FILE_PATH": "${secrets:ENV_MEMORY_FILE}"
             }
@@ -59,20 +53,15 @@
         "firecrawl": {
             "type": "stdio",
             "command": "npx",
-            "args": [
-                "-y",
-                "firecrawl-mcp@latest"
-            ],
+            "args": ["-y", "firecrawl-mcp@latest"],
             "env": {
                 "FIRECRAWL_API_KEY": "${secrets:ENV_FIRECRAWL_API_KEY}"
             }
         },
         "codacy": {
+            "type": "stdio",
             "command": "npx",
-            "args": [
-                "-y",
-                "@codacy/codacy-mcp@latest"
-            ],
+            "args": ["-y", "@codacy/codacy-mcp@latest"],
             "env": {
                 "CODACY_ACCOUNT_TOKEN": "${secrets:ENV_CODACY_ACCOUNT_TOKEN}"
             }

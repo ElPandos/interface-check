@@ -9,12 +9,10 @@ from typing import Any
 
 from pympler import asizeof
 
+from src.core.connect import SshConnection
 from src.core.json import Json
-from src.enums.command import Type
 from src.models.config import Config
 from src.platform.commands import Command
-from src.tools.ethtool import EthtoolTool
-from src.core.connect import SshConnection
 
 logger = logging.getLogger(__name__)
 

@@ -51,26 +51,25 @@ class LightTheme:
     HEADER_GRADIENT = (
         "font-bold text-white bg-gradient-to-r from-indigo-500 to-slate-600 rounded-t-xl px-4 py-3 shadow-md"
     )
-    HOST_HEADER_GRADIENT = (
-        "font-bold text-white bg-gradient-to-r from-indigo-500 to-slate-600 rounded-t-xl px-4 py-3 shadow-md"
-    )
     SSH_HEADER_GRADIENT = (
         "font-bold text-white bg-gradient-to-r from-emerald-500 to-slate-600 rounded-t-xl px-4 py-3 shadow-md"
     )
 
     # Expansion Panels
-    EXPANSION_BLUE = "bg-blue-50 border border-blue-200"
-    EXPANSION_GREEN = "bg-green-50 border border-green-200"
-    EXPANSION_ORANGE = "bg-orange-50 border border-orange-200"
-    EXPANSION_RED = "bg-red-50 border border-red-200"
-    EXPANSION_PURPLE = "bg-purple-50 border border-purple-200"
-    EXPANSION_YELLOW = "bg-yellow-50 border border-yellow-200"
-    EXPANSION_TEAL = "bg-teal-50 border border-teal-200"
-    EXPANSION_CYAN = "bg-cyan-50 border border-cyan-200"
-    EXPANSION_LIME = "bg-lime-50 border border-lime-200"
-    EXPANSION_PINK = "bg-pink-50 border border-pink-200"
-    EXPANSION_INDIGO = "bg-indigo-50 border border-indigo-200"
-    EXPANSION_AMBER = "bg-amber-50 border border-amber-200"
+    EXPANSION_COLORS = {
+        "blue": "bg-blue-50 border border-blue-200",
+        "green": "bg-green-50 border border-green-200",
+        "orange": "bg-orange-50 border border-orange-200",
+        "red": "bg-red-50 border border-red-200",
+        "purple": "bg-purple-50 border border-purple-200",
+        "yellow": "bg-yellow-50 border border-yellow-200",
+        "teal": "bg-teal-50 border border-teal-200",
+        "cyan": "bg-cyan-50 border border-cyan-200",
+        "lime": "bg-lime-50 border border-lime-200",
+        "pink": "bg-pink-50 border border-pink-200",
+        "indigo": "bg-indigo-50 border border-indigo-200",
+        "amber": "bg-amber-50 border border-amber-200",
+    }
 
     # Chat Interface
     CHAT_USER_MESSAGE = "bg-blue-500 text-white p-3 rounded-lg max-w-xs"
@@ -151,26 +150,25 @@ class DarkTheme:
     HEADER_GRADIENT = (
         "font-bold text-white bg-gradient-to-r from-indigo-600 to-slate-700 rounded-t-xl px-4 py-3 shadow-md"
     )
-    HOST_HEADER_GRADIENT = (
-        "font-bold text-white bg-gradient-to-r from-indigo-600 to-slate-700 rounded-t-xl px-4 py-3 shadow-md"
-    )
     SSH_HEADER_GRADIENT = (
         "font-bold text-white bg-gradient-to-r from-emerald-600 to-slate-700 rounded-t-xl px-4 py-3 shadow-md"
     )
 
     # Expansion Panels
-    EXPANSION_BLUE = "bg-blue-900 border border-blue-700"
-    EXPANSION_GREEN = "bg-green-900 border border-green-700"
-    EXPANSION_ORANGE = "bg-orange-900 border border-orange-700"
-    EXPANSION_RED = "bg-red-900 border border-red-700"
-    EXPANSION_PURPLE = "bg-purple-900 border border-purple-700"
-    EXPANSION_YELLOW = "bg-yellow-900 border border-yellow-700"
-    EXPANSION_TEAL = "bg-teal-900 border border-teal-700"
-    EXPANSION_CYAN = "bg-cyan-900 border border-cyan-700"
-    EXPANSION_LIME = "bg-lime-900 border border-lime-700"
-    EXPANSION_PINK = "bg-pink-900 border border-pink-700"
-    EXPANSION_INDIGO = "bg-indigo-900 border border-indigo-700"
-    EXPANSION_AMBER = "bg-amber-900 border border-amber-700"
+    EXPANSION_COLORS = {
+        "blue": "bg-blue-900 border border-blue-700",
+        "green": "bg-green-900 border border-green-700",
+        "orange": "bg-orange-900 border border-orange-700",
+        "red": "bg-red-900 border border-red-700",
+        "purple": "bg-purple-900 border border-purple-700",
+        "yellow": "bg-yellow-900 border border-yellow-700",
+        "teal": "bg-teal-900 border border-teal-700",
+        "cyan": "bg-cyan-900 border border-cyan-700",
+        "lime": "bg-lime-900 border border-lime-700",
+        "pink": "bg-pink-900 border border-pink-700",
+        "indigo": "bg-indigo-900 border border-indigo-700",
+        "amber": "bg-amber-900 border border-amber-700",
+    }
 
     # Chat Interface
     CHAT_USER_MESSAGE = "bg-blue-600 text-white p-3 rounded-lg max-w-xs"
@@ -203,12 +201,8 @@ class DarkTheme:
     OUTPUT_AREA = "w-full h-64 bg-black text-green-400 font-mono text-sm border border-gray-500"
 
 
-# Theme instances for easy access
-LIGHT = LightTheme()
-DARK = DarkTheme()
-
 # Current theme (can be switched at runtime)
-CURRENT_THEME = LIGHT
+CURRENT_THEME = LightTheme()
 
 COLORS = {
     "primary": "#475569",  # Warmer slate-600

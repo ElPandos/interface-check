@@ -1,4 +1,4 @@
-"""Event bus implementation for decoupled component communication."""
+"""Event bus for decoupled component communication."""
 
 from collections import defaultdict
 from collections.abc import Callable
@@ -11,52 +11,35 @@ from src.interfaces.ui import IEventBus
 logger = logging.getLogger(__name__)
 
 
-class HybridEventBus(IEventBus):
-    """
-    Event bus supporting both synchronous and asynchronous event publishing.
+class EventBus(IEventBus):
+    """Thread-safe event bus with sync/async publishing."""
 
-    - Thread-safe for concurrent publishing.
-    - Supports unsubscribe and graceful shutdown.
-    """
+    __slots__ = ("_executor", "_subscribers")
 
     def __init__(self, async_mode: bool = False, max_workers: int = 4):
         self._subscribers = defaultdict(list)
-        self._async_mode = async_mode
-        self._executor = ThreadPoolExecutor(max_workers=max_workers) if async_mode else None
+        self._executor = ThreadPoolExecutor(max_workers) if async_mode else None
 
     def subscribe(self, event_type: str, handler: Callable[[Any], None]) -> None:
-        """Subscribe a handler to an event type."""
         self._subscribers[event_type].append(handler)
-        logger.debug(f"Subscribed: {handler.__name__} to {event_type}")
 
     def unsubscribe(self, event_type: str, handler: Callable[[Any], None]) -> None:
-        """Unsubscribe a handler from an event type."""
         try:
             self._subscribers[event_type].remove(handler)
-        except (KeyError, ValueError):
-            logger.warning(f"Handler not found for {event_type}: {handler.__name__}")
+        except ValueError:
+            pass
 
     def publish(self, event_type: str, data: Any = None) -> None:
-        """Publish an event to all subscribers."""
-        handlers = self._subscribers.get(event_type, [])
-        logger.debug(f"Publishing {event_type} to {len(handlers)} handlers")
-
-        for handler in handlers:
+        for handler in self._subscribers[event_type]:
             try:
-                if self._async_mode and self._executor:
-                    self._executor.submit(handler, data)
-                else:
-                    handler(data)
+                (self._executor.submit if self._executor else lambda f, d: f(d))(handler, data)
             except Exception:
-                logger.exception(f"Error in handler {handler.__name__} for {event_type}")
+                logger.exception(f"Handler error: {getattr(handler, '__name__', 'unknown')}")
 
     def clear(self) -> None:
-        """Clear all event subscriptions."""
         self._subscribers.clear()
-        logger.debug("All event handlers cleared")
 
     def shutdown(self) -> None:
-        """Shutdown thread pool gracefully (if in async mode)."""
         if self._executor:
             self._executor.shutdown(wait=True)
-            logger.debug("Event bus executor shut down")
+            self._executor = None

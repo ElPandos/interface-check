@@ -12,10 +12,7 @@
     "[ignore]": {
         "editor.defaultFormatter": "foxundermoon.shell-format"
     },
-    "[json]": {
-        "editor.defaultFormatter": "vscode.json-language-features"
-    },
-    "[jsonc]": {
+    "[json][jsonc]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     },
     "[markdown]": {
@@ -29,21 +26,12 @@
         "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.formatOnSave": true
     },
-    "[shellscript]": {
-        "editor.defaultFormatter": "foxundermoon.shell-format"
-    },
+
     "[toml]": {
         "editor.defaultFormatter": "tamasfe.even-better-toml"
     },
     "[yaml]": {
-        "editor.autoIndent": "full",
-        "editor.defaultColorDecorators": "never",
         "editor.insertSpaces": true,
-        "diffEditor.ignoreTrimWhitespace": false,
-        "editor.quickSuggestions": {
-            "comments": false,
-            "other": true,
-            "strings": true
-        }
+        "diffEditor.ignoreTrimWhitespace": false
     }
 }
