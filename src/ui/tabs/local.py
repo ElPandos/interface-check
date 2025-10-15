@@ -8,9 +8,10 @@ import socket
 from nicegui import ui
 import psutil
 
-from src.models.configurations import AppConfig
+from src.core.connect import SshConnection
+from src.core.json import Json
+from src.models.config import Config
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.utils.connect import Ssh
 
 NAME = "local"
 LABEL = "Local"
@@ -32,45 +33,62 @@ class LocalPanel(BasePanel):
     def __init__(
         self,
         build: bool = False,
-        app_config: AppConfig = None,
-        ssh: Ssh = None,
+        config: Config = None,
+        ssh_connection: SshConnection = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
         super().__init__(NAME, LABEL, "dashboard")
-        self._app_config = app_config
-        self._ssh = ssh
+        self._config = config
+        self._ssh_connection = ssh_connection
         self._host_handler = host_handler
         self._icon = icon
+        self._local_content: LocalContent | None = None
+        if build:
+            self.build()
+
+    def build(self):
+        with ui.tab_panel(self.name).classes("w-full h-screen"):
+            if not self._local_content:
+                self._local_content = LocalContent(
+                    self._ssh_connection, self._host_handler, self._config
+                )
+            self._local_content.build()
+
+
+class LocalContent:
+    def __init__(
+        self, ssh_connection: SshConnection | None = None, host_handler=None, config: Config | None = None
+    ) -> None:
+        self._ssh_connection = ssh_connection
+        self._host_handler = host_handler
+        self._config = config
         self._expansion_states = {}
         self._auto_refresh = False
         self._refresh_timer = None
         self._all_expanded = False
         self._expand_button = None
         self._expansions = {}
-        if build:
-            self.build()
 
-    def build(self):
+    def build(self) -> None:
+        """Build local system interface."""
         # Add global CSS for left-aligned table cells
         ui.add_head_html("<style>.q-table td, .q-table th { text-align: left !important; }</style>")
 
-        with (
-            ui.tab_panel(self.name).classes("w-full h-screen"),
-            ui.column().classes("w-full h-full p-4"),
-            ui.card().classes("w-full h-full p-6 shadow-lg bg-white border border-gray-200"),
-        ):
+        with ui.card().classes("w-full p-4 border"):
             with ui.row().classes("w-full items-center gap-3 mb-6"):
                 ui.icon("dashboard", size="lg").classes("text-blue-600")
                 ui.label("Local System").classes("text-2xl font-bold text-gray-800")
                 ui.space()
-                ui.checkbox("Refresh", value=self._auto_refresh, on_change=self._toggle_auto_refresh).classes("mr-4")
+                ui.checkbox("Refresh", value=self._auto_refresh, on_change=self._toggle_auto_refresh).classes(
+                    "mr-4"
+                )
                 ui.button("Export", icon="upload", on_click=self._export_data).classes(
                     "bg-blue-300 hover:bg-blue-400 text-blue-900 px-4 py-2 rounded ml-2"
                 )
-                self._expand_button = ui.button(icon="sym_r_expand_all", on_click=self._toggle_all_expansions).classes(
-                    "bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
-                )
+                self._expand_button = ui.button(
+                    icon="sym_r_expand_all", on_click=self._toggle_all_expansions
+                ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded")
 
             self.stats_container = ui.column().classes("w-full gap-4")
             with self.stats_container:
@@ -120,8 +138,6 @@ class LocalPanel(BasePanel):
 
     def _export_data(self):
         """Export all dashboard data to JSON."""
-        from src.utils.json import Json
-
         data = self._collect_all_data()
         Json.export_download(data, "system_dashboard", success_message="System dashboard data exported successfully")
 

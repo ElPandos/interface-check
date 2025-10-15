@@ -1,7 +1,7 @@
 from enum import Enum, auto
 
 
-class CommandType(Enum):
+class Type(Enum):
     MODIFY = auto()
     SYSTEM = auto()
     PYTHON = auto()

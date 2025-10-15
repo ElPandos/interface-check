@@ -4,35 +4,30 @@ from typing import Any
 
 from nicegui import nicegui, ui
 
-from src.models.configurations import AppConfig
+from src.core.connect import SshConnection
+from src.core.terminal import Cli
+from src.models.config import Config
+from src.platform.commands import Git
 from src.ui.handlers.settings import settings
-from src.ui.handlers.style import apply_global_theme
 from src.ui.tabs.agent import AgentPanel, AgentTab
-from src.ui.tabs.aichat import AichatPanel, AichatTab
 from src.ui.tabs.cable import CablePanel, CableTab
+from src.ui.tabs.chat import ChatPanel, ChatTab
 from src.ui.tabs.database import DatabasePanel, DatabaseTab
 from src.ui.tabs.e2e import E2ePanel, E2eTab
-from src.ui.tabs.ethtool import EthtoolPanel
 from src.ui.tabs.host import HostPanel, HostTab
-from src.ui.tabs.info import InfoPanel
-from src.ui.tabs.ipmitool import IpmitoolPanel
 from src.ui.tabs.local import LocalPanel, LocalTab
 from src.ui.tabs.log import LogPanel, LogTab
-from src.ui.tabs.mlxconfig import MlxconfigPanel
-from src.ui.tabs.mlxlink import MlxlinkPanel
 from src.ui.tabs.slx import SlxPanel, SlxTab
 from src.ui.tabs.system import SystemPanel, SystemTab
 from src.ui.tabs.toolbox import ToolboxPanel, ToolboxTab
-from src.utils.commands import Git
-from src.utils.connect import Ssh
-from src.utils.terminal import Cli
+from src.ui.theme.style import apply_global_theme
 
 logger = logging.getLogger(__name__)
 
 
 class Gui:
-    _app_config: AppConfig
-    _ssh: Ssh
+    _config: Config
+    _ssh_connection: SshConnection = None
     _tabs: ui.tabs
     _right_drawer: ui.right_drawer
     footer: ui.footer
@@ -40,12 +35,12 @@ class Gui:
     _tab_content: dict[str, Any]
     _panel_content: dict[str, Any]
 
-    def __init__(self, app_config: AppConfig) -> None:
+    def __init__(self, config: Config) -> None:
         logger.debug("GUI init")
         logger.debug(f"Nicegui version: {nicegui.__version__}")
 
-        self._app_config = app_config
-        self._ssh = Ssh(self._app_config)
+        self._config = config
+        # self._ssh_connection = SshConnection(self._config)
         self._tab_content = {}
         self._panel_content = {}
 
@@ -78,71 +73,55 @@ class Gui:
                 self._tab_content[DatabaseTab().name] = DatabaseTab(build=True)
                 self._tab_content[LogTab().name] = LogTab(build=True)
                 self._tab_content[AgentTab().name] = AgentTab(build=True)
-                self._tab_content[AichatTab().name] = AichatTab(build=True)
+                self._tab_content[ChatTab().name] = ChatTab(build=True)
 
             # Right drawer button (Toggle will show the right drawer)
             ui.button(on_click=self._right_drawer.toggle, icon="settings").props("flat color=white")
 
     def _build_body(self) -> None:
         with ui.tab_panels(self._tabs, value=LocalTab().name).classes("w-full h-fit bg-gray-100"):
-            dashboard_panel = LocalPanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            dashboard_panel = LocalPanel(build=True, config=self._config, ssh_connection=self._ssh_connection)
             self._panel_content[dashboard_panel.name] = dashboard_panel
 
             host_panel = HostPanel(
                 build=True,
-                app_config=self._app_config,
-                ssh=self._ssh,
+                config=self._config,
+                ssh_connection=self._ssh_connection,
                 icon=self._tab_content[HostTab().name].icon,
             )
             self._panel_content[host_panel.name] = host_panel
 
-            toolbox_panel = ToolboxPanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            toolbox_panel = ToolboxPanel(build=True, config=self._config, ssh_connection=self._ssh_connection)
             self._panel_content[toolbox_panel.name] = toolbox_panel
 
-            slx_panel = SlxPanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            slx_panel = SlxPanel(build=True, config=self._config, ssh_connection=self._ssh_connection)
             self._panel_content[slx_panel.name] = slx_panel
 
-            cable_panel = CablePanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            cable_panel = CablePanel(build=True, config=self._config, ssh_connection=self._ssh_connection)
             self._panel_content[cable_panel.name] = cable_panel
 
-            e2e_panel = E2ePanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            e2e_panel = E2ePanel(build=True, config=self._config, ssh_connection=self._ssh_connection)
             self._panel_content[e2e_panel.name] = e2e_panel
 
-            system_panel = SystemPanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            system_panel = SystemPanel(build=True, config=self._config, ssh_connection=self._ssh_connection)
             self._panel_content[system_panel.name] = system_panel
 
-            database_panel = DatabasePanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            database_panel = DatabasePanel(build=True, config=self._config, ssh_connection=self._ssh_connection)
             self._panel_content[database_panel.name] = database_panel
 
-            log_panel = LogPanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            log_panel = LogPanel(build=True, config=self._config, ssh_connection=self._ssh_connection)
             self._panel_content[log_panel.name] = log_panel
 
-            agent_panel = AgentPanel(build=True, app_config=self._app_config, ssh=self._ssh)
+            agent_panel = AgentPanel(build=True, config=self._config, ssh_connection=self._ssh_connection)
             self._panel_content[agent_panel.name] = agent_panel
 
-            aichat_panel = AichatPanel(build=True, app_config=self._app_config, ssh=self._ssh)
-            self._panel_content[aichat_panel.name] = aichat_panel
-
-            # Additional panels not in main tabs
-            mlxconfig_panel = MlxconfigPanel(build=True, app_config=self._app_config, ssh=self._ssh)
-            self._panel_content[mlxconfig_panel.name] = mlxconfig_panel
-
-            mlxlink_panel = MlxlinkPanel(build=True, app_config=self._app_config, ssh=self._ssh)
-            self._panel_content[mlxlink_panel.name] = mlxlink_panel
-
-            ipmitool_panel = IpmitoolPanel(build=True, app_config=self._app_config, ssh=self._ssh)
-            self._panel_content[ipmitool_panel.name] = ipmitool_panel
-
-            ethtool_panel = EthtoolPanel(build=True, app_config=self._app_config, ssh=self._ssh)
-            self._panel_content[ethtool_panel.name] = ethtool_panel
-
-            info_panel = InfoPanel(build=True, app_config=self._app_config, ssh=self._ssh)
-            self._panel_content[info_panel.name] = info_panel
+            chat_panel = ChatPanel(build=True, config=self._config, ssh_connection=self._ssh_connection)
+            self._panel_content[chat_panel.name] = chat_panel
 
     def _build_right_drawer(self) -> None:
         with ui.right_drawer().classes("bg-blue-100") as self._right_drawer:
             self._right_drawer.hide()  # Hide as default
-            settings.build(self._app_config)
+            settings.build(self._config)
 
     def _build_footer(self) -> None:
         with ui.footer(value=False) as self.footer:
@@ -229,4 +208,4 @@ class Gui:
         """)
 
     def disconnect(self) -> None:
-        self._ssh.disconnect()
+        self._ssh_connection.disconnect()

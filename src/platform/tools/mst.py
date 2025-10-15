@@ -1,5 +1,5 @@
-from src.utils.commands import Mst
-from src.utils.connect import Ssh
+from src.platform.commands import Mst
+from src.core.connect import SshConnection
 
 
 class MstDevice:
@@ -74,8 +74,8 @@ class MstStatus:
 
         return devices
 
-    def from_system(self, ssh: Ssh = None) -> "MstStatus":
-        out, err = ssh.exec_command(Mst.DEVICES)
+    def from_system(self, ssh_connection: SshConnection = None) -> "MstStatus":
+        out, err = ssh_connection.exec_command(Mst.DEVICES)
 
         if err:
             raise RuntimeError(f"MST command failed: {err.strip()}")

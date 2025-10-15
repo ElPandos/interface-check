@@ -6,9 +6,9 @@ from nicegui import ui
 
 logger = logging.getLogger(__name__)
 
-from src.models.configurations import AppConfig
-from src.utils import system
-from src.utils.system import create_dir
+from src.models.config import Config
+from src.platform import platform
+from src.platform.platform import create_dir
 
 
 class Configure:
@@ -53,8 +53,8 @@ class Configure:
         self._ensure_dir()
 
         if not self._CONFIG_FULL_PATH.exists():
-            default_config = AppConfig().model_dump()
-            system.save_json(default_config, self._CONFIG_FULL_PATH)
+            default_config = Config().model_dump()
+            platform.save_json(default_config, self._CONFIG_FULL_PATH)
             logger.debug(f"Config file created at: {self._CONFIG_FULL_PATH}")
         else:
             logger.debug(f"Config found at: {self._CONFIG_FULL_PATH}")
@@ -73,24 +73,24 @@ class Configure:
         self._setup()
         return self._CONFIG_FULL_PATH
 
-    def save(self, app_config: AppConfig) -> None:
+    def save(self, config: Config) -> None:
         """Persist *cfg* to the JSON file."""
         try:
-            system.save_json(app_config.model_dump(), self._CONFIG_FULL_PATH)
+            platform.save_json(config.model_dump(), self._CONFIG_FULL_PATH)
             ui.notify("Configuration saved", type="positive")
         except Exception as e:
             ui.notify(f"Failed to save: {e}", type="negative")
 
-    def load(self, external: dict | None = None) -> AppConfig:
+    def load(self, external: dict | None = None) -> Config:
         """Load the JSON file and return a validated `AppConfig` instance."""
         try:
-            data = system.load_json(self._CONFIG_FULL_PATH)
+            data = platform.load_json(self._CONFIG_FULL_PATH)
             if external is not None:
                 data = external  # Load external appconfig
-            return AppConfig.model_validate(data)
+            return Config.model_validate(data)
         except (FileNotFoundError, ValueError) as e:
             logger.warning(f"Config file issue: {e}. Creating default config.")
-            default_config = AppConfig()
+            default_config = Config()
             self.save(default_config)
             return default_config
 
@@ -107,20 +107,21 @@ class Configure:
             Logging level (e.g., logging.DEBUG, logging.INFO, logging.ERROR)
         """
         # -------------------------- Determine log file path ------------------------- #
+
         log_full_path = self.get_log_full_path()
 
         # --------------------- Define format and rotation policy -------------------- #
 
-        # Rotate after 5 MB, keep last 5 backups (configurable)
+        # Rotate after 20 MB, keep last 5 backups (configurable)
         file_handler = RotatingFileHandler(
             filename=log_full_path,
             maxBytes=20 * 1024 * 1024,  # 5 MB
-            backupCount=10,  # keep all rotated files
+            backupCount=5,  # keep all rotated files
             encoding="utf-8",
         )
         console_handler = logging.StreamHandler()
 
-        formatter = logging.Formatter("[%(asctime)s] %(levelname)s [%(name)s]: %(message)s")
+        formatter = logging.Formatter("[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s():%(lineno)d]: %(message)s")
 
         file_handler.setFormatter(formatter)
         console_handler.setFormatter(formatter)

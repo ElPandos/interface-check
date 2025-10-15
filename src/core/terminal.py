@@ -73,15 +73,16 @@ class Cli:
 
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
+            stdout = stdout.strip()
             return_code = proc.returncode
 
-            logger.debug(f"Process {proc.pid} finished with code {return_code}")
+            logger.debug(f"Process {proc.pid} finished with return code: {return_code}")
             if stdout:
                 logger.debug(f"STDOUT: {stdout[:500]}{'...' if len(stdout) > 500 else ''}")
             if stderr:
                 logger.debug(f"STDERR: {stderr[:500]}{'...' if len(stderr) > 500 else ''}")
 
-            return stdout, stderr, return_code
+            return stdout.strip(), stderr, return_code
 
         except subprocess.TimeoutExpired:
             logger.warning(f"Process {proc.pid} timed out after {timeout}s")

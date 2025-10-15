@@ -25,7 +25,7 @@ class ExampleTab(BaseTab):
 class ExamplePanel(BasePanel):
     def __init__(self, build: bool, app_config: AppConfig, route: SshConnection):
         super().__init__("example", "Example")
-        self._app_config = app_config
+        self._config = config
         self._ssh = route
         if build:
             self.build()

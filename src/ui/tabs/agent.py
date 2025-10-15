@@ -4,14 +4,14 @@ from typing import Any
 
 from nicegui import ui
 
-from src.mixins.multi_screen import MultiScreenMixin
-from src.models.configurations import AppConfig
+from src.core.connect import SshConnection
+from src.core.network_agent import NetworkAgent
+from src.core.screen import MultiScreen
+from src.models.config import Config
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.utils.connect import Ssh
-from src.utils.network_agent import NetworkAgent
 
 NAME = "agent"
-LABEL = "Network Agent"
+LABEL = "Agent"
 
 
 class AgentTab(BaseTab):
@@ -23,29 +23,29 @@ class AgentTab(BaseTab):
             self.build()
 
 
-class AgentPanel(BasePanel, MultiScreenMixin):
+class AgentPanel(BasePanel, MultiScreen):
     def __init__(
         self,
         *,
         build: bool = False,
-        app_config: AppConfig = None,
-        ssh: Ssh = None,
+        config: Config = None,
+        ssh_connection: SshConnection = None,
         icon: ui.icon = None,
     ):
         BasePanel.__init__(self, NAME, LABEL, AgentTab.ICON_NAME)
-        MultiScreenMixin.__init__(self)
-        self._app_config = app_config
-        self._ssh = ssh
+        MultiScreen.__init__(self)
+
+        self._config = config
+        self._ssh_connection = ssh_connection
         self._icon = icon
-        self._tasks: list[dict[str, Any]] = []
-        self._running_tasks: set[str] = set()
-        self._agent = NetworkAgent(self._ssh) if self._ssh else None
+        self._agent_screens: dict[int, Any] = {}
+
         if build:
             self.build()
 
     def build(self):
         with ui.tab_panel(self.name).classes("w-full h-screen"):
-            self._build_controls_base("Network Agent")
+            self._build_control_base("Network Agent")
             self._build_content_base()
 
     def _build_screen(self, screen_num: int, classes):
@@ -53,9 +53,31 @@ class AgentPanel(BasePanel, MultiScreenMixin):
             ui.card().classes(classes),
             ui.expansion(f"Network Agent {screen_num}", icon="psychology", value=True).classes("w-full"),
         ):
-            self._build_agent_interface(screen_num)
+            if screen_num not in self._agent_screens:
+                self._agent_screens[screen_num] = AgentContent(self._ssh_connection)
 
-    def _build_agent_interface(self, screen_num: int):
+            agent = self._agent_screens[screen_num]
+            agent.build(screen_num)
+
+
+class AgentContent:
+    def __init__(self, ssh_connection: SshConnection | None = None) -> None:
+        self._ssh_connection = ssh_connection
+        self._tasks: list[dict[str, Any]] = []
+        self._running_tasks: set[str] = set()
+        self._agent = NetworkAgent(ssh_connection) if ssh_connection else None
+
+        # UI components
+        self._status_badge: ui.badge | None = None
+        self._task_container: ui.column | None = None
+        self._results_container: ui.column | None = None
+        self._recommendations_container: ui.column | None = None
+        self._task_name: ui.input | None = None
+        self._task_command: ui.input | None = None
+        self._task_interval: ui.number | None = None
+        self._task_repeat: ui.number | None = None
+
+    def build(self, screen_num: int) -> None:
         """Build the network agent automation interface."""
         with ui.column().classes("w-full h-full gap-4"):
             # Agent status and controls
@@ -154,13 +176,14 @@ class AgentPanel(BasePanel, MultiScreenMixin):
 
     def _start_agent(self, screen_num: int):
         """Start the network agent."""
-        if not self._agent or not self._ssh.is_connected():
+        if not self._agent or not self._ssh_connection or not self._ssh_connection.is_connected():
             ui.notify("SSH connection required", color="negative")
             return
 
         if self._agent.start():
-            self._status_badge.text = "Running"
-            self._status_badge.color = "info"
+            if self._status_badge:
+                self._status_badge.text = "Running"
+                self._status_badge.color = "info"
             ui.notify("Network agent started", color="positive")
         else:
             ui.notify("Failed to start agent", color="negative")
@@ -170,8 +193,9 @@ class AgentPanel(BasePanel, MultiScreenMixin):
         if self._agent:
             self._agent.stop()
         self._running_tasks.clear()
-        self._status_badge.text = "Stopped"
-        self._status_badge.color = "negative"
+        if self._status_badge:
+            self._status_badge.text = "Stopped"
+            self._status_badge.color = "negative"
         ui.notify("Network agent stopped", color="warning")
 
     def _clear_tasks(self, screen_num: int):
@@ -179,7 +203,8 @@ class AgentPanel(BasePanel, MultiScreenMixin):
         self._tasks.clear()
         self._running_tasks.clear()
         self._update_task_display()
-        self._results_container.clear()
+        if self._results_container:
+            self._results_container.clear()
         ui.notify("Tasks cleared", color="info")
 
     def _add_task(self, screen_num: int, task_type: str):
@@ -227,7 +252,7 @@ class AgentPanel(BasePanel, MultiScreenMixin):
 
     def _add_custom_task(self, screen_num: int):
         """Add a custom task to the queue."""
-        if not self._task_name.value or not self._task_command.value:
+        if not self._task_name or not self._task_command or not self._task_name.value or not self._task_command.value:
             ui.notify("Task name and command are required", color="negative")
             return
 
@@ -239,21 +264,26 @@ class AgentPanel(BasePanel, MultiScreenMixin):
             "status": "queued",
             "created": datetime.now().strftime("%H:%M:%S"),
             "type": "custom",
-            "interval": self._task_interval.value,
-            "repeat": self._task_repeat.value,
+            "interval": self._task_interval.value if self._task_interval else 60,
+            "repeat": self._task_repeat.value if self._task_repeat else 1,
         }
 
         self._tasks.append(task)
         self._update_task_display()
 
         # Clear inputs
-        self._task_name.value = ""
-        self._task_command.value = ""
+        if self._task_name:
+            self._task_name.value = ""
+        if self._task_command:
+            self._task_command.value = ""
 
         ui.notify(f"Added custom task: {task['name']}", color="positive")
 
     def _update_task_display(self):
         """Update the task queue display."""
+        if not self._task_container:
+            return
+
         self._task_container.clear()
 
         if not self._tasks:
@@ -293,7 +323,7 @@ class AgentPanel(BasePanel, MultiScreenMixin):
 
     def _run_task(self, task: dict[str, Any]):
         """Execute a task."""
-        if not self._agent or not self._ssh.is_connected():
+        if not self._agent or not self._ssh_connection or not self._ssh_connection.is_connected():
             ui.notify("SSH connection required", color="negative")
             return
 
@@ -324,6 +354,9 @@ class AgentPanel(BasePanel, MultiScreenMixin):
         self._update_task_display()
 
         # Add result to results panel
+        if not self._results_container:
+            return
+
         with self._results_container:
             status_color = "green" if result["status"] == "completed" else "red"
             border_class = f"border-l-4 border-{status_color}-500"
@@ -372,6 +405,9 @@ class AgentPanel(BasePanel, MultiScreenMixin):
         self._update_task_display()
 
         # Add error to results panel
+        if not self._results_container:
+            return
+
         with self._results_container, ui.card().classes("w-full p-3 border-l-4 border-red-500"):
             with ui.row().classes("w-full items-center justify-between"):
                 ui.label(f"❌ {task['name']}").classes("font-bold text-red-700")
@@ -398,6 +434,9 @@ class AgentPanel(BasePanel, MultiScreenMixin):
             return
 
         recommendations = self._agent.get_task_recommendations()
+        if not self._recommendations_container:
+            return
+
         self._recommendations_container.clear()
 
         if not recommendations:
@@ -465,10 +504,3 @@ class AgentPanel(BasePanel, MultiScreenMixin):
             self._add_recommended_task(screen_num, rec)
 
         ui.notify(f"Auto-scheduled {len(high_priority_tasks)} high-priority tasks", color="positive")
-
-    def get_intelligent_recommendations(self) -> list[dict[str, Any]]:
-        """Get intelligent task recommendations from the agent."""
-        if not self._agent:
-            return []
-
-        return self._agent.get_task_recommendations()

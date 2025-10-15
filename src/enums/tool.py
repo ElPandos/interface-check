@@ -3,7 +3,7 @@
 from enum import Enum
 
 
-class SoftwareTool(Enum):
+class Software(Enum):
     """Network diagnostic and configuration SW tools."""
 
     MLXCONFIG = "mlxconfig"

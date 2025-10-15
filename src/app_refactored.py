@@ -16,14 +16,14 @@ from src.interfaces.configuration import IConfigurationFactory, IConfigurationPr
 from src.interfaces.connection import IConnection, IConnectionFactory
 from src.interfaces.tool import IToolFactory
 from src.interfaces.ui import IEventBus
-from src.models.configurations import AppConfig
+from src.models.config import Config
 from src.ui.base.components import Tab
-from src.ui.panels.ethtool_panel import EthtoolPanel
+from src.ui.panels.ethtool import EthtoolPanel
 
 logger = logging.getLogger(__name__)
 
 
-class RefactoredApp:
+class App:
     """Refactored application with dependency injection."""
 
     def __init__(self):
@@ -58,22 +58,22 @@ class RefactoredApp:
         self._container.register_instance(IConnectionFactory, connection_factory)
 
         app_config = self._load_app_config()
-        if app_config and app_config.hosts:
-            self._create_connection(connection_factory, app_config.hosts[0])
+        if app_config and app_config.network.hosts:
+            self._create_connection(connection_factory, app_config.network.hosts[0])
 
-    def _load_app_config(self) -> AppConfig | None:
+    def _load_app_config(self) -> Config | None:
         """Load application configuration."""
         try:
             config_provider = self._container.get(IConfigurationProvider)
             app_config_data = config_provider.get("", {})
 
             if not app_config_data:
-                app_config = AppConfig()
+                app_config = Config()
                 config_provider.set("", app_config.model_dump())
                 config_provider.save()
                 return app_config
 
-            return AppConfig.model_validate(app_config_data)
+            return Config.model_validate(app_config_data)
         except Exception:
             logger.exception("Failed to load app config")
             return None

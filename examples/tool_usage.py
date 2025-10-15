@@ -2,16 +2,15 @@
 
 from pathlib import Path
 
-from src.models.configurations import AppConfig
 from src.tools.factory import ToolFactory
-from src.utils.connect import Ssh
+from src.core.connect import SshConnection
 
 
 def main():
     """Example tool usage."""
     # Initialize SSH connection (you'll need proper config)
-    app_config = AppConfig()  # Load your config
-    self._ssh = Ssh(app_config)
+    app_config = System()  # Load your config
+    self._ssh_connection = SshConnection(app_config)
 
     if not self._ssh.connect():
         return

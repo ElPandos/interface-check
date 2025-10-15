@@ -1,11 +1,11 @@
 from nicegui import ui
 
-from src.models.configurations import AppConfig
+from src.core.configure import Configure
+from src.core.json import Json
+from src.core.terminal import Cli
+from src.models.config import Config
+from src.platform.commands import Python
 from src.ui.enums.settings import Options, Types
-from src.utils.commands import Python
-from src.utils.configure import Configure
-from src.utils.json import Json
-from src.utils.terminal import Cli
 
 
 class SettingsHandler:
@@ -14,35 +14,35 @@ class SettingsHandler:
     def __init__(self) -> None:
         self.__dark_mode = ui.dark_mode()  # Keep a reference!
 
-    def _get_value(self, name: str, app_config: AppConfig) -> tuple[str, int, int]:
-        for s in app_config.system.settings:
+    def _get_value(self, name: str, config: Config) -> tuple[str, int, int]:
+        for s in config.settings.options:
             if s.name == name:
                 return s.value, s.min, s.max
         return None, None, None
 
     def _save(self) -> None:
-        Configure().save(self._app_config)
+        Configure().save(self._config)
 
-    def build(self, app_config: AppConfig) -> None:
+    def build(self, config: Config) -> None:
         """Render settings UI with live bindings to internal values."""
-        self._app_config = app_config
-        for opt in self._app_config.system.settings:
-            match opt.type:
+        self._config = config
+        for o in self._config.settings.options:
+            match o.type:
                 case Options.SWITCH.value | Options.SWITCH:
-                    self._build_switch(opt, app_config)
+                    self._build_switch(o, config)
                 case Options.SLIDER.value | Options.SLIDER:
-                    self._build_slider(opt, app_config)
+                    self._build_slider(o, config)
                 case Options.TEXT.value | Options.TEXT:
-                    self._build_text(opt, app_config)
+                    self._build_text(o, config)
                 case Options.BUTTON.value | Options.BUTTON:
-                    self._build_button(opt)
+                    self._build_button(o)
                 case Options.INFO.value | Options.INFO:
                     self._build_info()
 
-    def _build_switch(self, opt, app_config: AppConfig) -> None:
+    def _build_switch(self, opt, config: Config) -> None:
         with ui.card().classes("w-full items-left"), ui.row().classes("w-full items-center"):
             ui.label(opt.name)
-            value, _, _ = self._get_value(opt.name, app_config)
+            value, _, _ = self._get_value(opt.name, config)
             switch = None
             if opt.name == Types.DEBUG.name:
                 switch = ui.switch(value=value).classes("ml-auto")
@@ -51,12 +51,12 @@ class SettingsHandler:
             if switch:
                 switch.bind_value(opt, "value")
 
-    def _build_slider(self, opt, app_config: AppConfig) -> None:
+    def _build_slider(self, opt, config: Config) -> None:
         with ui.card().classes("w-full items-left"), ui.column().classes("w-full items-left"):
             with ui.row().classes("w-full items-center gap-2"):
                 self._add_slider_icon(opt.name)
                 ui.label(opt.name)
-            value, value_min, value_max = self._get_value(opt.name, app_config)
+            value, value_min, value_max = self._get_value(opt.name, config)
             with ui.row().classes("w-full items-center flex-nowrap"):
                 slider = ui.slider(min=value_min, max=value_max, value=value).classes("flex-grow")
                 slider.bind_value(opt, "value")
@@ -73,9 +73,9 @@ class SettingsHandler:
         elif name == Types.GRAPH.name:
             ui.icon("show_chart", size="lg").classes("text-green-600").tooltip("Used for graph update interval")
 
-    def _build_text(self, opt, app_config: AppConfig) -> None:
+    def _build_text(self, opt, config: Config) -> None:
         with ui.card().classes("w-full items-left"), ui.column().classes("w-full items-left"):
-            value, _, _ = self._get_value(opt.name, app_config)
+            value, _, _ = self._get_value(opt.name, config)
             textarea = ui.textarea(label=opt.name, placeholder="Start typing...", value=value).classes("w-full")
             textarea.bind_value(opt, "value")
 

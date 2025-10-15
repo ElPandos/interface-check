@@ -9,6 +9,7 @@ import subprocess
 import sys
 from typing import Any
 
+from src.core.json import Json
 from src.platform import Hardware, Health, Power, Software, Statistics
 
 logger = logging.getLogger(__name__)
@@ -153,15 +154,11 @@ def create_dir(dir_path: Path) -> None:
 
 def save_json(config: Any, full_path: Path) -> None:
     """Legacy wrapper for JsonHandler.save()."""
-    from src.utils.json import Json
-
     Json.save(config, full_path)
 
 
 def load_json(full_path: Path) -> dict[str, Any] | list[Any]:
     """Legacy wrapper for JsonHandler.load()."""
-    from src.utils.json import Json
-
     return Json.load(full_path)
 
 
@@ -197,8 +194,6 @@ def dump_lists_to_file(list1: list[Any], list2: list[Any], config_path: Path, fi
         }
 
         # Write to JSON file with indentation for readability
-        from src.utils.json import Json
-
         Json.save(data, full_path)
 
         logger.info(f"Successfully wrote data to: {full_path}")

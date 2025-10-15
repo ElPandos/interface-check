@@ -1,6 +1,6 @@
 """Refactored base UI components with dependency injection."""
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 import logging
 from typing import Any
 
@@ -14,7 +14,7 @@ from src.interfaces.ui import IEventBus, IPanel, ITab
 logger = logging.getLogger(__name__)
 
 
-class BaseComponent(ABC, ILifecycleAware):
+class BaseComponent(ILifecycleAware):
     """Base class for all UI components with lifecycle management."""
 
     def __init__(self, name: str, label: str, icon: str = ""):

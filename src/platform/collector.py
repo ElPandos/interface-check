@@ -9,11 +9,12 @@ from typing import Any
 
 from pympler import asizeof
 
-from src.enums.command import CommandType
-from src.models.configurations import AppConfig
+from src.core.json import Json
+from src.enums.command import Type
+from src.models.config import Config
+from src.platform.commands import Command
 from src.tools.ethtool import EthtoolTool
-from src.utils.commands import Command
-from src.utils.connect import Ssh
+from src.core.connect import SshConnection
 
 logger = logging.getLogger(__name__)
 
@@ -23,15 +24,15 @@ class Sample:
     _stop: dt = None
 
     _interface: str
-    _app_config: AppConfig
-    _ssh: Ssh
+    _config: Config
+    _ssh_connection: SshConnection
 
     snapshot: Any = None
 
-    def __init__(self, interface: str, app_config: AppConfig, ssh: Ssh) -> None:
+    def __init__(self, interface: str, config: Config, ssh_connection: SshConnection) -> None:
         self._interface = interface
-        self._app_config = app_config
-        self._ssh = ssh
+        self._config = config
+        self._ssh_connection = ssh_connection
 
     @property
     def start(self) -> dt:
@@ -45,15 +46,15 @@ class Sample:
         self._start = dt.now(tz=UTC)
 
         match cmd.command_type:
-            case CommandType.MODIFY, CommandType.SYSTEM, CommandType.COMMON:
+            case Type.MODIFY, Type.SYSTEM, Type.COMMON:
                 pass  # Not implemented
-            case CommandType.ETHTOOL:
-                self.snapshot = EthtoolTool(self._interface, self._app_config, self._ssh).parse_output(cmd)
-            case CommandType.MLXLINK:
+            case Type.ETHTOOL:
+                self.snapshot = EthtoolTool(self._interface, self._config, self._ssh_connection).parse_output(cmd)
+            case Type.MLXLINK:
                 pass  # Not implemented
-            case CommandType.MLXCONFIG:
+            case Type.MLXCONFIG:
                 pass  # Not implemented
-            case CommandType.MST:
+            case Type.MST:
                 pass  # Not implemented
             case _:
                 pass  # Unknown command
@@ -106,21 +107,23 @@ class Worker(threading.Thread):
     _stop: dt = None
 
     _interface: str
-    _app_config: AppConfig
-    _ssh: Ssh
+    _config: Config
+    _ssh_connection: SshConnection
 
     _collected_samples: queue.Queue = queue.Queue()  # Thread safe queue
     _extracted_samples: list[Sample]
 
-    def __init__(self, cmd: Command, interface: str, app_config: AppConfig, ssh: Ssh, name: str = "Worker") -> None:
+    def __init__(
+        self, cmd: Command, interface: str, config: Config, ssh_connection: SshConnection, name: str = "Worker"
+    ) -> None:
         super().__init__(name=name, daemon=True)  # daemon=True means it won’t block program exit
         self._cmd = cmd
         self._stop_event = threading.Event()
         self._extracted_samples = [Sample]
 
         self._interface = interface
-        self._app_config = app_config
-        self._ssh = ssh
+        self._config = config
+        self._ssh_connection = ssh_connection
 
     def run(self) -> None:
         """Thread main logic (executed when start() is called)."""
@@ -133,16 +136,16 @@ class Worker(threading.Thread):
                     logger.info("Reconnect failed 10 times. Exiting thread...")
                     reconnect = 0
                     break
-                sample = Sample(self._interface, self._app_config, self._ssh).collect(self._cmd)
+                sample = Sample(self._interface, self._config, self._ssh_connection).collect(self._cmd)
                 self._collected_samples.put(sample)
-                time.sleep(self._app_config.system.get_command_update_value())
+                time.sleep(self._config.gui.get_command_update_value())
             except KeyboardInterrupt:
                 logger.info("User pressed 'Ctrl+c' - Exiting worker thread")
             except Exception:
                 logger.exception("Collection stopped unexpectedly")
                 try:
-                    self._ssh.connect()
-                    if self._ssh.is_connected():
+                    self._ssh_connection.connect()
+                    if self._ssh_connection.is_connected():
                         logger.info("Reconnected to SSH session")
                     else:
                         logger.exception(f"Failed to reconnect to SSH session ({reconnect}/{self._MAX_RECONNECT})")
@@ -232,8 +235,6 @@ class Worker(threading.Thread):
         return dict(groups)
 
     def export_json(self, full_path: Path) -> None:
-        from src.utils.json import Json
-
         Json.save(self.get_samples(), full_path)
 
     def summary(self) -> str:
@@ -287,6 +288,9 @@ class WorkManager:
 
     def summary(self) -> str:
         """One-line textual summary of the work pool."""
+        total_workers = len(self._work_pool)
+        types = {type(s).__name__ for s in self._work_pool}
+        return f"Started {total_workers} workers of types: {', '.join(sorted(types))}"
         total_workers = len(self._work_pool)
         types = {type(s).__name__ for s in self._work_pool}
         return f"Started {total_workers} workers of types: {', '.join(sorted(types))}"

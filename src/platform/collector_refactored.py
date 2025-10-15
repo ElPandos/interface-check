@@ -43,8 +43,8 @@ class EthtoolCollector(CommandCollector):
             "raw_output": output,
         }
 
-        for line in output.split("\n"):
-            line = line.strip()
+        for raw_line in output.split("\n"):
+            line = raw_line.strip()
             if "Speed:" in line:
                 data["speed"] = line.split("Speed:")[1].strip()
             elif "Duplex:" in line:

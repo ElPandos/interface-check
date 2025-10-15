@@ -4,15 +4,15 @@ from typing import Any
 from nicegui import ui
 import plotly.graph_objects as go
 
-from src.models.configurations import AppConfig
+from src.models.config import Config
 from src.utils.collector import PlotSampleData, WorkManager
 
 logger = logging.getLogger(__name__)
 
 
 class GraphView:
-    def __init__(self, work_manager: WorkManager, app_config: AppConfig, interf: str, source: str, value: str) -> None:
-        self._app_config = app_config
+    def __init__(self, work_manager: WorkManager, config: Config, interf: str, source: str, value: str) -> None:
+        self._config = config
         self._work_manager = work_manager
         self._interf = interf
         self._source = source
@@ -58,8 +58,8 @@ class GraphView:
 
     def update_auto(self) -> None:
         if self._auto_update.value:
-            self._auto_update_timer = ui.timer(self._app_config.system.get_graph_update_value(), self.update)
-            logger.debug(f"Auto update enabled each: {self._app_config.system.get_graph_update_value()} sec")
+            self._auto_update_timer = ui.timer(self._config.gui.get_graph_update_value(), self.update)
+            logger.debug(f"Auto update enabled each: {self._config.gui.get_graph_update_value()} sec")
         else:
             self._auto_update_timer.cancel()
             logger.debug("Auto update disabled")
@@ -85,8 +85,8 @@ class GraphHandler:
     def __init__(self) -> None:
         pass
 
-    def add(self, work_manager: WorkManager, app_config: AppConfig, interf: str, source: str, value: str) -> None:
-        self._graphs[value] = GraphView(app_config, work_manager, interf, source, value)
+    def add(self, work_manager: WorkManager, config: Config, interf: str, source: str, value: str) -> None:
+        self._graphs[value] = GraphView(work_manager, config, interf, source, value)
         self._graphs[value].build()
 
     def remove(self, value: str) -> None:

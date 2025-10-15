@@ -7,7 +7,7 @@ from enum import Enum
 import re
 from typing import Any
 
-from src.enums.tools import SoftwareTool
+from src.enums.tool import Software
 from src.mixins.tool import Tool, ValueCollection
 
 
@@ -50,7 +50,7 @@ class EthtoolTool(Tool):
 
     @property
     def tool_name(self) -> str:
-        return SoftwareTool.ETHTOOL.value
+        return Software.ETHTOOL.value
 
     def available_commands(self) -> dict[str, str]:
         """Get available ethtool commands."""

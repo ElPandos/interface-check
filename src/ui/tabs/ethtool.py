@@ -4,13 +4,13 @@ from nicegui import ui
 
 logger = logging.getLogger(__name__)
 
-from src.models.configurations import AppConfig
+from src.core.connect import SshConnection
+from src.models.config import Config
+from src.platform.commands import Common, Ethtool, Modify, System
 from src.ui.components.selector import Selector
 from src.ui.handlers.graph import GraphHandler
 from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.collector import Worker, WorkManager
-from src.utils.commands import Common, Ethtool, Modify, System
-from src.utils.connect import Ssh
 
 NAME = "ethtool"
 LABEL = "Ethtool"
@@ -36,14 +36,14 @@ class EthtoolPanel(BasePanel):
         self,
         *,
         build: bool = False,
-        app_config: AppConfig = None,
-        ssh: Ssh = None,
+        config: Config = None,
+        ssh_connection: SshConnection = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
         super().__init__(NAME, LABEL, EthtoolTab.ICON_NAME)
-        self._app_config = app_config
-        self._ssh = ssh
+        self._config = config
+        self._ssh_connection = ssh_connection
         self._host_handler = host_handler
         self._icon = icon
         self._work_manager = WorkManager()
@@ -136,20 +136,20 @@ class EthtoolPanel(BasePanel):
         self._scan_interfaces()
 
     def _scan_interfaces(self):
-        if not self._ssh:
+        if not self._ssh_connection:
             logger.warning("No SSH connection object")
             return
 
-        if not self._ssh.is_connected():
+        if not self._ssh_connection.is_connected():
             logger.warning("No SSH connection established")
             return
 
-        _, err = self._ssh.exec_command(System().install_psutil().syntax)
+        _, err = self._ssh_connection.exec_command(System().install_psutil().syntax)
         if err:
             logger.warning("Failed to install python library: psutil")
             return
 
-        out, err = self._ssh.exec_command(Common().get_interfaces().syntax)
+        out, err = self._ssh_connection.exec_command(Common().get_interfaces().syntax)
         if err:
             logger.warning("Failed to collect host interface names")
             return
@@ -170,11 +170,11 @@ class EthtoolPanel(BasePanel):
 
             ui.button("Start", on_click=lambda opt=selection: self._activate_workers(opt))
             ui.space()
-            ui.button("X", on_click=lambda opt=card: self._close_card(opt, True))
+            ui.button("X", on_click=lambda opt=card: self._close_card(opt, kill_worker=True))
 
     def _activate_workers(self, options: list) -> None:
         for interf in options.value:
-            self._work_manager.add(Worker(Ethtool().module_info(interf), interf, self._app_config, self._ssh))
+            self._work_manager.add(Worker(Ethtool().module_info(interf), interf, self._config, self._ssh_connection))
             self._build_source(interf)
 
     def _build_source(self, interf: str) -> None:
@@ -194,7 +194,7 @@ class EthtoolPanel(BasePanel):
             )
             ui.button("Start", on_click=lambda opt=selection: self._activate_source(interf, opt))
             ui.space()
-            ui.button("X", on_click=lambda opt=card: self._close_card(opt, interf, True))
+            ui.button("X", on_click=lambda opt=card: self._close_card(opt, interf, kill_worker=True))
 
     def _activate_source(self, interf: str, options: list) -> None:
         for source in options.value:
@@ -222,4 +222,4 @@ class EthtoolPanel(BasePanel):
     def _plot_values(self, interf: str, source: str, options: list) -> None:
         gh = GraphHandler()
         for value in options.value:
-            gh.add(self._app_config, self._work_manager, interf, source, value)
+            gh.add(self._work_manager, self._config, interf, source, value)

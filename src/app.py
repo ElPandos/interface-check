@@ -3,7 +3,7 @@ import logging
 from dotenv import load_dotenv
 
 from src.ui.gui import Gui
-from src.utils.configure import Configure
+from src.core.configure import Configure
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +32,11 @@ class App:
             logger.info("Environment variables loaded.")
 
             # Load application configuration
-            app_config = Configure().load()
+            config = Configure().load()
             logger.info("Configuration loaded successfully.")
 
             # Initialize GUI
-            self._gui = Gui(app_config)
+            self._gui = Gui(config)
             logger.info("GUI initialized successfully.")
 
             # Run the GUI

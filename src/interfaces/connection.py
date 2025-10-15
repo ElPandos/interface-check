@@ -1,8 +1,6 @@
 """Connection interface for abstracting SSH and other remote connections."""
 
 from abc import ABC, abstractmethod
-from collections.abc import Generator
-from contextlib import contextmanager
 from typing import Any
 
 
@@ -34,16 +32,6 @@ class IConnection(ABC):
     @abstractmethod
     def execute_command(self, command: str, timeout: int | None = None) -> ConnectionResult:
         """Execute command and return result."""
-
-    @contextmanager
-    def session(self) -> Generator["IConnection"]:
-        """Context manager for automatic connection lifecycle."""
-        try:
-            if not self.is_connected():
-                self.connect()
-            yield self
-        finally:
-            self.disconnect()
 
 
 class IConnectionFactory(ABC):

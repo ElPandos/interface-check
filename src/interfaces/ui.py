@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import Any
 
 
-class IUIComponent(ABC):
+class IComponent(ABC):
     """Abstract interface for UI components."""
 
     @property
@@ -22,7 +22,7 @@ class IUIComponent(ABC):
         """Clean up component resources."""
 
 
-class ITab(IUIComponent):
+class ITab(IComponent):
     """Interface for tab components."""
 
     @property
@@ -36,7 +36,7 @@ class ITab(IUIComponent):
         """Tab icon identifier."""
 
 
-class IPanel(IUIComponent):
+class IPanel(IComponent):
     """Interface for panel components."""
 
     @abstractmethod
@@ -58,3 +58,11 @@ class IEventBus(ABC):
     @abstractmethod
     def publish(self, event_type: str, data: Any = None) -> None:
         """Publish event to subscribers."""
+
+    @abstractmethod
+    def clear(self) -> None:
+        """Clear all event subscriptions."""
+
+    @abstractmethod
+    def shutdown(self) -> None:
+        """Shutdown thread pool gracefully (if in async mode)."""

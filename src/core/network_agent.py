@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 import logging
 from typing import Any
 
-from src.utils.connect import Ssh
+from src.core.connect import SshConnection
 
 logger = logging.getLogger(__name__)
 
@@ -13,8 +13,8 @@ class NetworkAgent:
     and provide insights based on network interface analysis.
     """
 
-    def __init__(self, ssh: Ssh):
-        self._ssh = ssh
+    def __init__(self, ssh_connection: SshConnection):
+        self._ssh_connection = ssh_connection
         self._running = False
         self._tasks: list[dict[str, Any]] = []
         self._results: list[dict[str, Any]] = []

@@ -6,7 +6,7 @@ from src.mixins.tool import Tool
 from src.tools.dmesg import DmesgTool
 from src.tools.ethtool import EthtoolTool
 from src.tools.mlxconfig import MlxconfigTool
-from src.utils.connect import Ssh
+from src.core.connect import SshConnection
 
 
 class ToolFactory:
@@ -19,7 +19,7 @@ class ToolFactory:
     }
 
     @classmethod
-    def create_tool(cls, tool_name: str, ssh: Ssh, interface: str | None = None) -> Tool:
+    def create_tool(cls, tool_name: str, ssh_connection: SshConnection, interface: str | None = None) -> Tool:
         """Create a tool instance.
 
         Args:

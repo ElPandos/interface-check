@@ -1,4 +1,4 @@
-from src.enums.command import CommandType
+from src.enums.command import Type
 
 # ---------------------------------------------------------------------------- #
 #                                 Base command                                 #
@@ -6,10 +6,10 @@ from src.enums.command import CommandType
 
 
 class Command:
-    command_type: CommandType
+    command_type: Type
     syntax: str
 
-    def __init__(self, command_type: CommandType) -> None:
+    def __init__(self, command_type: Type) -> None:
         self.command_type = command_type
 
 
@@ -20,7 +20,7 @@ class Command:
 
 class Modify(Command):
     def __init__(self) -> None:
-        super().__init__(CommandType.MODIFY)
+        super().__init__(Type.MODIFY)
 
     def to_list(self, data: str) -> list[str]:
         data = data.strip()
@@ -37,7 +37,7 @@ class System(Command):
     PYTHON_UPGRADE_PIP: str = "pip3 install --upgrade pip"
 
     def __init__(self) -> None:
-        super().__init__(CommandType.SYSTEM)
+        super().__init__(Type.SYSTEM)
 
     def install_psutil(self) -> Command:
         self.syntax = self.PYTHON_PSUTIL
@@ -57,7 +57,7 @@ class Python(Command):
     LICENSES: str = "uv run pip-licenses --format=json"
 
     def __init__(self) -> None:
-        super().__init__(CommandType.PYTHON)
+        super().__init__(Type.PYTHON)
 
     def licenses(self) -> Command:
         self.syntax = self.LICENSES
@@ -73,7 +73,7 @@ class Common(Command):
     INTERFACES: str = "import psutil; print('\\n'.join(psutil.net_if_addrs().keys()))"
 
     def __init__(self) -> None:
-        super().__init__(CommandType.COMMON)
+        super().__init__(Type.COMMON)
 
     def get_interfaces(self) -> Command:
         self.syntax = f'python3 -c "{self.INTERFACES}"'
@@ -87,7 +87,7 @@ class Common(Command):
 
 class Ethtool(Command):
     def __init__(self) -> None:
-        super().__init__(CommandType.ETHTOOL)
+        super().__init__(Type.ETHTOOL)
 
     def module_info(self, interf: str) -> Command:
         self.syntax = f"sudo ethtool -m {interf}"
@@ -109,7 +109,7 @@ class Ethtool(Command):
 
 class Mlxlink(Command):
     def __init__(self) -> None:
-        super().__init__(CommandType.MLXLINK)
+        super().__init__(Type.MLXLINK)
 
     def serdes_tx(self, interf: str) -> str:
         """Show some MLNX CX-6Lx TX serdes params."""
@@ -127,7 +127,7 @@ class Mlxlink(Command):
 
 class Mlxconfig(Command):
     def __init__(self) -> None:
-        super().__init__(CommandType.MLXCONFIG)
+        super().__init__(Type.MLXCONFIG)
 
     def query(self, interf: str) -> Command:
         self.syntax = f"sudo mlxconfig -d {interf} query"
@@ -144,7 +144,7 @@ class Mst(Command):
     DEVICES: str = "sudo mst status -v | grep -o '/dev/mst/[^ ]*'"
 
     def __init__(self) -> None:
-        super().__init__(CommandType.MST)
+        super().__init__(Type.MST)
 
     def status(self) -> Command:
         self.syntax = self.STATUS
@@ -164,7 +164,7 @@ class Git(Command):
     PATCHSET: str = "git rev-parse --short HEAD"
 
     def __init__(self) -> None:
-        super().__init__(CommandType.GIT)
+        super().__init__(Type.GIT)
 
     def patchset(self) -> Command:
         self.syntax = self.PATCHSET

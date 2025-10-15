@@ -8,10 +8,6 @@ class Options(Enum):
     BUTTON = "Button"
     INFO = "Info"
 
-    @property
-    def name(self) -> str:
-        return self.value
-
 
 class Types(Enum):
     DEBUG = "Debug mode"
@@ -23,7 +19,3 @@ class Types(Enum):
     MESSAGE = "Message"
     SAVE = "Save"
     LIBS = "Libs"
-
-    @property
-    def name(self) -> str:
-        return self.value
