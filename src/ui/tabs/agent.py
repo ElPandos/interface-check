@@ -45,13 +45,13 @@ class AgentPanel(BasePanel, MultiScreen):
 
     def build(self):
         with ui.tab_panel(self.name).classes("w-full h-screen"):
-            self._build_control_base("Network Agent")
+            self._build_control_base("Agent Composer")
             self._build_content_base()
 
     def _build_screen(self, screen_num: int, classes):
         with (
             ui.card().classes(classes),
-            ui.expansion(f"Network Agent {screen_num}", icon="psychology", value=True).classes("w-full"),
+            ui.expansion(f"Agent {screen_num}", icon="psychology", value=True).classes("w-full"),
         ):
             if screen_num not in self._agent_screens:
                 self._agent_screens[screen_num] = AgentContent(self._ssh_connection)
@@ -152,8 +152,8 @@ class AgentContent:
                 # Task queue
                 with ui.column().classes("flex-1"):
                     ui.label("Task Queue").classes("text-lg font-bold mb-2")
-                    with ui.scroll_area().classes("h-64 border border-gray-300 rounded p-2 bg-gray-50"):
-                        self._task_container = ui.column().classes("w-full gap-2")
+                    with ui.scroll_area().classes("h-64 border border-gray-300 rounded p-1 bg-gray-50"):
+                        self._task_container = ui.column().classes("w-full gap-1")
                         self._update_task_display()
 
                 # Results panel
@@ -187,19 +187,16 @@ class AgentContent:
 
             # Custom task builder
             with ui.expansion("Custom Task Builder", icon="build").classes("w-full"):
-                with ui.column().classes("w-full gap-2"):
-                    with ui.row().classes("w-full gap-2"):
-                        self._task_name = ui.input("Task Name", placeholder="Enter task name").classes("flex-1")
-                        self._task_command = ui.input("Command", placeholder="ethtool eth0").classes("flex-1")
-
-                    with ui.row().classes("w-full gap-2"):
-                        self._task_interval = ui.number("Interval (seconds)", value=60, min=1).classes("w-32")
-                        self._task_repeat = ui.number("Repeat Count", value=1, min=1).classes("w-32")
-                        ui.button(
-                            "Add Custom Task",
-                            icon="add_task",
-                            on_click=lambda: self._add_custom_task(screen_num),
-                        ).classes("bg-indigo-500 hover:bg-indigo-600 text-white")
+                with ui.row().classes("w-full gap-2 items-end"):
+                    self._task_name = ui.input("Task Name", placeholder="Enter task name").classes("flex-1")
+                    self._task_command = ui.input("Command", placeholder="ethtool eth0").classes("flex-1")
+                    self._task_interval = ui.number("Interval (seconds)", value=60, min=1).classes("w-32")
+                    self._task_repeat = ui.number("Repeat Count", value=1, min=1).classes("w-32")
+                    ui.button(
+                        "Add Task",
+                        icon="add_task",
+                        on_click=lambda: self._add_custom_task(screen_num),
+                    ).classes("bg-indigo-500 hover:bg-indigo-600 text-white")
 
     def _is_connected(self) -> bool:
         """Check if SSH connection is available."""
@@ -225,7 +222,7 @@ class AgentContent:
             "commands": commands,
             "description": description,
             "status": "queued",
-            "created": datetime.now().strftime("%H:%M:%S"),
+            "created": datetime.now().strftime("%m/%d/%Y %H:%M:%S"),
             "type": task_type,
             **kwargs,
         }
@@ -319,33 +316,41 @@ class AgentContent:
 
         with self._task_container:
             for task in self._tasks:
-                with ui.card().classes("w-full p-2 border"):
-                    with ui.row().classes("w-full items-center justify-between"):
-                        with ui.column().classes("flex-1"):
-                            ui.label(task["name"]).classes("font-bold")
-                            ui.label(task["description"]).classes("text-sm text-gray-600")
-                            ui.label(f"Created: {task['created']}").classes("text-xs text-gray-500")
+                with ui.card().classes("w-full border border-gray-200 shadow-sm hover:shadow-md transition-shadow"):
+                    # Modern header with gradient background
+                    with ui.row().classes("w-full items-center justify-between bg-gradient-to-r from-slate-50 to-gray-100 px-3 py-2"):
+                        ui.label(task["name"]).classes("font-bold text-gray-800")
+                        ui.label(f"Created: {task['created']}").classes("text-xs text-gray-500")
 
-                        with ui.column().classes("items-end gap-1"):
-                            status_color = {
-                                "queued": "gray",
-                                "running": "blue",
-                                "completed": "green",
-                                "failed": "red",
-                            }.get(task["status"], "gray")
+                    # Content area - single row with command, actions, and status
+                    with ui.row().classes("w-full items-center px-3 py-2 gap-2"):
+                        # Command/description
+                        if task.get("type") == "custom" and task.get("commands"):
+                            ui.label(task["commands"][0]).classes("text-sm font-mono bg-gray-100 px-2 py-1 rounded border flex-1 select-text")
+                        else:
+                            ui.label(task["description"]).classes("text-sm text-gray-600 flex-1")
 
-                            ui.badge(task["status"].title(), color=status_color)
+                        # Action buttons
+                        with ui.row().classes("gap-1"):
+                            ui.button(
+                                icon="play_arrow",
+                                on_click=lambda t=task: self._run_task(t),
+                            ).props("size=sm flat").classes("text-green-600")
 
-                            with ui.row().classes("gap-1"):
-                                ui.button(
-                                    icon="play_arrow",
-                                    on_click=lambda t=task: self._run_task(t),
-                                ).props("size=sm flat").classes("text-green-600")
+                            ui.button(
+                                icon="delete",
+                                on_click=lambda t=task: self._remove_task(t),
+                            ).props("size=sm flat").classes("text-red-600")
 
-                                ui.button(
-                                    icon="delete",
-                                    on_click=lambda t=task: self._remove_task(t),
-                                ).props("size=sm flat").classes("text-red-600")
+                        # Status badge on the right
+                        status_color = {
+                            "queued": "gray",
+                            "running": "blue",
+                            "completed": "green",
+                            "failed": "red",
+                        }.get(task["status"], "gray")
+
+                        ui.badge(task["status"].title(), color=status_color)
 
     def _run_task(self, task: dict[str, Any]):
         """Execute a task."""
@@ -504,7 +509,7 @@ class AgentContent:
             "commands": recommendation["commands"],
             "description": recommendation["description"],
             "status": "queued",
-            "created": datetime.now().strftime("%H:%M:%S"),
+            "created": datetime.now().strftime("%m/%d/%Y %H:%M:%S"),
             "type": "recommended",
             "priority": recommendation["priority"],
         }

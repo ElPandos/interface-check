@@ -49,13 +49,13 @@ class ChatPanel(BasePanel, MultiScreen):
 
     def build(self) -> None:
         with ui.tab_panel(self.name).classes("w-full h-screen"):
-            self._build_control_base("AI Chat")
+            self._build_control_base("Chat")
             self._build_content_base()
 
     def _build_screen(self, screen_num: int, classes: str) -> None:
         with (
             ui.card().classes(classes),
-            ui.expansion(f"AI Chat {screen_num}", icon="smart_toy", value=True).classes("w-full"),
+            ui.expansion(f"Chat {screen_num}", icon="smart_toy", value=True).classes("w-full"),
         ):
             if screen_num not in self._chat_screens:
                 self._chat_screens[screen_num] = ChatContent(self._host_handler)

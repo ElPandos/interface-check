@@ -82,7 +82,7 @@ class MultiScreen(ScreenBase):
         """Build standard controls with host selector."""
         with ui.card().classes("w-full mb-4"), ui.row().classes("w-full items-center gap-4"):
             ui.icon(self._ICON_NAME, size="lg").classes("text-blue-600")
-            ui.label(label).classes("text-lg font-bold")
+            ui.label(label).classes("text-2xl font-bold")
             ui.space()
             ui.select(options=list(range(1, self.__MAX_SCREENS + 1)), value=1, label=self.__SELECTOR_LABEL).classes(
                 "w-32"

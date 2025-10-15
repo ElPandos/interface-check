@@ -106,6 +106,7 @@ class HostPanel(BasePanel, SingleScreen):
     def _build_screen(self, screen_num: int, classes: str) -> None:
         if not self._host_content:
             self._host_content = HostContent()
+            self._host_content.build()
 
 
 class HostContent:
@@ -142,14 +143,12 @@ class HostContent:
         self._current_ssh: SshConnection | None = None
         self._connection_status: dict[int, bool] = {}
 
-        # Initialize UI
-        self._init_ui()
+        # Undo state
+        self._last_deletion: dict[str, Any] | None = None
+        self._undo_btn: ui.button | None = None
 
     def build(self) -> None:
         """Build method for compatibility."""
-
-    def _init_ui(self) -> None:
-        """Initialize the user interface."""
         try:
             apply_global_theme()
             self._build_main_layout()
@@ -192,12 +191,18 @@ class HostContent:
             ui.space()
             ui.button(icon="save", on_click=self._save_config).classes(
                 "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
-            )
-            ui.button(icon="download", text="Import", on_click=self._open_import_dialog).classes(
+            ).tooltip("Save configuration")
+            ui.button(icon="download", on_click=self._open_import_dialog).classes(
                 "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
-            )
-            ui.button(icon="upload", text="Export", on_click=self._export_config).classes(
+            ).tooltip("Import configuration")
+            ui.button(icon="upload", on_click=self._export_config).classes(
                 "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
+            ).tooltip("Export configuration")
+            self._undo_btn = (
+                ui.button(icon="undo", on_click=self._show_undo_dialog)
+                .props("disable")
+                .classes("bg-gray-100 text-gray-400 cursor-not-allowed px-6 py-2 rounded")
+                .tooltip("Undo only lastest deletion")
             )
 
     def _build_hosts_section(self) -> None:
@@ -210,7 +215,7 @@ class HostContent:
                     .classes("text-gray-600")
                 )
                 ui.icon("computer", size="lg").classes("text-blue-600")
-                ui.label("Hosts").classes("text-lg font-semibold text-gray-800")
+                ui.label("Hosts").classes("text-2xl font-semibold text-gray-800")
                 ui.space()
                 ui.button(icon="desktop_windows", text="Add Host", on_click=self._open_add_dialog).classes(
                     "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
@@ -227,7 +232,7 @@ class HostContent:
                     .classes("text-gray-600")
                 )
                 ui.icon(name="route", size="lg").classes("text-green-600")
-                ui.label("Routes").classes("text-lg font-semibold text-gray-800")
+                ui.label("Routes").classes("text-2xl font-semibold text-gray-800")
                 ui.space()
                 self.add_route_btn = (
                     ui.button(icon="route", text="Add Route", on_click=self._add_route)
@@ -321,11 +326,23 @@ class HostContent:
     def _delete_host(self, index: int) -> None:
         """Delete host."""
         try:
-            deleted_host = self.config.delete_host(index)
-            if deleted_host:
-                ui.notify(f"Deleted host {deleted_host['ip']}", color="warning")
-                self.config.save()
-                self._refresh_hosts_table()
+            if not (0 <= index < len(self.config.hosts)):
+                return
+
+            host_to_delete = self.config.hosts[index]
+            host_ip = host_to_delete["ip"]
+
+            # Find affected routes
+            affected_routes = []
+            for i, route in enumerate(self.config.routes):
+                summary = route.get("summary", "") if isinstance(route, dict) else getattr(route, "summary", "")
+                if host_ip in summary:
+                    affected_routes.append((i, summary))
+
+            if affected_routes:
+                self._show_delete_confirmation(index, host_ip, affected_routes)
+            else:
+                self._perform_host_deletion(index)
         except Exception:
             logger.exception("Error deleting host")
 
@@ -384,10 +401,16 @@ class HostContent:
     def _delete_route(self, index: int) -> None:
         """Delete route."""
         try:
-            if self.config.delete_route(index):
-                ui.notify("Route removed", color="warning")
-                self.config.save()
-                self._refresh_routes_table()
+            if 0 <= index < len(self.config.routes):
+                deleted_route = self.config.routes[index]
+                if self.config.delete_route(index):
+                    # Store undo state
+                    self._last_deletion = {"type": "route_only", "host": None, "routes": [(index, deleted_route)]}
+                    self._update_undo_button()
+
+                    ui.notify("Route removed", color="warning")
+                    self.config.save()
+                    self._refresh_routes_table()
         except Exception:
             logger.exception("Error deleting route")
 
@@ -486,7 +509,7 @@ class HostContent:
             # Delete button
             ui.button(icon="delete", on_click=lambda i=index: self._delete_host(i)).props("unelevated").classes(
                 "bg-red-300 hover:bg-red-400 text-red-900 w-16 h-8 rounded shadow"
-            )
+            ).tooltip("Delete host")
 
     def _refresh_routes_table(self) -> None:
         """Refresh the routes table."""
@@ -555,15 +578,15 @@ class HostContent:
                 if is_connected:
                     ui.button(icon="power_off", on_click=lambda idx=index: self._disconnect_route(idx)).props(
                         "unelevated"
-                    ).classes("bg-red-500 hover:bg-red-600 text-white w-16 h-8 rounded shadow")
+                    ).classes("bg-red-500 hover:bg-red-600 text-white w-16 h-8 rounded shadow").tooltip("Disconnect from route")
                 else:
                     ui.button(icon="power", on_click=lambda idx=index: self._connect_route(idx)).props(
                         "unelevated"
-                    ).classes("bg-green-500 hover:bg-green-600 text-white w-16 h-8 rounded shadow")
+                    ).classes("bg-green-500 hover:bg-green-600 text-white w-16 h-8 rounded shadow").tooltip("Connect to route")
                 # Delete button
                 ui.button(icon="delete", on_click=lambda idx=index: self._delete_route(idx)).props(
                     "unelevated"
-                ).classes("bg-red-300 hover:bg-red-400 text-red-900 w-16 h-8 rounded shadow")
+                ).classes("bg-red-300 hover:bg-red-400 text-red-900 w-16 h-8 rounded shadow").tooltip("Delete route")
 
     def _update_add_route_button(self) -> None:
         """Update add route button state."""
@@ -669,7 +692,40 @@ class HostContent:
                 for h in self.config.hosts
             ]
 
-            app_config = Config(networks=Networks(hosts=hosts, routes=[]))
+            # Convert dict routes to Route objects for export
+            routes = []
+            for route in self.config.routes:
+                if isinstance(route, dict):
+                    target_host = route.get("target", {})
+                    jump_hosts = route.get("jumps", [])
+                    summary = route.get("summary", "")
+
+                    # If target data is missing, reconstruct from summary and hosts
+                    if not target_host.get("ip"):
+                        target_host = self._reconstruct_target_from_summary(summary)
+
+                    # If jump data is missing, reconstruct from summary and hosts
+                    if not jump_hosts:
+                        jump_hosts = self._reconstruct_jumps_from_summary(summary)
+
+                    target = Host(
+                        ip=target_host.get("ip", ""),
+                        username=target_host.get("username", ""),
+                        password=target_host.get("password", ""),
+                    )
+
+                    jumps = [
+                        Host(
+                            ip=jump.get("ip", ""), username=jump.get("username", ""), password=jump.get("password", "")
+                        )
+                        for jump in jump_hosts
+                    ]
+
+                    routes.append(Route(summary=summary, target=target, jumps=jumps))
+                else:
+                    routes.append(route)
+
+            app_config = Config(networks=Networks(hosts=hosts, routes=routes))
             config_json = Json.dump_to_string(app_config.model_dump())
             ui.download(config_json.encode(), "ssh_config.json")
             ui.notify("Configuration exported successfully", color="positive")
@@ -678,10 +734,250 @@ class HostContent:
             logger.exception("Error exporting config")
             ui.notify("Failed to export configuration", color="negative")
 
+    def _reconstruct_target_from_summary(self, summary: str) -> dict[str, str]:
+        """Reconstruct target host data from route summary."""
+        # Extract target IP from summary (after last ⟶ and before (Target))
+        if "(Target)" in summary:
+            target_part = summary.split("(Target)")[0].strip()
+            if "⟶" in target_part:
+                target_ip = target_part.split("⟶")[-1].strip()
+            else:
+                # Direct connection
+                target_ip = target_part.replace("Direct", "").strip()
+
+            # Find matching host
+            for host in self.config.hosts:
+                if host["ip"] == target_ip:
+                    return {"ip": host["ip"], "username": host["username"], "password": host["password"]}
+        return {"ip": "", "username": "", "password": ""}
+
+    def _reconstruct_jumps_from_summary(self, summary: str) -> list[dict[str, str]]:
+        """Reconstruct jump hosts data from route summary."""
+        if "Direct" in summary or "⟶" not in summary:
+            return []
+
+        # Extract jump IPs (everything before last ⟶)
+        parts = summary.split("⟶")
+        if len(parts) < 2:
+            return []
+
+        jump_ips = []
+        for part in parts[:-1]:  # All parts except the last (target)
+            ip = part.strip()
+            if ip and ip != "Direct":
+                jump_ips.append(ip)
+
+        # Find matching hosts
+        jumps = []
+        for jump_ip in jump_ips:
+            for host in self.config.hosts:
+                if host["ip"] == jump_ip:
+                    jumps.append({"ip": host["ip"], "username": host["username"], "password": host["password"]})
+                    break
+        return jumps
+
+    def _update_undo_button(self) -> None:
+        """Update undo button state."""
+        if not self._undo_btn:
+            return
+
+        if self._last_deletion:
+            self._undo_btn.props(remove="disable").classes(
+                remove="bg-gray-100 text-gray-400 cursor-not-allowed"
+            ).classes(add="bg-blue-500 hover:bg-blue-600 text-white")
+        else:
+            self._undo_btn.props(add="disable").classes(add="bg-gray-100 text-gray-400 cursor-not-allowed").classes(
+                remove="bg-blue-500 hover:bg-blue-600 text-white"
+            )
+
+    def _show_undo_dialog(self) -> None:
+        """Show undo confirmation dialog."""
+        if not self._last_deletion:
+            return
+
+        with ui.dialog() as dialog, ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"):
+            ui.label("Undo Last Deletion").classes("text-xl font-bold mb-4 text-center text-gray-800")
+
+            host_data = self._last_deletion["host"]
+            routes_data = self._last_deletion["routes"]
+
+            ui.label("This will restore:").classes("text-gray-700 mb-2")
+
+            with ui.column().classes("w-full mb-4"):
+                if host_data:
+                    ui.label(f"• Host: {host_data['data']['ip']}").classes("text-sm text-gray-600")
+
+                if routes_data:
+                    ui.label(f"• {len(routes_data)} route(s):").classes("text-sm text-gray-600")
+                    for _, route in routes_data:
+                        summary = (
+                            route.get("summary", str(route))
+                            if isinstance(route, dict)
+                            else getattr(route, "summary", str(route))
+                        )
+                        ui.label(f"  - {summary}").classes("text-xs text-gray-500 ml-4")
+
+            with ui.row().classes("w-full gap-2"):
+                ui.button("Restore", on_click=lambda: self._perform_undo(dialog)).classes(
+                    "bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
+                )
+
+                ui.button("Cancel", on_click=dialog.close).classes(
+                    "bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                )
+
+        dialog.open()
+
+    def _perform_undo(self, dialog: ui.dialog) -> None:
+        """Perform the undo operation."""
+        try:
+            if not self._last_deletion:
+                return
+
+            host_data = self._last_deletion["host"]
+            routes_data = self._last_deletion["routes"]
+
+            # Restore host
+            if host_data:
+                host_index = min(host_data["index"], len(self.config.hosts))
+                self.config.hosts.insert(host_index, host_data["data"])
+
+            # Restore routes
+            for route_index, route_data in routes_data:
+                restore_index = min(route_index, len(self.config.routes))
+                self.config.routes.insert(restore_index, route_data)
+
+            # Clear undo state
+            self._last_deletion = None
+            self._update_undo_button()
+
+            dialog.close()
+
+            # Save and refresh
+            self.config.save()
+            self._refresh_hosts_table()
+            self._refresh_routes_table()
+
+            restored_items = []
+            if host_data:
+                restored_items.append(f"host {host_data['data']['ip']}")
+            if routes_data:
+                restored_items.append(f"{len(routes_data)} route(s)")
+
+            ui.notify(f"Restored {' and '.join(restored_items)}", color="positive")
+
+        except Exception:
+            logger.exception("Error performing undo")
+            ui.notify("Failed to undo deletion", color="negative")
+
+    def _show_delete_confirmation(self, host_index: int, host_ip: str, affected_routes: list[tuple[int, str]]) -> None:
+        """Show confirmation dialog for host deletion with affected routes."""
+        with ui.dialog() as dialog, ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"):
+            ui.label(f"Delete host {host_ip}?").classes("text-xl font-bold mb-4 text-center text-gray-800")
+
+            ui.label(f"This host is used in {len(affected_routes)} route(s):").classes("text-gray-700 mb-2")
+
+            with ui.column().classes("w-full mb-4 max-h-32 overflow-y-auto"):
+                for _, summary in affected_routes:
+                    ui.label(f"• {summary}").classes("text-sm text-gray-600")
+
+            ui.label("Do you want to remove the affected routes too?").classes("text-gray-700 mb-4")
+
+            with ui.row().classes("w-full gap-2"):
+                ui.button(
+                    "Remove All", on_click=lambda: self._delete_host_and_routes(host_index, affected_routes, dialog)
+                ).classes("bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded")
+
+                ui.button("Host Only", on_click=lambda: self._perform_host_deletion(host_index, dialog)).classes(
+                    "bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded"
+                )
+
+                ui.button("Cancel", on_click=dialog.close).classes(
+                    "bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                )
+
+        dialog.open()
+
+    def _delete_host_and_routes(
+        self, host_index: int, affected_routes: list[tuple[int, str]], dialog: ui.dialog
+    ) -> None:
+        """Delete host and all affected routes."""
+        try:
+            # Store deletion state for undo
+            deleted_routes = []
+            route_indices = sorted([i for i, _ in affected_routes], reverse=True)
+
+            # Collect route data before deletion
+            for route_index in route_indices:
+                if 0 <= route_index < len(self.config.routes):
+                    deleted_routes.append((route_index, self.config.routes[route_index]))
+
+            # Delete routes first
+            for route_index in route_indices:
+                self.config.delete_route(route_index)
+
+            # Then delete host
+            deleted_host = self.config.delete_host(host_index)
+
+            # Store undo state
+            if deleted_host:
+                self._last_deletion = {
+                    "type": "host_and_routes",
+                    "host": {"index": host_index, "data": deleted_host},
+                    "routes": deleted_routes,
+                }
+                self._update_undo_button()
+
+            dialog.close()
+
+            if deleted_host:
+                ui.notify(f"Deleted host {deleted_host['ip']} and {len(affected_routes)} route(s)", color="warning")
+                self.config.save()
+                self._refresh_hosts_table()
+                self._refresh_routes_table()
+        except Exception:
+            logger.exception("Error deleting host and routes")
+            ui.notify("Failed to delete host and routes", color="negative")
+
+    def _perform_host_deletion(self, host_index: int, dialog: ui.dialog | None = None) -> None:
+        """Perform the actual host deletion."""
+        try:
+            deleted_host = self.config.delete_host(host_index)
+
+            # Store undo state
+            if deleted_host:
+                self._last_deletion = {
+                    "type": "host_only",
+                    "host": {"index": host_index, "data": deleted_host},
+                    "routes": [],
+                }
+                self._update_undo_button()
+
+            if dialog:
+                dialog.close()
+
+            if deleted_host:
+                ui.notify(f"Deleted host {deleted_host['ip']}", color="warning")
+                self.config.save()
+                self._refresh_hosts_table()
+        except Exception:
+            logger.exception("Error deleting host")
+            ui.notify("Failed to delete host", color="negative")
+
     def _open_import_dialog(self) -> None:
         """Open import dialog."""
         with ui.dialog() as dialog, ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"):
             ui.label("Import configuration").classes("text-xl font-bold mb-6 text-center text-gray-800")
+
+            with ui.card().classes("w-full p-4 bg-gray-50 border border-gray-200 mb-4"):
+                ui.label("Upload JSON File").classes("font-semibold mb-3 text-gray-700")
+                file_upload = (
+                    ui.upload(on_upload=lambda e: self._handle_file_upload(e, dialog), auto_upload=True)
+                    .props("accept=.json")
+                    .classes("w-full")
+                )
+
+            ui.label("OR").classes("text-center text-gray-500 font-bold my-2")
 
             with ui.card().classes("w-full p-4 bg-gray-50 border border-gray-200 mb-4"):
                 ui.label("Paste JSON").classes("font-semibold mb-3 text-gray-700")
@@ -721,9 +1017,26 @@ class HostContent:
                 ui.notify("No hosts found in configuration", color="negative")
                 return
 
-            self.config.hosts = hosts
-            self.config.routes = routes if isinstance(routes, list) else []
-            self.config.remote_index = None
+            # Count totals and filter duplicates
+            total_hosts = len(hosts)
+            total_routes = len(routes) if isinstance(routes, list) else 0
+
+            # Import only new hosts
+            new_hosts = []
+            existing_ips = {h["ip"] for h in self.config.hosts}
+            for host in hosts:
+                if host.get("ip") not in existing_ips:
+                    new_hosts.append(host)
+                    self.config.hosts.append(host)
+
+            # Import only new routes
+            new_routes = []
+            existing_summaries = {r.get("summary", str(r)) for r in self.config.routes}
+            for route in routes if isinstance(routes, list) else []:
+                route_summary = route.get("summary", str(route))
+                if route_summary not in existing_summaries:
+                    new_routes.append(route)
+                    self.config.routes.append(route)
 
             # Reset all host selections
             for host in self.config.hosts:
@@ -731,20 +1044,51 @@ class HostContent:
                 host["jump"] = False
                 host["jump_order"] = None
 
-            # Reset UI states
+            self.config.remote_index = None
             self.hosts_expanded = True
             self.routes_expanded = True
 
             dialog.close()
             self._refresh_hosts_table()
             self._refresh_routes_table()
-            ui.notify(f"Imported {len(hosts)} hosts and {len(self.config.routes)} routes", color="positive")
+
+            # Provide detailed feedback
+            new_host_count = len(new_hosts)
+            new_route_count = len(new_routes)
+            duplicate_hosts = total_hosts - new_host_count
+            duplicate_routes = total_routes - new_route_count
+
+            if new_host_count > 0 or new_route_count > 0:
+                message = f"Imported {new_host_count} new hosts and {new_route_count} new routes"
+                if duplicate_hosts > 0 or duplicate_routes > 0:
+                    message += f" (skipped {duplicate_hosts} duplicate hosts, {duplicate_routes} duplicate routes)"
+                ui.notify(message, color="positive")
+            else:
+                ui.notify(
+                    f"No new items imported - all {total_hosts} hosts and {total_routes} routes already exist",
+                    color="info",
+                )
 
         except ValueError:
             ui.notify("Invalid JSON format", color="negative")
         except Exception:
             logger.exception("Error importing config")
             ui.notify("Import failed", color="negative")
+
+    def _handle_file_upload(self, e, dialog: ui.dialog) -> None:
+        """Handle file upload for import."""
+        try:
+            if not e.content:
+                ui.notify("No file content received", color="negative")
+                return
+
+            # Decode file content
+            config_text = e.content.read().decode("utf-8")
+            self._import_config(config_text, dialog)
+
+        except Exception:
+            logger.exception("Error handling file upload")
+            ui.notify("Failed to read uploaded file", color="negative")
 
     def _select_host_for_move(self, index: int) -> None:
         """Select host for moving."""
@@ -838,14 +1182,29 @@ class HostConfigManager:
                 for host in config.networks.hosts
             ]
             # Convert Route objects to dicts for internal use
-            self.routes = [
-                {
-                    "summary": route.summary if hasattr(route, "summary") else str(route),
-                }
-                if not isinstance(route, dict)
-                else route
-                for route in config.networks.routes
-            ]
+            self.routes = []
+            for route in config.networks.routes:
+                if isinstance(route, dict):
+                    self.routes.append(route)
+                else:
+                    # Convert Route object to dict with full data
+                    route_dict = {
+                        "summary": route.summary,
+                        "target": {
+                            "ip": route.target.ip,
+                            "username": route.target.username,
+                            "password": route.target.password.get_secret_value(),
+                        },
+                        "jumps": [
+                            {
+                                "ip": jump.ip,
+                                "username": jump.username,
+                                "password": jump.password.get_secret_value(),
+                            }
+                            for jump in route.jumps
+                        ],
+                    }
+                    self.routes.append(route_dict)
             self._reset_host_states()
             logger.debug("Loaded %d hosts and %d routes", len(self.hosts), len(self.routes))
         except Exception:

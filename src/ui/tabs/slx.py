@@ -9,7 +9,7 @@ from src.ui.components.selector import Selector
 from src.ui.tabs.base import BasePanel, BaseTab
 
 NAME = "slx"
-LABEL = "Slx"
+LABEL = "SLX"
 
 
 class SlxTab(BaseTab):
@@ -75,7 +75,6 @@ class SlxContent:
 
     def build(self, screen_num: int) -> None:
         """Build SLX interface for the screen."""
-
         # Connection selector
         if self._host_handler:
             Selector(
