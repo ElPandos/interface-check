@@ -81,11 +81,8 @@ class ToolboxContent:
 
         # Connection selector
         if self._host_handler:
-            Selector(
-                getattr(self._host_handler, "_connect_route", {}),
-                getattr(self._host_handler, "_routes", {}),
-                self._on_connection_change,
-            ).build()
+            # TODO: Implement proper connection selector with SelectionProvider
+            ui.label("Connection selector placeholder").classes("text-gray-500")
 
         # Toolbox controls
         with ui.row().classes("w-full gap-2 mt-2 flex-wrap"):

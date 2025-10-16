@@ -62,7 +62,7 @@ class Json:
 
     @classmethod
     def dump_to_string(cls, data: Any, *, indent: int = 2) -> str:
-        return json.dumps(data, indent=indent, default=cls._serializer, **cls._DEFAULTS)
+        return json.dumps(data, default=cls._serializer, indent=indent, ensure_ascii=False)
 
     @classmethod
     def parse_string(cls, json_string: str) -> Any:

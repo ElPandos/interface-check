@@ -4,10 +4,10 @@ from typing import Any
 
 from nicegui import nicegui, ui
 
-from src.core.connect import SshConnection
 from src.core.terminal import Cli
 from src.models.config import Config
 from src.platform.commands import Git
+from src.ui.handlers.host import HostHandler
 from src.ui.handlers.settings import settings
 from src.ui.tabs.agent import AgentPanel, AgentTab
 from src.ui.tabs.cable import CablePanel, CableTab
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 class Gui:
     _config: Config
-    _ssh_connection: SshConnection = None
+    _host_handler: HostHandler
     _tabs: ui.tabs
     _right_drawer: ui.right_drawer
     footer: ui.footer
@@ -40,6 +40,7 @@ class Gui:
         logger.debug(f"Nicegui version: {nicegui.__version__}")
 
         self._config = config
+        self._host_handler = HostHandler(config)
 
         self._tab_content = {}
         self._panel_content = {}
@@ -86,7 +87,7 @@ class Gui:
         with ui.tab_panels(self._tabs, value=LocalTab().name).classes("w-full h-fit bg-gray-100"):
             panel_configs = [
                 (LocalPanel, {}),
-                (HostPanel, {"icon": self._tab_content[HostTab().name].icon}),
+                (HostPanel, {}),
                 (ToolboxPanel, {}),
                 (SlxPanel, {}),
                 (CablePanel, {}),
@@ -99,9 +100,7 @@ class Gui:
             ]
 
             for panel_class, extra_kwargs in panel_configs:
-                panel = panel_class(
-                    build=True, config=self._config, ssh_connection=self._ssh_connection, **extra_kwargs
-                )
+                panel = panel_class(build=True, config=self._config, host_handler=self._host_handler, **extra_kwargs)
                 self._panel_content[panel.name] = panel
 
     def _build_right_drawer(self) -> None:
@@ -182,5 +181,4 @@ class Gui:
         """)
 
     def disconnect(self) -> None:
-        if self._ssh_connection:
-            self._ssh_connection.disconnect()
+        self._host_manager.disconnect()

@@ -104,11 +104,8 @@ class EthtoolPanel(BasePanel):
     def _build_screen(self, screen_num, classes):
         with ui.card().classes(classes), ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
             if self._host_handler:
-                Selector(
-                    self._host_handler._connect_route,  # noqa: SLF001
-                    self._host_handler._routes,  # noqa: SLF001
-                    lambda conn_id, s=screen_num: self._on_connection_change(conn_id, s),
-                ).build()
+                # TODO: Implement proper connection selector with SelectionProvider
+                ui.label("Connection selector placeholder").classes("text-gray-500")
             ui.button("Scan Interfaces", on_click=lambda s=screen_num: self._scan_interfaces_for_screen(s)).classes(
                 "bg-red-300 hover:bg-red-400 text-red-900 mt-2"
             )

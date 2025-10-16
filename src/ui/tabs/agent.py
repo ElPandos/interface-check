@@ -30,6 +30,7 @@ class AgentPanel(BasePanel, MultiScreen):
         build: bool = False,
         config: Config = None,
         ssh_connection: SshConnection = None,
+        host_handler=None,
         icon: ui.icon = None,
     ):
         BasePanel.__init__(self, NAME, LABEL, AgentTab.ICON_NAME)
@@ -37,6 +38,7 @@ class AgentPanel(BasePanel, MultiScreen):
 
         self._config = config
         self._ssh_connection = ssh_connection
+        self._host_handler = host_handler
         self._icon = icon
         self._agent_screens: dict[int, Any] = {}
 

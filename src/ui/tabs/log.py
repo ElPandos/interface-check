@@ -82,16 +82,8 @@ class LogContent:
         """Build log interface for the screen."""
         # Connection selector if available
         if self._host_handler:
-            try:
-                from src.ui.components.selector import Selector
-
-                Selector(
-                    getattr(self._host_handler, "_connect_route", {}),
-                    getattr(self._host_handler, "_routes", {}),
-                    self._on_connection_change,
-                ).build()
-            except ImportError:
-                pass
+            # TODO: Implement proper connection selector with SelectionProvider
+            ui.label("Connection selector placeholder").classes("text-gray-500")
 
         # Control buttons
         with ui.row().classes("w-full gap-2 mt-2 flex-wrap"):

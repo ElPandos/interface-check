@@ -27,7 +27,7 @@ class SshConnection(IConnection):
         "_username",
     )
 
-    _SSH_DEFAULTS = {"look_for_keys": False, "allow_agent": False, "timeout": 10}
+    _SSH_DEFAULTS = {"look_for_keys": False, "allow_agent": False, "timeout": 30}
 
     def __init__(
         self,
@@ -71,6 +71,18 @@ class SshConnection(IConnection):
 
             self._start_keepalive()
             return True
+        except TimeoutError as e:
+            logger.error("SSH connection timeout to %s: %s", self._host, e)
+            self.disconnect()
+            return False
+        except paramiko.AuthenticationException as e:
+            logger.error("SSH authentication failed for %s: %s", self._host, e)
+            self.disconnect()
+            return False
+        except paramiko.SSHException as e:
+            logger.error("SSH protocol error for %s: %s", self._host, e)
+            self.disconnect()
+            return False
         except Exception:
             logger.exception("SSH connection failed")
             self.disconnect()

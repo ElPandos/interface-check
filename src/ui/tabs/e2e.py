@@ -77,14 +77,8 @@ class E2eContent:
         """Build E2E testing interface for the screen."""
         # Connection selector with filtered hosts
         if self._host_handler:
-            allowed_host_ids = {2, 4, 5, 6, 8}
-            filtered_connect_route = getattr(self._host_handler, "_connect_route", {}) & allowed_host_ids
-
-            Selector(
-                filtered_connect_route,
-                getattr(self._host_handler, "_routes", {}),
-                self._on_connection_change,
-            ).build()
+            # TODO: Implement proper connection selector with SelectionProvider
+            ui.label("Connection selector placeholder (filtered hosts)").classes("text-gray-500")
 
         # E2E test controls
         with ui.row().classes("w-full gap-2 mt-2"):

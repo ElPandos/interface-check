@@ -80,7 +80,7 @@ class Selector[T]:
                     break
             self._selector.value = label
 
-    def _on_selection_change_wrapper(self, e) -> None:
+    def _on_selection_change_wrapper(self, e: Any) -> None:
         """Handle selection change with label to value mapping."""
         if e.value and hasattr(self, "_option_mapping"):
             actual_value = self._option_mapping.get(e.value)
