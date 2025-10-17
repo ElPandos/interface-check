@@ -53,22 +53,41 @@ class ChatPanel(BasePanel, MultiScreen):
             self._build_content_base()
 
     def _build_screen(self, screen_num: int, classes: str) -> None:
-        with (
-            ui.card().classes(classes),
-            ui.expansion(f"Chat {screen_num}", icon="smart_toy", value=True).classes("w-full"),
-        ):
-            if screen_num not in self._chat_screens:
-                self._chat_screens[screen_num] = ChatContent(self._host_handler)
+        with ui.card().classes(classes):
+            # Card header with route selector
+            with ui.row().classes("w-full items-center gap-2 p-4 border-b"):
+                ui.icon("computer", size="md").classes("text-blue-600")
+                ui.label(f"Host {screen_num}").classes("text-lg font-semibold")
+                ui.space()
 
-            chat = self._chat_screens[screen_num]
-            chat.build(screen_num)
+                if screen_num not in self._chat_screens:
+                    self._chat_screens[screen_num] = ChatContent(self._host_handler, self._config, self, screen_num)
+
+                # Route selector in header
+                chat_content = self._chat_screens[screen_num]
+                chat_content.build_route_selector()
+
+            # Content area
+            with ui.column().classes("w-full p-4"):
+                chat_content.build_content(screen_num)
 
 
 class ChatContent:
-    def __init__(self, host_handler: Any = None) -> None:
+    def __init__(
+        self,
+        host_handler: Any = None,
+        config: Config | None = None,
+        parent_panel: ChatPanel | None = None,
+        screen_num: int = 1,
+    ) -> None:
         self._current_model: str = "GPT-4"
         self._chat_history: list[dict[str, str]] = []
         self._host_handler = host_handler
+        self._config = config
+        self._parent_panel = parent_panel
+        self._screen_num = screen_num
+        self._selected_route: int | None = None
+        self._route_selector: ui.select | None = None
         self.chat_container: ui.column | None = None
         self.message_input: ui.textarea | None = None
         self.scroll_area: ui.scroll_area | None = None
@@ -89,7 +108,16 @@ class ChatContent:
             "script": "What kind of script would you like me to generate? Please describe the requirements.",
         }
 
-    def build(self, screen_num: int) -> None:
+    def build_route_selector(self) -> None:
+        """Build route selector in card header."""
+        self._route_selector = (
+            ui.select(options=[], value=None, label="Connected Routes")
+            .classes("w-64")
+            .on_value_change(self._on_route_change)
+        )
+        ui.timer(0.5, self._update_route_options, active=True)
+
+    def build_content(self, screen_num: int) -> None:
         """Build ChatGPT-like interface for the screen."""
         with ui.column().classes("w-full h-full gap-4"):
             # Model selector and controls
@@ -270,3 +298,40 @@ class ChatContent:
         if self.message_input:
             self.message_input.value = prompt
         ui.notify(f"Quick action: {action_type.replace('_', ' ').title()}", color="info")
+
+    def _on_route_change(self, e: Any) -> None:
+        """Handle route selection change."""
+        if hasattr(e, "value") and e.value is not None:
+            self._selected_route = getattr(self, "_route_value_map", {}).get(e.value)
+            if self._parent_panel:
+                self._parent_panel.set_screen_route(self._screen_num, self._selected_route)
+        else:
+            self._selected_route = None
+            if self._parent_panel:
+                self._parent_panel.set_screen_route(self._screen_num, None)
+
+    def _update_route_options(self) -> None:
+        """Update route selector options."""
+        if not (self._parent_panel and self._route_selector):
+            return
+
+        connected_routes = self._parent_panel.get_connected_route_options()
+        if not connected_routes:
+            self._route_selector.options = []
+            self._route_selector.update()
+            return
+
+        options = [route["label"] for route in connected_routes]
+        values = [route["value"] for route in connected_routes]
+
+        self._route_selector.options = options
+        self._route_selector.update()
+        self._route_value_map = dict(zip(options, values, strict=False))
+
+    def update_button_states(self) -> None:
+        """Public method to update button states from parent."""
+        pass  # Chat doesn't need button state updates
+
+    def build(self, screen_num: int) -> None:
+        """Legacy method for compatibility."""
+        self.build_content(screen_num)

@@ -191,6 +191,11 @@ class SshConnection(IConnection):
             time.sleep(1)  # Wait for banner
             output = self._read_until_prompt()
             logger.debug(f"Shell opened. Initial banner:\n{output}")
+
+            # Set terminal length to 0 to disable paging
+            logger.debug("Setting terminal length to 0")
+            self.execute_shell_command("terminal length 0")
+
             return True
         except Exception:
             logger.exception("Failed to open shell")
@@ -203,14 +208,23 @@ class SshConnection(IConnection):
 
         buffer = b""
         start = time.time()
+        logger.debug(f"Starting to read until prompt with timeout {timeout}s")
 
         while time.time() - start < timeout:
             if self._shell.recv_ready():
-                buffer += self._shell.recv(4096)
+                chunk = self._shell.recv(4096)
+                buffer += chunk
+                logger.debug(f"Received {len(chunk)} bytes, total buffer: {len(buffer)} bytes")
+                logger.debug(f"Last 100 chars of buffer: {buffer[-100:]}")
+
                 if self._prompt_pattern.search(buffer):
+                    logger.debug("Prompt pattern matched!")
                     return buffer.decode(errors="ignore")
             else:
                 time.sleep(0.1)
+
+        logger.error(f"Timeout after {timeout}s. Buffer length: {len(buffer)}")
+        logger.error(f"Final buffer content: {buffer.decode(errors='ignore')[-500:]}")
         raise TimeoutError("Prompt not detected within timeout")
 
     def execute_shell_command(self, command: str) -> str:
@@ -219,12 +233,22 @@ class SshConnection(IConnection):
             raise ConnectionError("Shell not open")
 
         logger.info(f"Executing shell command: {command}")
+        logger.debug(f"Shell ready state: {self._shell.recv_ready()}")
+
         self._shell.send(command + "\n")
+        logger.debug("Command sent, waiting for output...")
+
         output = self._read_until_prompt()
+        logger.debug(f"Raw output length: {len(output)}")
+        logger.debug(f"Raw output preview: {output[:200]}...{output[-200:]}")
 
         # Clean up echoed command and prompt
         lines = output.splitlines()
+        logger.debug(f"Output has {len(lines)} lines")
+
         clean_output = "\n".join(line for line in lines if not re.search(self._prompt_pattern, line.encode()))
+        logger.debug(f"Clean output length: {len(clean_output)}")
+
         return clean_output.strip()
 
     def close_shell(self) -> None:
