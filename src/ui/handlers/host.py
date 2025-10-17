@@ -158,7 +158,7 @@ class HostHandler:
             logger.error("No routes configured")
             ui.notify("No routes configured", color="negative")
             return False
-            
+
         if route_index < 0 or route_index >= len(self._config.networks.routes):
             logger.error("Invalid route index: %s (max: %s)", route_index + 1, len(self._config.networks.routes))
             ui.notify(f"Invalid route index: {route_index}", color="negative")
@@ -200,3 +200,12 @@ class HostHandler:
     def get_route_connection(self, route_index: int) -> SshConnection | None:
         """Get connection for a specific route."""
         return self._route_connections.get(route_index)
+
+    def get_connected_routes(self) -> list[dict[str, Any]]:
+        """Get list of connected routes for multiscreen selectors."""
+        connected_routes = []
+        for route_index, connection in self._route_connections.items():
+            if connection.is_connected():
+                route = self._config.networks.routes[route_index]
+                connected_routes.append({"label": f"Route {route_index + 1}: {route.summary}", "value": route_index})
+        return connected_routes

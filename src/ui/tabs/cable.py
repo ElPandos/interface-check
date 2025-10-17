@@ -35,13 +35,16 @@ class CablePanel(BasePanel, MultiScreen):
         icon: ui.icon = None,
     ):
         BasePanel.__init__(self, NAME, LABEL, CableTab.ICON_NAME)
-        MultiScreen.__init__(self)
+        MultiScreen.__init__(self, CableTab.ICON_NAME)
 
         self._config = config
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
         self._icon = icon
         self._cable_screens: dict[int, Any] = {}
+
+        if host_handler:
+            self.set_host_handler(host_handler)
 
         if build:
             self.build()
@@ -57,7 +60,8 @@ class CablePanel(BasePanel, MultiScreen):
             ui.expansion(f"Host {screen_num}", icon="computer", value=True).classes("w-full"),
         ):
             if screen_num not in self._cable_screens:
-                self._cable_screens[screen_num] = CableContent(self._ssh_connection, self._host_handler, self._config)
+                screen_connection = self.get_screen_connection(screen_num)
+                self._cable_screens[screen_num] = CableContent(screen_connection, self._host_handler, self._config)
 
             cable_content = self._cable_screens[screen_num]
             cable_content.build(screen_num)

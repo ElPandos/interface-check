@@ -1,7 +1,9 @@
 """SSH connection with multi-jump support and keepalive."""
 
 import logging
+import re
 import threading
+import time
 from typing import Any
 
 import paramiko
@@ -22,6 +24,8 @@ class SshConnection(IConnection):
         "_keepalive_interval",
         "_keepalive_thread",
         "_password",
+        "_prompt_pattern",
+        "_shell",
         "_ssh_client",
         "_stop_keepalive",
         "_username",
@@ -46,6 +50,10 @@ class SshConnection(IConnection):
         self._jump_clients = []
         self._keepalive_thread = None
         self._stop_keepalive = threading.Event()
+        self._shell = None
+        self._prompt_pattern = re.compile(
+            rb"SLX#\s*$|\[.*@.*\]#\s*$|Password:\s*$|password for.*:\s*$|FBR\.\d+>\s*$", re.MULTILINE
+        )
 
     @classmethod
     def from_route(cls, route: Route) -> "SshConnection":
@@ -94,6 +102,8 @@ class SshConnection(IConnection):
         if self._keepalive_thread:
             self._keepalive_thread.join(timeout=1)
             self._keepalive_thread = None
+
+        self.close_shell()
 
         for client in filter(None, [self._ssh_client] + self._jump_clients):
             client.close()
@@ -169,6 +179,60 @@ class SshConnection(IConnection):
                         t.send_ignore()
             except Exception:
                 logger.exception("Keepalive failed")
+
+    def open_shell(self) -> bool:
+        """Open interactive shell for SLX OS commands."""
+        if not self.is_connected():
+            logger.error("Cannot open shell: not connected")
+            return False
+
+        try:
+            self._shell = self._ssh_client.invoke_shell()
+            time.sleep(1)  # Wait for banner
+            output = self._read_until_prompt()
+            logger.debug(f"Shell opened. Initial banner:\n{output}")
+            return True
+        except Exception:
+            logger.exception("Failed to open shell")
+            return False
+
+    def _read_until_prompt(self, timeout: float = 10.0) -> str:
+        """Read shell output until prompt is detected or timeout occurs."""
+        if not self._shell:
+            raise ConnectionError("Shell not open")
+
+        buffer = b""
+        start = time.time()
+
+        while time.time() - start < timeout:
+            if self._shell.recv_ready():
+                buffer += self._shell.recv(4096)
+                if self._prompt_pattern.search(buffer):
+                    return buffer.decode(errors="ignore")
+            else:
+                time.sleep(0.1)
+        raise TimeoutError("Prompt not detected within timeout")
+
+    def execute_shell_command(self, command: str) -> str:
+        """Send command to SLX shell and return output."""
+        if not self._shell:
+            raise ConnectionError("Shell not open")
+
+        logger.info(f"Executing shell command: {command}")
+        self._shell.send(command + "\n")
+        output = self._read_until_prompt()
+
+        # Clean up echoed command and prompt
+        lines = output.splitlines()
+        clean_output = "\n".join(line for line in lines if not re.search(self._prompt_pattern, line.encode()))
+        return clean_output.strip()
+
+    def close_shell(self) -> None:
+        """Close interactive shell."""
+        if self._shell:
+            self._shell.close()
+            self._shell = None
+            logger.debug("Shell closed")
 
 
 class SshConnectionFactory(IConnectionFactory):

@@ -34,13 +34,16 @@ class AgentPanel(BasePanel, MultiScreen):
         icon: ui.icon = None,
     ):
         BasePanel.__init__(self, NAME, LABEL, AgentTab.ICON_NAME)
-        MultiScreen.__init__(self)
+        MultiScreen.__init__(self, AgentTab.ICON_NAME)
 
         self._config = config
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
         self._icon = icon
         self._agent_screens: dict[int, Any] = {}
+
+        if host_handler:
+            self.set_host_handler(host_handler)
 
         if build:
             self.build()
@@ -56,7 +59,8 @@ class AgentPanel(BasePanel, MultiScreen):
             ui.expansion(f"Agent {screen_num}", icon="psychology", value=True).classes("w-full"),
         ):
             if screen_num not in self._agent_screens:
-                self._agent_screens[screen_num] = AgentContent(self._ssh_connection)
+                screen_connection = self.get_screen_connection(screen_num)
+                self._agent_screens[screen_num] = AgentContent(screen_connection)
 
             agent = self._agent_screens[screen_num]
             agent.build(screen_num)
