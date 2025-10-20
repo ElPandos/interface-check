@@ -159,10 +159,11 @@ class HostHandler:
             ui.notify("No routes configured", color="negative")
             return False
 
-        if route_index < 0 or route_index >= len(self._config.networks.routes):
-            logger.error("Invalid route index: %s (max: %s)", route_index + 1, len(self._config.networks.routes))
-            ui.notify(f"Invalid route index: {route_index}", color="negative")
-            return False
+        # Implement this after the configstate is refreshed, buggy
+        # if route_index < 0 or route_index >= len(self._config.networks.routes):
+        #     logger.error("Invalid route index: %s (max: %s)", route_index + 1, len(self._config.networks.routes))
+        #     ui.notify(f"Invalid route index: {route_index}", color="negative")
+        #     return False
 
         route = self._config.networks.routes[route_index]
 

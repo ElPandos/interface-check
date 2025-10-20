@@ -1,0 +1,25 @@
+{
+    "jump": {
+        "host": "137.58.231.134",
+        "user": "emvekta",
+        "pass": "emvekta"
+    },
+    "slx": {
+        "host": "172.16.170.1",
+        "user": "admin",
+        "pass": "password",
+        "root_pass": "fibranne",
+        "scan_ports": ["0/10:1"],
+        "scan_interval": 20,
+        "port_toggling_enabled": 1,
+        "port_toggle_wait": 20,
+        "port_eye_scan_wait": 20
+    },
+    "sut": {
+        "host": "172.16.180.1",
+        "user": "hts",
+        "pass": "hts",
+        "interface_names": ["172.16.170.1"],
+        "info_dump_level": 0
+    }
+}

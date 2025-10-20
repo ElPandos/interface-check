@@ -1,5 +1,6 @@
 """Network diagnostic tool implementations."""
 
+import json
 import logging
 import time
 from typing import Any
@@ -8,6 +9,133 @@ from src.interfaces.connection import IConnection
 from src.interfaces.tool import ITool, IToolFactory, ToolResult
 
 logger = logging.getLogger(__name__)
+
+"""
+
+System dump
+
+sudo apt update
+sudo apt install -y pciutils ethtool rdma-core lshw lm-sensors python3-pip mstflint mlnx-tools
+
+
+
+lspci -nn | grep -i -E 'mellanox|connectx|mlx5|mlx4'
+lspci -v -s <PCI_ID>
+lspci -k -s <PCI_ID>
+lsmod | egrep 'mlx|mlx5|mlx4|ib_|rdma'
+modinfo mlx5_core
+
+
+lspci -nn | grep -i -E 'mellanox|connectx|mlx5|mlx4'
+lspci -v -s <PCI_ID>
+lspci -k -s <PCI_ID>
+lsmod | egrep 'mlx|mlx5|mlx4|ib_|rdma'
+modinfo mlx5_core
+
+
+ip -br link
+ethtool -i <ifname>
+udevadm info -q all -n <ifname> | egrep 'ID_MODEL|ID_SERIAL|PCI_SLOT_NAME|DRIVER'
+udevadm info -a -p /sys/class/net/<ifname>
+
+
+rdma dev show
+ibv_devinfo
+ibstat
+
+
+sudo mst start
+mst status
+mst list
+sudo mlxconfig -d /dev/mst/mtXXXX q
+sudo mstflint -d /dev/mst/mtXXXX q
+sudo mlxfwmanager --query
+sudo lshw -C network | less
+
+
+ethtool -i <ifname>
+ethtool <ifname>
+ethtool -S <ifname>
+sudo ethtool -p <ifname> 10
+sudo ethtool -d <ifname>
+
+
+sudo ethtool -m <ifname>
+sudo ethtool -m <ifname> raw on > /tmp/<ifname>-sfp-raw.bin
+sudo ethtool -m <ifname> > /tmp/<ifname>-sfp.txt
+
+
+sudo ethtool -m <ifname> e2prom
+sudo ethtool --show-eeprom <ifname>
+
+
+devlink port show
+sudo devlink sbuf show > /tmp/devlink.txt
+
+
+dmesg | egrep -i 'mlx|mellanox|sfp|qsfp|phy|eth|port' | tail -n 200
+sudo journalctl -k -u NetworkManager --since "1 hour ago" | egrep -i 'mlx|mellanox|sfp|qsfp'
+ls -l /sys/class/net/<ifname>/device/
+cat /sys/class/net/<ifname>/device/uevent
+cat /sys/class/net/<ifname>/device/vendor
+cat /sys/class/net/<ifname>/device/device
+cat /sys/class/net/<ifname>/phys_port_name 2>/dev/null
+
+
+ethtool -i <ifname>
+mlxfwmanager --query
+sudo mstflint -d /dev/mst/mtXXXX q
+sudo mlxconfig -d /dev/mst/mtXXXX q
+
+
+sudo lshw -C network
+sudo lspci -vvv | grep -A20 Mellanox
+sudo hwinfo --network | grep -A20 Mellanox  # optional, if hwinfo installed
+
+
+uname -a
+lsb_release -a
+cat /etc/os-release
+ls /dev/mst/
+dpkg -l | grep -i mlx
+
+
+lspci -nn | egrep -i 'mellanox|mlx'
+lspci -v
+lsmod
+dmesg | egrep -i 'mlx|mellanox|sfp|qsfp|phy|port'
+ip -br link
+rdma dev show
+ibv_devinfo
+mst status
+ethtool -i <ifname>
+ethtool <ifname>
+ethtool -S <ifname>
+ethtool -m <ifname>
+ethtool -m <ifname> raw on
+
+
+sudo mlxlink -d /dev/mst/mtXXXX query       # Port and module link status
+sudo mlxstat -d /dev/mst/mtXXXX             # NIC performance counters
+sudo mlxreg -d /dev/mst/mtXXXX              # Registers access (read-only)
+sudo mlnx_qos -i <ifname>                   # QoS configuration (Mellanox tool)
+
+
+lspci -nn | grep -i mellanox
+ip -br link
+ethtool -i <if>
+ethtool -m <if>
+ethtool -S <if>
+rdma dev show
+ibv_devinfo
+sudo mst start && mst status
+sudo mlxconfig -d /dev/mst/mtXXXX q
+sudo mstflint -d /dev/mst/mtXXXX q
+mlxfwmanager --query
+dmesg | egrep -i 'mlx|sfp|qsfp|phy'
+
+
+"""
 
 
 class NetworkTool(ITool):
@@ -159,3 +287,182 @@ class NetworkToolFactory(IToolFactory):
     def get_available_tools(self) -> list[str]:
         """Get list of available tools."""
         return list(self._tools.keys())
+
+
+# ---------------------------------------------------------------------------
+# Base executor interface (the actual SSH or subprocess logic is external)
+# ---------------------------------------------------------------------------
+class CLIExecutor:
+    """Abstract base for command execution (local or remote)."""
+
+    async def run(self, command: str) -> str:
+        """Execute command and return raw stdout."""
+        raise NotImplementedError("Executor.run() must be implemented by subclass.")
+
+
+# ---------------------------------------------------------------------------
+# Base class for Mellanox CLI tools
+# ---------------------------------------------------------------------------
+class MellanoxToolBase:
+    """Common functionality for all Mellanox diagnostic tools."""
+
+    def __init__(self, executor: CLIExecutor, logger: logging.Logger | None = None):
+        self.executor = executor
+        self.logger = logger or logging.getLogger(self.__class__.__name__)
+
+    async def _execute(self, command: str) -> str:
+        """Safely execute a command and return its output."""
+        self.logger.debug(f"Executing command: {command}")
+        try:
+            output = await self.executor.run(command)
+            self.logger.debug(f"Command output:\n{output}")
+            return output
+        except Exception as e:
+            self.logger.exception(f"Command execution failed: {e}")
+            raise RuntimeError(f"Command failed: {command}") from e
+
+    @staticmethod
+    def _safe_json_parse(data: dict[str, Any]) -> str:
+        """Safely convert parsed data to formatted JSON."""
+        try:
+            return json.dumps(data, indent=2)
+        except Exception as e:
+            logging.getLogger("MellanoxToolBase").error(f"JSON serialization error: {e}")
+            return json.dumps({"error": str(e)})
+
+
+# ---------------------------------------------------------------------------
+# ETHtool wrapper
+# ---------------------------------------------------------------------------
+class EthtoolTool(MellanoxToolBase):
+    """Encapsulates 'ethtool' commands for network interface diagnostics."""
+
+    async def show_interface(self, interface: str) -> str:
+        """Display interface details."""
+        output = await self._execute(f"ethtool {interface}")
+        parsed = self._parse_show_interface(output)
+        return self._safe_json_parse(parsed)
+
+    def _parse_show_interface(self, output: str) -> dict[str, Any]:
+        """Parse ethtool output into a structured JSON-like dict."""
+        data = {}
+        for line in output.splitlines():
+            if ":" in line:
+                key, val = line.split(":", 1)
+                data[key.strip()] = val.strip()
+        return data
+
+    async def show_module_info(self, interface: str) -> str:
+        """Show SFP/QSFP module details."""
+        output = await self._execute(f"ethtool -m {interface}")
+        parsed = self._parse_module_info(output)
+        return self._safe_json_parse(parsed)
+
+    def _parse_module_info(self, output: str) -> dict[str, Any]:
+        """Parse ethtool -m (module info) output."""
+        data = {}
+        for line in output.splitlines():
+            if ":" in line:
+                key, val = line.split(":", 1)
+                data[key.strip()] = val.strip()
+        return data
+
+
+# ---------------------------------------------------------------------------
+# MLXLINK
+# ---------------------------------------------------------------------------
+class MlxlinkTool(MellanoxToolBase):
+    """Wrapper for mlxlink tool (link diagnostics)."""
+
+    async def get_link_info(self, interface: str) -> str:
+        """Retrieve link diagnostics info."""
+        output = await self._execute(f"mlxlink -d {interface}")
+        return self._safe_json_parse(self._parse_link_info(output))
+
+    def _parse_link_info(self, output: str) -> dict[str, Any]:
+        """Parse mlxlink diagnostics output."""
+        data = {}
+        for line in output.splitlines():
+            if ":" in line:
+                k, v = line.split(":", 1)
+                data[k.strip()] = v.strip()
+        return data
+
+
+# ---------------------------------------------------------------------------
+# MLXCONFIG
+# ---------------------------------------------------------------------------
+class MlxconfigTool(MellanoxToolBase):
+    """Handles mlxconfig commands for device configuration."""
+
+    async def show_config(self, device: str) -> str:
+        """Show current configuration for given device."""
+        output = await self._execute(f"mlxconfig -d {device} query")
+        return self._safe_json_parse(self._parse_config(output))
+
+    def _parse_config(self, output: str) -> dict[str, Any]:
+        """Parse mlxconfig query output."""
+        data = {}
+        for line in output.splitlines():
+            if "=" in line:
+                k, v = line.split("=", 1)
+                data[k.strip()] = v.strip()
+        return data
+
+
+# ---------------------------------------------------------------------------
+# MSTTOOL
+# ---------------------------------------------------------------------------
+class MstTool(MellanoxToolBase):
+    """Handles mst devices enumeration."""
+
+    async def list_devices(self) -> str:
+        """List all available MST devices."""
+        output = await self._execute("mst status")
+        return self._safe_json_parse(self._parse_mst_status(output))
+
+    def _parse_mst_status(self, output: str) -> dict[str, Any]:
+        """Parse mst status output."""
+        devices = []
+        for line in output.splitlines():
+            if "MST" in line or "/dev/mst" in line:
+                devices.append(line.strip())
+        return {"devices": devices}
+
+
+# ---------------------------------------------------------------------------
+# LSPCI TOOL
+# ---------------------------------------------------------------------------
+class LspciTool(MellanoxToolBase):
+    """Provides PCI-level details about Mellanox NICs."""
+
+    async def show_nic_info(self) -> str:
+        """Get Mellanox PCI device info."""
+        output = await self._execute("lspci -nn | grep -i mellanox")
+        return self._safe_json_parse({"devices": output.splitlines()})
+
+
+# ---------------------------------------------------------------------------
+# IP TOOL
+# ---------------------------------------------------------------------------
+class IpTool(MellanoxToolBase):
+    """Wrapper for Linux 'ip' commands."""
+
+    async def show_interfaces(self) -> str:
+        """List interfaces and their states."""
+        output = await self._execute("ip -br addr")
+        interfaces = [line.split() for line in output.splitlines()]
+        return self._safe_json_parse({"interfaces": interfaces})
+
+
+# ---------------------------------------------------------------------------
+# HWMGMT TOOL
+# ---------------------------------------------------------------------------
+class HwMgmtTool(MellanoxToolBase):
+    """Handles hardware management queries (mlxreg, sensors, etc.)."""
+
+    async def show_temperature(self) -> str:
+        """Get device temperature sensors."""
+        output = await self._execute("sensors | grep -i mlx")
+        temps = [line.strip() for line in output.splitlines()]
+        return self._safe_json_parse({"mlx_temperatures": temps})

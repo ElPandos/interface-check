@@ -44,14 +44,49 @@ class Config:
     jump_host: str
     jump_user: str
     jump_pass: str
+
     slx_host: str
     slx_user: str
     slx_pass: str
-    root_pass: str
-    interface: str
-    scan_interval: int
-    toggle_wait: int
-    eyescan_wait: int
+    slx_root_pass: str
+    slx_scan_ports: list[str]
+    slx_scan_interval: int
+    slx_port_toggle_enabled: int
+    slx_port_toggle_wait: int
+    slx_port_eyescan_wait: int
+
+    sut_host: str
+    sut_user: str
+    sut_pass: str
+    sut_interface_names: list[str]
+    sut_info_dump_level: int
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Config":
+        """Create Config from nested JSON structure."""
+        jump = data["jump"]
+        slx = data["slx"]
+        sut = data["sut"]
+
+        return cls(
+            jump_host=jump["host"],
+            jump_user=jump["user"],
+            jump_pass=jump["pass"],
+            slx_host=slx["host"],
+            slx_user=slx["user"],
+            slx_pass=slx["pass"],
+            slx_root_pass=slx["root_pass"],
+            slx_scan_ports=slx["scan_ports"],
+            slx_scan_interval=slx["scan_interval"],
+            slx_port_toggle_enabled=slx["port_toggling_enabled"],
+            slx_port_toggle_wait=slx["port_toggle_wait"],
+            slx_port_eyescan_wait=slx["port_eye_scan_wait"],
+            sut_host=sut["host"],
+            sut_user=sut["user"],
+            sut_pass=sut["pass"],
+            sut_interface_names=sut["interface_names"],
+            sut_info_dump_level=sut["info_dump_level"],
+        )
 
 
 def load_config() -> Config:
@@ -59,21 +94,21 @@ def load_config() -> Config:
     # Handle PyInstaller bundled executable
     if getattr(sys, "frozen", False):
         # Running as PyInstaller bundle
-        config_file = Path(sys.executable).parent / "config.json"
+        config_file = Path(sys.executable).parent / "main_eye_config.json"
     else:
         # Running as script
-        config_file = Path(__file__).parent / "config.json"
+        config_file = Path(__file__).parent / "main_eye_config.json"
 
     try:
         with open(config_file) as f:
             data = json.load(f)
-        return Config(**data)
+        return Config.from_dict(data)
     except FileNotFoundError:
-        logger.error(f"Config file not found: {config_file}")
-        logger.error("Make sure config.json is in the same directory as the executable")
+        logger.exception(f"Config file not found: {config_file}")
+        logger.exception("Make sure config.json is in the same directory as the executable")
         raise
     except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in config file: {e}")
+        logger.exception(f"Invalid JSON in config file: {e}")
         raise
 
 
@@ -109,8 +144,8 @@ class SLXEyeScanner:
             if not (self.ssh.connect() and self.ssh.open_shell()):
                 return False
 
-            # Setup shell environment
-            commands = ["start-shell", "whoami", "su root", self.config.root_pass, "whoami"]
+            # Setup shell environment on SLX OS
+            commands = ["start-shell", "su root", self.config.slx_root_pass]
 
             for cmd in commands:
                 result = self.ssh.execute_shell_command(cmd)
@@ -146,16 +181,17 @@ class SLXEyeScanner:
         cmd = f"port {interface_name} enable={state}"
         logger.info(f"Toggling interface: {cmd}")
         self.ssh.execute_shell_command(cmd)
-        logger.info(f"Waiting {self.config.toggle_wait} seconds for interface toggle to take effect...")
-        time.sleep(self.config.toggle_wait)
+        logger.info(f"Waiting {self.config.slx_port_toggle_wait} seconds for interface toggle to take effect...")
+        time.sleep(self.config.slx_port_toggle_wait)
 
     def run_eye_scan(self, interface_name: str, port_id: str) -> None:
         """Execute eye scan with interface toggle sequence."""
-        # Toggle interface off
-        self.toggle_interface(interface_name, False)
+        if self.config.slx_port_toggle_enabled:
+            # Toggle interface off
+            self.toggle_interface(interface_name, False)
 
-        # Toggle interface on
-        self.toggle_interface(interface_name, True)
+            # Toggle interface on
+            self.toggle_interface(interface_name, True)
 
         # Run eye scan
         cmd = f"phy diag {interface_name} eyescan"
@@ -163,8 +199,8 @@ class SLXEyeScanner:
 
         # Send command and wait
         self.ssh._shell.send(cmd + "\n")
-        logger.info(f"Waiting {self.config.eyescan_wait} seconds for eye scan to complete...")
-        time.sleep(self.config.eyescan_wait)
+        logger.info(f"Waiting {self.config.slx_port_eyescan_wait} seconds for eye scan to complete...")
+        time.sleep(self.config.slx_port_eyescan_wait)
 
         # Get results
         self.ssh._shell.send("\n")
@@ -176,29 +212,31 @@ class SLXEyeScanner:
         logger.info(self.results[-1].result)
         logger.info("=======================================")
 
-    def scan_interface(self, interface: str) -> bool:
+    def scan_interfaces(self, interfaces: list[str]) -> bool:
         """Complete eye scan workflow for interface."""
-        # Check cache first
-        if interface in self._interface_cache:
-            port_id, interface_name = self._interface_cache[interface]
-            logger.debug(f"Using cached mapping: {interface} -> {interface_name} (Port {port_id})")
-        else:
-            # First time lookup
-            port_id = self.get_port_id(interface)
-            if not port_id:
-                logger.error(f"No port ID found for {interface}")
-                return False
+        for interface in interfaces:
+            # Check cache first
+            if interface in self._interface_cache:
+                port_id, interface_name = self._interface_cache[interface]
+                logger.debug(f"Using cached mapping: {interface} -> {interface_name} (Port {port_id})")
+            else:
+                # First time lookup
+                port_id = self.get_port_id(interface)
+                if not port_id:
+                    logger.error(f"No port ID found for {interface}")
+                    return False
 
-            interface_name = self.get_interface_name(port_id)
-            if not interface_name:
-                logger.error(f"No interface found for port {port_id}")
-                return False
+                interface_name = self.get_interface_name(port_id)
+                if not interface_name:
+                    logger.error(f"No interface found for port {port_id}")
+                    return False
 
-            # Cache the mapping
-            self._interface_cache[interface] = (port_id, interface_name)
-            logger.info(f"Cached mapping: {interface} -> {interface_name} (Port {port_id})")
+                # Cache the mapping
+                self._interface_cache[interface] = (port_id, interface_name)
+                logger.info(f"Cached mapping: {interface} -> {interface_name} (Port {port_id})")
 
-        self.run_eye_scan(interface_name, port_id)
+            self.run_eye_scan(interface_name, port_id)
+
         return True
 
     def disconnect(self) -> None:
@@ -215,7 +253,7 @@ def main():
     scanner = SLXEyeScanner(config)
 
     logger.info(f"Starting eye scan automation. Logs saved to: {log_file}")
-    logger.info(f"Scanning interface: {config.interface}")
+    logger.info(f"Scanning ports: {config.slx_scan_ports}")
     logger.info("Press Ctrl+C to stop the program")
 
     try:
@@ -226,8 +264,8 @@ def main():
         scan_count = 0
         while running:
             try:
-                # Scan interface
-                if scanner.scan_interface(config.interface):
+                # Scan first port
+                if scanner.scan_interfaces(config.slx_scan_ports):
                     scan_count += 1
                     logger.info(f"Completed scan #{scan_count}")
 
@@ -238,8 +276,8 @@ def main():
 
                 # Wait before next scan (if still running)
                 if running:
-                    logger.info(f"Waiting {config.scan_interval} seconds before next scan...")
-                    for _ in range(config.scan_interval):
+                    logger.info(f"Waiting {config.slx_scan_interval} seconds before next scan...")
+                    for _ in range(config.slx_scan_interval):
                         if not running:
                             break
                         time.sleep(1)

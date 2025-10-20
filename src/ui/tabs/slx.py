@@ -162,9 +162,11 @@ class SlxContent:
             self._interface_select.visible = False
 
             # Spinner for eye scan progress (initially hidden)
-            ui.spinner(size="md", color="blue").bind_visibility_from(self, '_show_spinner_flag')
-            self._countdown_label = ui.label("30s").classes("text-blue-600 font-bold").bind_visibility_from(self, '_show_spinner_flag')
-        
+            ui.spinner(size="md", color="blue").bind_visibility_from(self, "_show_spinner_flag")
+            self._countdown_label = (
+                ui.label("30s").classes("text-blue-600 font-bold").bind_visibility_from(self, "_show_spinner_flag")
+            )
+
         self._show_spinner_flag = False
 
         # Initialize results area below the selectors
@@ -570,7 +572,7 @@ class SlxContent:
         self._show_spinner_flag = True
         self._countdown_seconds = 30  # Eye scan duration
         self._countdown_label.text = f"{self._countdown_seconds}s"
-        
+
         # Start countdown timer
         self._countdown_timer = ui.timer(1.0, self._update_countdown, active=True)
 
