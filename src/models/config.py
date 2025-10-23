@@ -16,7 +16,9 @@ class Host(BaseModel):
     @classmethod
     def default_jump(cls) -> "Host":
         """Return default jump host configuration."""
-        return cls(ip="137.58.231.134", username="emvekta", password=SecretStr("a"), info="Default value")
+        return cls(
+            ip="137.58.231.134", username="emvekta", password=SecretStr("a"), info="Default value"
+        )
 
     @classmethod
     def default_target(cls) -> "Host":

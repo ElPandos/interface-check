@@ -12,7 +12,7 @@ from pympler import asizeof
 from src.core.connect import SshConnection
 from src.core.json import Json
 from src.models.config import Config
-from src.platform.commands import Command
+from src.platform.bak.commands import Command
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,9 @@ class Sample:
             case Type.MODIFY, Type.SYSTEM, Type.COMMON:
                 pass  # Not implemented
             case Type.ETHTOOL:
-                self.snapshot = EthtoolTool(self._interface, self._config, self._ssh_connection).parse_output(cmd)
+                self.snapshot = EthtoolTool(
+                    self._interface, self._config, self._ssh_connection
+                ).parse_output(cmd)
             case Type.MLXLINK:
                 pass  # Not implemented
             case Type.MLXCONFIG:
@@ -112,7 +114,12 @@ class Worker(threading.Thread):
     _extracted_samples: list[Sample]
 
     def __init__(
-        self, cmd: Command, interface: str, config: Config, ssh_connection: SshConnection, name: str = "Worker"
+        self,
+        cmd: Command,
+        interface: str,
+        config: Config,
+        ssh_connection: SshConnection,
+        name: str = "Worker",
     ) -> None:
         super().__init__(name=name, daemon=True)  # daemon=True means it won’t block program exit
         self._cmd = cmd
@@ -134,7 +141,9 @@ class Worker(threading.Thread):
                     logger.info("Reconnect failed 10 times. Exiting thread...")
                     reconnect = 0
                     break
-                sample = Sample(self._interface, self._config, self._ssh_connection).collect(self._cmd)
+                sample = Sample(self._interface, self._config, self._ssh_connection).collect(
+                    self._cmd
+                )
                 self._collected_samples.put(sample)
                 time.sleep(self._config.gui.get_command_update_value())
             except KeyboardInterrupt:
@@ -146,7 +155,9 @@ class Worker(threading.Thread):
                     if self._ssh_connection.is_connected():
                         logger.info("Reconnected to SSH session")
                     else:
-                        logger.exception(f"Failed to reconnect to SSH session ({reconnect}/{self._MAX_RECONNECT})")
+                        logger.exception(
+                            f"Failed to reconnect to SSH session ({reconnect}/{self._MAX_RECONNECT})"
+                        )
                 except Exception:
                     logger.exception("SSH reconnect failed")
             reconnect += 1
@@ -223,7 +234,11 @@ class Worker(threading.Thread):
                 break
 
     def get_range(self, start: dt, end: dt) -> list[Sample]:
-        return [s for s in self.collected_samples.get() if hasattr(s, "begin") and start <= s.begin <= end]
+        return [
+            s
+            for s in self.collected_samples.get()
+            if hasattr(s, "begin") and start <= s.begin <= end
+        ]
 
     def group_by_type(self) -> dict:
         """Group samples by their concrete class name."""

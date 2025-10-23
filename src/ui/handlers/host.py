@@ -37,7 +37,9 @@ class HostHandler:
         """Check if currently connected."""
         return self._current_connection is not None and self._current_connection.is_connected()
 
-    def register_connection_callback(self, callback: Callable[[SshConnection | None], None]) -> None:
+    def register_connection_callback(
+        self, callback: Callable[[SshConnection | None], None]
+    ) -> None:
         """Register callback for connection changes."""
         self._connection_callbacks.append(callback)
 
@@ -51,7 +53,8 @@ class HostHandler:
             return [{"label": "No hosts configured", "value": None}]
 
         return [
-            {"label": f"{host.ip} ({host.username})", "value": i} for i, host in enumerate(self._config.networks.hosts)
+            {"label": f"{host.ip} ({host.username})", "value": i}
+            for i, host in enumerate(self._config.networks.hosts)
         ]
 
     def connect_to_host(self, host_index: int | None) -> bool:
@@ -123,7 +126,9 @@ class HostHandler:
             except Exception:
                 logger.exception("Error in connection callback")
 
-    def create_host_selector(self, on_change: Callable[[int | None], None] | None = None) -> ui.select:
+    def create_host_selector(
+        self, on_change: Callable[[int | None], None] | None = None
+    ) -> ui.select:
         """Create a synchronized host selector."""
         selector = ui.select(
             options=self.get_host_options(),
@@ -134,7 +139,9 @@ class HostHandler:
         self.register_host_selector(selector)
         return selector
 
-    def _handle_selector_change(self, host_index: int | None, callback: Callable[[int | None], None] | None) -> None:
+    def _handle_selector_change(
+        self, host_index: int | None, callback: Callable[[int | None], None] | None
+    ) -> None:
         """Handle host selector change."""
         if host_index != self._current_host_index:
             if host_index is None:
@@ -208,5 +215,7 @@ class HostHandler:
         for route_index, connection in self._route_connections.items():
             if connection.is_connected():
                 route = self._config.networks.routes[route_index]
-                connected_routes.append({"label": f"Route {route_index + 1}: {route.summary}", "value": route_index})
+                connected_routes.append(
+                    {"label": f"Route {route_index + 1}: {route.summary}", "value": route_index}
+                )
         return connected_routes

@@ -4,7 +4,7 @@ from src.core.config import Configure
 from src.core.json import Json
 from src.core.terminal import Cli
 from src.models.config import Config
-from src.platform.commands import Python
+from src.platform.bak.commands import Python
 from src.ui.enums.settings import Options, Types
 
 
@@ -46,7 +46,9 @@ class SettingsHandler:
             if opt.name == Types.DEBUG.name:
                 switch = ui.switch(value=value).classes("ml-auto")
             elif opt.name == Types.DARK.name:
-                switch = ui.switch(value=value, on_change=self.__dark_mode.toggle).classes("ml-auto")
+                switch = ui.switch(value=value, on_change=self.__dark_mode.toggle).classes(
+                    "ml-auto"
+                )
             else:
                 return
             switch.bind_value(opt, "value")
@@ -65,8 +67,16 @@ class SettingsHandler:
 
     def _add_slider_icon(self, name: str) -> None:
         icons = {
-            Types.REFRESH.name: ("dashboard", "text-blue-600", "Used in Dashboard tab for auto-refresh interval"),
-            Types.COMMAND.name: ("terminal", "text-yellow-600", "Used for command polling interval"),
+            Types.REFRESH.name: (
+                "dashboard",
+                "text-blue-600",
+                "Used in Dashboard tab for auto-refresh interval",
+            ),
+            Types.COMMAND.name: (
+                "terminal",
+                "text-yellow-600",
+                "Used for command polling interval",
+            ),
             Types.GRAPH.name: ("show_chart", "text-green-600", "Used for graph update interval"),
         }
         if name in icons:
@@ -76,7 +86,9 @@ class SettingsHandler:
     def _build_text(self, opt) -> None:
         with ui.card().classes("w-full items-left"), ui.column().classes("w-full items-left"):
             value, _, _ = self._get_value(opt.name)
-            textarea = ui.textarea(label=opt.name, placeholder="Start typing...", value=value).classes("w-full")
+            textarea = ui.textarea(
+                label=opt.name, placeholder="Start typing...", value=value
+            ).classes("w-full")
             textarea.bind_value(opt, "value")
 
     def _build_button(self, opt) -> None:
@@ -90,7 +102,9 @@ class SettingsHandler:
         with (
             ui.card().classes("w-full"),
             ui.column().classes("w-full"),
-            ui.dropdown_button("Libraries", icon="logo_dev", auto_close=True).classes("w-full items-left"),
+            ui.dropdown_button("Libraries", icon="logo_dev", auto_close=True).classes(
+                "w-full items-left"
+            ),
         ):
             proc = Cli().run(Python().licenses().syntax)
             result = Cli().get_output(proc)
@@ -102,12 +116,16 @@ class SettingsHandler:
                     pkg_license = pkg.get("License")
                     ui.item(
                         f"{name} == {version} [{pkg_license}]",
-                        on_click=lambda n=name: ui.navigate.to(f"https://pypi.org/project/{n}", new_tab=True),
+                        on_click=lambda n=name: ui.navigate.to(
+                            f"https://pypi.org/project/{n}", new_tab=True
+                        ),
                     )
             else:
                 ui.item(
                     "pip-licenses not installed in .venv",
-                    on_click=lambda: ui.navigate.to("https://pypi.org/project/pip-licenses", new_tab=True),
+                    on_click=lambda: ui.navigate.to(
+                        "https://pypi.org/project/pip-licenses", new_tab=True
+                    ),
                 )
 
 

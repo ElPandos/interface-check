@@ -1,7 +1,6 @@
 """SSH Host Manager - Optimized Implementation"""
 
 import logging
-import re
 from typing import Any
 
 from nicegui import ui
@@ -12,7 +11,7 @@ from src.core.screen import SingleScreen
 from src.models.config import Config, Host, Networks, Route
 from src.ui.handlers.host import HostHandler
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.ui.theme.style import apply_global_theme
+from src.ui.themes.style import apply_global_theme
 
 logger = logging.getLogger(__name__)
 
@@ -32,41 +31,6 @@ BUTTON_STYLES = {
 
 CARD_STYLES = "w-full bg-white border border-gray-200 shadow-sm p-4"
 HEADER_STYLES = "font-bold text-white bg-gradient-to-r w-full justify-between rounded-t-lg px-4 py-3 text-sm shadow-md border border-gray-300"
-
-
-class HostValidator:
-    """Validates host-related inputs with caching."""
-
-    _IP_PATTERN = re.compile(
-        r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
-    )
-    _cache: dict[str, bool] = {}
-
-    @classmethod
-    def validate_ip(cls, ip: str) -> bool:
-        """Validate IP with caching."""
-        stripped = ip.strip()
-        if stripped not in cls._cache:
-            if len(cls._cache) >= 100:
-                cls._cache.clear()
-            cls._cache[stripped] = bool(cls._IP_PATTERN.match(stripped))
-        return cls._cache[stripped]
-
-    @staticmethod
-    def sanitize_input(value: str) -> str:
-        """Sanitize and limit input length."""
-        return value.strip()[:MAX_INPUT_LENGTH] if isinstance(value, str) else ""
-
-    @staticmethod
-    def validate_host_data(ip: str, username: str, password: str, existing_hosts: list[dict[str, Any]]) -> str | None:
-        """Validate complete host data."""
-        if not all([ip, username, password]):
-            return "All fields are required"
-        if not HostValidator.validate_ip(ip):
-            return "Invalid IP address format"
-        if any(h["ip"] == ip for h in existing_hosts):
-            return "IP address already exists"
-        return None
 
 
 class HostTab(BaseTab):
@@ -155,7 +119,9 @@ class HostContent:
                 ("download", self._open_import_dialog, "Import configuration"),
                 ("upload", self._export_config, "Export configuration"),
             ]:
-                ui.button(icon=icon, on_click=action).classes(BUTTON_STYLES["secondary"]).tooltip(tooltip)
+                ui.button(icon=icon, on_click=action).classes(BUTTON_STYLES["secondary"]).tooltip(
+                    tooltip
+                )
 
             self._undo_btn = (
                 ui.button(icon="undo", on_click=self._show_undo_dialog)
@@ -168,20 +134,24 @@ class HostContent:
         """Build hosts section."""
         with ui.card().classes(CARD_STYLES):
             with ui.row().classes("w-full items-center gap-2 mb-4"):
-                ui.button(icon="expand_less", on_click=self._toggle_hosts).props("flat round").classes("text-gray-600")
+                ui.button(icon="expand_less", on_click=self._toggle_hosts).props(
+                    "flat round"
+                ).classes("text-gray-600")
                 ui.icon("computer", size="lg").classes("text-blue-600")
                 ui.label("Hosts").classes("text-2xl font-semibold text-gray-800")
                 ui.space()
-                ui.button(icon="desktop_windows", text="Add Host", on_click=self._open_add_dialog).classes(
-                    BUTTON_STYLES["secondary"]
-                )
+                ui.button(
+                    icon="desktop_windows", text="Add Host", on_click=self._open_add_dialog
+                ).classes(BUTTON_STYLES["secondary"])
             self.table_container = ui.column().classes("w-full")
 
     def _build_routes_section(self) -> None:
         """Build routes section."""
         with ui.card().classes(CARD_STYLES):
             with ui.row().classes("w-full items-center gap-2 mb-4"):
-                ui.button(icon="expand_less", on_click=self._toggle_routes).props("flat round").classes("text-gray-600")
+                ui.button(icon="expand_less", on_click=self._toggle_routes).props(
+                    "flat round"
+                ).classes("text-gray-600")
                 ui.icon("route", size="lg").classes("text-green-600")
                 ui.label("Routes").classes("text-2xl font-semibold text-gray-800")
                 ui.space()
@@ -220,15 +190,30 @@ class HostContent:
 
     def _open_add_dialog(self) -> None:
         """Open add host dialog."""
-        with ui.dialog() as dialog, ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"):
+        with (
+            ui.dialog() as dialog,
+            ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"),
+        ):
             ui.label("Add new host").classes("text-xl font-bold mb-6 text-center text-gray-800")
 
             # Input fields
-            info_input = ui.input("Info", placeholder="Description or notes").classes("w-full mb-3").props("outlined")
-            ip_input = ui.input("IP address", placeholder="192.168.1.100").classes("w-full mb-3").props("outlined")
-            user_input = ui.input("Username", placeholder="admin").classes("w-full mb-3").props("outlined")
+            info_input = (
+                ui.input("Info", placeholder="Description or notes")
+                .classes("w-full mb-3")
+                .props("outlined")
+            )
+            ip_input = (
+                ui.input("IP address", placeholder="192.168.1.100")
+                .classes("w-full mb-3")
+                .props("outlined")
+            )
+            user_input = (
+                ui.input("Username", placeholder="admin").classes("w-full mb-3").props("outlined")
+            )
             pass_input = (
-                ui.input("Password", password=True, placeholder="••••••••").classes("w-full mb-6").props("outlined")
+                ui.input("Password", password=True, placeholder="••••••••")
+                .classes("w-full mb-6")
+                .props("outlined")
             )
 
             # Action buttons
@@ -247,7 +232,9 @@ class HostContent:
 
         dialog.open()
 
-    def _add_host(self, ip: str, username: str, password: str, info: str, dialog: ui.dialog) -> None:
+    def _add_host(
+        self, ip: str, username: str, password: str, info: str, dialog: ui.dialog
+    ) -> None:
         """Add new host."""
         try:
             error_msg = HostValidator.validate_host_data(ip, username, password, self.config.hosts)
@@ -298,7 +285,9 @@ class HostContent:
             # Build summary
             if jump_hosts:
                 sorted_jumps = sorted(jump_hosts, key=lambda h: h.get("jump_order", 0))
-                summary = f"{' ⟶ '.join(h['ip'] for h in sorted_jumps)} ⟶ {remote_host['ip']} (Target)"
+                summary = (
+                    f"{' ⟶ '.join(h['ip'] for h in sorted_jumps)} ⟶ {remote_host['ip']} (Target)"
+                )
             else:
                 summary = f"Direct ⟶ {remote_host['ip']} (Target)"
 
@@ -312,7 +301,10 @@ class HostContent:
             route_data = {
                 "summary": summary,
                 "target": {k: remote_host[k] for k in ("ip", "username", "password", "info")},
-                "jumps": [{k: jump[k] for k in ("ip", "username", "password", "info")} for jump in jump_hosts],
+                "jumps": [
+                    {k: jump[k] for k in ("ip", "username", "password", "info")}
+                    for jump in jump_hosts
+                ],
             }
 
             self.config.add_route(route_data)
@@ -338,7 +330,9 @@ class HostContent:
 
             if not (0 <= index < len(self.config.routes)):
                 ui.notify(f"Invalid route index: {index}", color="negative")
-                logger.error("Invalid route index: %s (max: %s)", index + 1, len(self.config.routes))
+                logger.error(
+                    "Invalid route index: %s (max: %s)", index + 1, len(self.config.routes)
+                )
                 return
 
             if self._host_handler.connect_to_route(index):
@@ -366,7 +360,11 @@ class HostContent:
 
             deleted_route = self.config.routes[index]
             if self.config.delete_route(index):
-                self._last_deletion = {"type": "route_only", "host": None, "routes": [(index, deleted_route)]}
+                self._last_deletion = {
+                    "type": "route_only",
+                    "host": None,
+                    "routes": [(index, deleted_route)],
+                }
                 self._update_undo_button()
                 ui.notify("Route removed", color="warning")
                 self.config.save()
@@ -434,13 +432,13 @@ class HostContent:
             f"items-center justify-between border-b px-4 py-2 w-full text-sm {row_bg} hover:bg-gray-100"
         ):
             # Controls
-            ui.button(icon="drag_indicator", on_click=lambda i=index: self._select_host_for_move(i)).props(
-                "flat"
-            ).classes("text-gray-400 w-16")
+            ui.button(
+                icon="drag_indicator", on_click=lambda i=index: self._select_host_for_move(i)
+            ).props("flat").classes("text-gray-400 w-16")
             ui.label(str(index + 1)).classes("w-6 text-center text-gray-600")
-            ui.label(host.get("info", "")).classes("w-32 text-center text-gray-800 truncate").tooltip(
-                host.get("info", "")
-            )
+            ui.label(host.get("info", "")).classes(
+                "w-32 text-center text-gray-800 truncate"
+            ).tooltip(host.get("info", ""))
             ui.label(host["ip"]).classes("w-40 text-center text-gray-800")
             ui.label(host["username"]).classes("w-36 text-center text-gray-800")
             ui.label("••••••").classes("w-36 text-center text-gray-500").tooltip(host["password"])
@@ -448,29 +446,37 @@ class HostContent:
             # Checkboxes
             with ui.column().classes("w-28 items-center"):
                 cb_remote = ui.checkbox(value=is_remote)
-                cb_remote.on_value_change(lambda e, i=index: self._on_remote_toggle(checked=e.value, index=i))
+                cb_remote.on_value_change(
+                    lambda e, i=index: self._on_remote_toggle(checked=e.value, index=i)
+                )
                 if getattr(self.config, "remote_index", None) is not None and not is_remote:
                     cb_remote.disable()
 
             with ui.column().classes("w-24 items-center"):
                 cb_jump = ui.checkbox(value=is_jump)
-                cb_jump.on_value_change(lambda e, i=index: self._on_jump_toggle(checked=e.value, index=i))
+                cb_jump.on_value_change(
+                    lambda e, i=index: self._on_jump_toggle(checked=e.value, index=i)
+                )
                 if is_remote or getattr(self.config, "remote_index", None) is None:
                     cb_jump.disable()
 
             # Order select
             with ui.column().classes("w-16 items-center"):
                 order_value = str(host.get("jump_order", "")) if host.get("jump_order") else None
-                order_select = ui.select(self._get_available_orders(host), value=order_value).props("outlined dense")
-                order_select.on_value_change(lambda e, i=index: self._on_jump_order_change(e.value, i))
+                order_select = ui.select(self._get_available_orders(host), value=order_value).props(
+                    "outlined dense"
+                )
+                order_select.on_value_change(
+                    lambda e, i=index: self._on_jump_order_change(e.value, i)
+                )
                 if not is_jump or is_remote:
                     order_select.disable()
 
             # Delete button
             with ui.column().classes("w-20 items-center"):
-                ui.button(icon="delete", on_click=lambda i=index: self._delete_host(i)).props("unelevated").classes(
-                    "bg-red-300 hover:bg-red-400 text-red-900 w-16 h-8 rounded"
-                )
+                ui.button(icon="delete", on_click=lambda i=index: self._delete_host(i)).props(
+                    "unelevated"
+                ).classes("bg-red-300 hover:bg-red-400 text-red-900 w-16 h-8 rounded")
 
     def _refresh_routes_table(self) -> None:
         """Refresh routes table."""
@@ -517,23 +523,29 @@ class HostContent:
             f"items-center justify-between border-b px-4 py-2 w-full text-sm {row_bg} hover:bg-green-100"
         ):
             with ui.column().classes("w-16 items-center"):
-                ui.button(icon="drag_indicator", on_click=lambda i=index: self._select_route_for_move(i)).props(
-                    "flat"
-                ).classes("text-gray-400")
+                ui.button(
+                    icon="drag_indicator", on_click=lambda i=index: self._select_route_for_move(i)
+                ).props("flat").classes("text-gray-400")
             ui.label(str(index + 1)).classes("w-6 text-center text-gray-600")
-            ui.label(self._get_route_summary(route_data)).classes("flex-1 truncate text-gray-800 text-center")
+            ui.label(self._get_route_summary(route_data)).classes(
+                "flex-1 truncate text-gray-800 text-center"
+            )
 
             with ui.row().classes("gap-2 w-40 justify-center"):
                 # Connect/Disconnect button
                 is_connected = self._host_handler.is_route_connected(index)
                 if is_connected:
-                    ui.button(icon="power_off", on_click=lambda idx=index: self._disconnect_route(idx)).props(
-                        "unelevated color=red"
-                    ).classes("text-white w-16 h-8 rounded").tooltip("Disconnect from route")
+                    ui.button(
+                        icon="power_off", on_click=lambda idx=index: self._disconnect_route(idx)
+                    ).props("unelevated color=red").classes("text-white w-16 h-8 rounded").tooltip(
+                        "Disconnect from route"
+                    )
                 else:
-                    ui.button(icon="power", on_click=lambda idx=index: self._connect_route(idx)).props(
-                        "unelevated color=green"
-                    ).classes("text-white w-16 h-8 rounded").tooltip("Connect to route")
+                    ui.button(
+                        icon="power", on_click=lambda idx=index: self._connect_route(idx)
+                    ).props("unelevated color=green").classes(
+                        "text-white w-16 h-8 rounded"
+                    ).tooltip("Connect to route")
 
                 # Delete button
                 ui.button(icon="delete", on_click=lambda idx=index: self._delete_route(idx)).props(
@@ -555,9 +567,9 @@ class HostContent:
 
         has_remote = bool(self._get_remote_hosts())
         if has_remote:
-            self.add_route_btn.props(remove="disable").classes(remove=BUTTON_STYLES["disabled"]).classes(
-                add=BUTTON_STYLES["primary"]
-            )
+            self.add_route_btn.props(remove="disable").classes(
+                remove=BUTTON_STYLES["disabled"]
+            ).classes(add=BUTTON_STYLES["primary"])
         else:
             self.add_route_btn.props(add="disable").classes(add=BUTTON_STYLES["disabled"]).classes(
                 remove=BUTTON_STYLES["primary"]
@@ -594,9 +606,18 @@ class HostContent:
             host["jump"] = checked
 
             if checked:
-                used_orders = {h.get("jump_order") for h in self.config.hosts if h.get("jump_order") and h != host}
+                used_orders = {
+                    h.get("jump_order")
+                    for h in self.config.hosts
+                    if h.get("jump_order") and h != host
+                }
                 host["jump_order"] = next(
-                    (order for order in range(1, len(self.config.hosts) + 1) if order not in used_orders), 1
+                    (
+                        order
+                        for order in range(1, len(self.config.hosts) + 1)
+                        if order not in used_orders
+                    ),
+                    1,
                 )
             else:
                 host["jump_order"] = None
@@ -628,7 +649,11 @@ class HostContent:
         """Get available jump orders."""
         target_count = sum(1 for h in self.config.hosts if h.get("remote", False))
         max_order = len(self.config.hosts) - target_count
-        used_orders = {h.get("jump_order") for h in self.config.hosts if h.get("jump_order") and h != current_host}
+        used_orders = {
+            h.get("jump_order")
+            for h in self.config.hosts
+            if h.get("jump_order") and h != current_host
+        }
         return [str(j) for j in range(1, max_order + 1) if j not in used_orders]
 
     def _select_host_for_move(self, index: int) -> None:
@@ -688,11 +713,20 @@ class HostContent:
         except Exception:
             logger.exception("Error deleting host")
 
-    def _show_delete_confirmation(self, host_index: int, host_ip: str, affected_routes: list[tuple[int, str]]) -> None:
+    def _show_delete_confirmation(
+        self, host_index: int, host_ip: str, affected_routes: list[tuple[int, str]]
+    ) -> None:
         """Show delete confirmation dialog."""
-        with ui.dialog() as dialog, ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"):
-            ui.label(f"Delete host {host_ip}?").classes("text-xl font-bold mb-4 text-center text-gray-800")
-            ui.label(f"This host is used in {len(affected_routes)} route(s):").classes("text-gray-700 mb-2")
+        with (
+            ui.dialog() as dialog,
+            ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"),
+        ):
+            ui.label(f"Delete host {host_ip}?").classes(
+                "text-xl font-bold mb-4 text-center text-gray-800"
+            )
+            ui.label(f"This host is used in {len(affected_routes)} route(s):").classes(
+                "text-gray-700 mb-2"
+            )
 
             with ui.column().classes("w-full mb-4 max-h-32 overflow-y-auto"):
                 for _, summary in affected_routes:
@@ -702,11 +736,14 @@ class HostContent:
 
             with ui.row().classes("w-full gap-2"):
                 ui.button(
-                    "Remove All", on_click=lambda: self._delete_host_and_routes(host_index, affected_routes, dialog)
+                    "Remove All",
+                    on_click=lambda: self._delete_host_and_routes(
+                        host_index, affected_routes, dialog
+                    ),
                 ).classes(BUTTON_STYLES["danger"])
-                ui.button("Host Only", on_click=lambda: self._perform_host_deletion(host_index, dialog)).classes(
-                    BUTTON_STYLES["warning"]
-                )
+                ui.button(
+                    "Host Only", on_click=lambda: self._perform_host_deletion(host_index, dialog)
+                ).classes(BUTTON_STYLES["warning"])
                 ui.button("Cancel", on_click=dialog.close).classes(BUTTON_STYLES["secondary"])
 
         dialog.open()
@@ -737,7 +774,10 @@ class HostContent:
             dialog.close()
 
             if deleted_host:
-                ui.notify(f"Deleted host {deleted_host['ip']} and {len(affected_routes)} route(s)", color="warning")
+                ui.notify(
+                    f"Deleted host {deleted_host['ip']} and {len(affected_routes)} route(s)",
+                    color="warning",
+                )
                 self.config.save()
                 self._refresh_tables()
         except Exception:
@@ -772,9 +812,9 @@ class HostContent:
             return
 
         if self._last_deletion:
-            self._undo_btn.props(remove="disable").classes(remove=BUTTON_STYLES["disabled"]).classes(
-                add=BUTTON_STYLES["primary"]
-            )
+            self._undo_btn.props(remove="disable").classes(
+                remove=BUTTON_STYLES["disabled"]
+            ).classes(add=BUTTON_STYLES["primary"])
         else:
             self._undo_btn.props(add="disable").classes(add=BUTTON_STYLES["disabled"]).classes(
                 remove=BUTTON_STYLES["primary"]
@@ -785,8 +825,13 @@ class HostContent:
         if not self._last_deletion:
             return
 
-        with ui.dialog() as dialog, ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"):
-            ui.label("Undo Last Deletion").classes("text-xl font-bold mb-4 text-center text-gray-800")
+        with (
+            ui.dialog() as dialog,
+            ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"),
+        ):
+            ui.label("Undo Last Deletion").classes(
+                "text-xl font-bold mb-4 text-center text-gray-800"
+            )
 
             host_data = self._last_deletion["host"]
             routes_data = self._last_deletion["routes"]
@@ -800,7 +845,9 @@ class HostContent:
                     ui.label(f"• {len(routes_data)} route(s)").classes("text-sm text-gray-600")
 
             with ui.row().classes("w-full gap-2"):
-                ui.button("Restore", on_click=lambda: self._perform_undo(dialog)).classes(BUTTON_STYLES["success"])
+                ui.button("Restore", on_click=lambda: self._perform_undo(dialog)).classes(
+                    BUTTON_STYLES["success"]
+                )
                 ui.button("Cancel", on_click=dialog.close).classes(BUTTON_STYLES["secondary"])
 
         dialog.open()
@@ -843,7 +890,12 @@ class HostContent:
         """Export configuration."""
         try:
             hosts = [
-                Host(ip=h["ip"], username=h["username"], password=h["password"], info=h.get("info", ""))
+                Host(
+                    ip=h["ip"],
+                    username=h["username"],
+                    password=h["password"],
+                    info=h.get("info", ""),
+                )
                 for h in self.config.hosts
             ]
             routes = []
@@ -868,7 +920,9 @@ class HostContent:
                         )
                         for jump in jump_hosts
                     ]
-                    routes.append(Route(summary=route.get("summary", ""), target=target, jumps=jumps))
+                    routes.append(
+                        Route(summary=route.get("summary", ""), target=target, jumps=jumps)
+                    )
                 else:
                     routes.append(route)
 
@@ -882,20 +936,25 @@ class HostContent:
 
     def _open_import_dialog(self) -> None:
         """Open import dialog."""
-        with ui.dialog() as dialog, ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"):
-            ui.label("Import configuration").classes("text-xl font-bold mb-6 text-center text-gray-800")
+        with (
+            ui.dialog() as dialog,
+            ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"),
+        ):
+            ui.label("Import configuration").classes(
+                "text-xl font-bold mb-6 text-center text-gray-800"
+            )
 
-            ui.upload(on_upload=lambda e: self._handle_file_upload(e, dialog), auto_upload=True).props(
-                "accept=.json"
-            ).classes("w-full mb-4")
+            ui.upload(
+                on_upload=lambda e: self._handle_file_upload(e, dialog), auto_upload=True
+            ).props("accept=.json").classes("w-full mb-4")
             ui.label("OR").classes("text-center text-gray-500 font-bold my-2")
 
             config_input = ui.textarea(placeholder="Paste JSON here...").classes("w-full h-32 mb-4")
 
             with ui.row().classes("w-full gap-2"):
-                ui.button("Import", on_click=lambda: self._import_config(config_input.value, dialog)).classes(
-                    BUTTON_STYLES["primary"]
-                )
+                ui.button(
+                    "Import", on_click=lambda: self._import_config(config_input.value, dialog)
+                ).classes(BUTTON_STYLES["primary"])
                 ui.button("Cancel", on_click=dialog.close).classes(BUTTON_STYLES["secondary"])
 
         dialog.open()
@@ -930,11 +989,20 @@ class HostContent:
             logger.exception("Error importing config")
             ui.notify("Import failed", color="negative")
 
-    def _show_import_confirmation(self, hosts: list, routes: list, parent_dialog: ui.dialog) -> None:
+    def _show_import_confirmation(
+        self, hosts: list, routes: list, parent_dialog: ui.dialog
+    ) -> None:
         """Show import confirmation dialog."""
-        with ui.dialog() as dialog, ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"):
-            ui.label("Import Configuration").classes("text-xl font-bold mb-4 text-center text-gray-800")
-            ui.label(f"Found {len(hosts)} hosts and {len(routes)} routes to import.").classes("text-gray-700 mb-4")
+        with (
+            ui.dialog() as dialog,
+            ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"),
+        ):
+            ui.label("Import Configuration").classes(
+                "text-xl font-bold mb-4 text-center text-gray-800"
+            )
+            ui.label(f"Found {len(hosts)} hosts and {len(routes)} routes to import.").classes(
+                "text-gray-700 mb-4"
+            )
             ui.label("Choose import method:").classes("text-gray-700 mb-4")
 
             with ui.row().classes("w-full gap-2 mb-2"):
@@ -950,12 +1018,19 @@ class HostContent:
                         hosts, routes, parent_dialog, overwrite=False, confirm_dialog=dialog
                     ),
                 ).classes(BUTTON_STYLES["primary"])
-            ui.button("Cancel", on_click=dialog.close).classes(f"{BUTTON_STYLES['secondary']} w-full")
+            ui.button("Cancel", on_click=dialog.close).classes(
+                f"{BUTTON_STYLES['secondary']} w-full"
+            )
 
         dialog.open()
 
     def _perform_import(
-        self, hosts: list, routes: list, dialog: ui.dialog, overwrite: bool, confirm_dialog: ui.dialog | None = None
+        self,
+        hosts: list,
+        routes: list,
+        dialog: ui.dialog,
+        overwrite: bool,
+        confirm_dialog: ui.dialog | None = None,
     ) -> None:
         """Perform the actual import."""
         try:
@@ -995,7 +1070,9 @@ class HostContent:
             self._refresh_tables()
 
             action = "Replaced" if overwrite else "Imported"
-            ui.notify(f"{action} {len(new_hosts)} hosts and {len(new_routes)} routes", color="positive")
+            ui.notify(
+                f"{action} {len(new_hosts)} hosts and {len(new_routes)} routes", color="positive"
+            )
         except Exception:
             logger.exception("Error performing import")
             ui.notify("Import failed", color="negative")
@@ -1071,7 +1148,12 @@ class HostConfigManager:
         """Save configuration."""
         try:
             hosts = [
-                Host(ip=host["ip"], username=host["username"], password=host["password"], info=host.get("info", ""))
+                Host(
+                    ip=host["ip"],
+                    username=host["username"],
+                    password=host["password"],
+                    info=host.get("info", ""),
+                )
                 for host in self.hosts
             ]
 
@@ -1096,7 +1178,9 @@ class HostConfigManager:
                         )
                         for jump in jump_hosts
                     ]
-                    routes.append(Route(summary=route.get("summary", ""), target=target, jumps=jumps))
+                    routes.append(
+                        Route(summary=route.get("summary", ""), target=target, jumps=jumps)
+                    )
                 else:
                     routes.append(route)
 

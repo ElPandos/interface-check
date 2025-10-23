@@ -2,9 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
-
-from src.mixins.tool import Tool
+from typing import Any, ClassVar
 
 
 @dataclass(frozen=True)
@@ -17,8 +15,16 @@ class DmesgEntry:
     message: str
 
 
-class DmesgTool(Tool):
+class DmesgTool(TIool):
     """Dmesg kernel message diagnostic tool."""
+
+    # fmt: off
+    _AVAILABLE_COMMANDS: ClassVar[list[list[str]]] = [
+        ["dmesg", "|", "egrep", "-i", "'mlx|mellanox|sfp|qsfp|phy|eth|port'", "|", "tail", "-n", "200" ],
+        ["dmesg", "|", "egrep", "-i", "'mlx|sfp|qsfp|phy"],
+        ["dmesg", "|", "egrep", "-i", "'mlx|mellanox|sfp|qsfp|phy|port'"]
+    ]
+    # fmt: on
 
     @property
     def tool_name(self) -> str:
@@ -26,12 +32,7 @@ class DmesgTool(Tool):
 
     def get_commands(self) -> dict[str, str]:
         """Get available dmesg commands."""
-        return {
-            "recent": "dmesg -T | tail -100",
-            "network": "dmesg -T | grep -i 'eth\\|net\\|link'",
-            "errors": "dmesg -T | grep -i 'error\\|fail\\|warn'",
-            "all": "dmesg -T",
-        }
+        return self._AVAILABLE_COMMANDS
 
     def parse_output(self, _command_name: str, raw_output: str) -> Any:
         """Parse dmesg command output."""
@@ -56,9 +57,9 @@ class DmesgTool(Tool):
                         timestamp_str = line[1:end_bracket]
                         # Handle both human readable and epoch formats
                         if timestamp_str.count(" ") >= 2:  # Human readable
-                            timestamp = datetime.strptime(timestamp_str[:19], "%Y-%m-%d %H:%M:%S").replace(
-                                tzinfo=datetime.UTC
-                            )
+                            timestamp = datetime.strptime(
+                                timestamp_str[:19], "%Y-%m-%d %H:%M:%S"
+                            ).replace(tzinfo=datetime.UTC)
                         message = line[end_bracket + 1 :].strip()
                     else:
                         message = line

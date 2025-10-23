@@ -12,127 +12,72 @@ logger = logging.getLogger(__name__)
 
 """
 
+SUPPORTED_PACKAGES: list[str] = {
+    "pciutils",  # PCI utilities for hardware info
+    "ethtool",  # Ethernet tool for NIC management
+    "rdma-core",  # RDMA/InfiniBand tools
+    "lshw",  # Hardware lister
+    "lm-sensors",  # Hardware monitoring sensors
+    "python3-pip",  # Python package installer
+    "mstflint",  # Mellanox firmware tools
+    "mlnx-tools",  # Mellanox configuration tools
+}
+
 System dump
 
 sudo apt update
-sudo apt install -y pciutils ethtool rdma-core lshw lm-sensors python3-pip mstflint mlnx-tools
-
-
-
-lspci -nn | grep -i -E 'mellanox|connectx|mlx5|mlx4'
-lspci -v -s <PCI_ID>
-lspci -k -s <PCI_ID>
-lsmod | egrep 'mlx|mlx5|mlx4|ib_|rdma'
-modinfo mlx5_core
-
-
-lspci -nn | grep -i -E 'mellanox|connectx|mlx5|mlx4'
-lspci -v -s <PCI_ID>
-lspci -k -s <PCI_ID>
-lsmod | egrep 'mlx|mlx5|mlx4|ib_|rdma'
-modinfo mlx5_core
-
+sudo apt install -y pciutils ethtool rdma-core lshw lm-sensors python3-pip mstflint mlnx-tools ethtool inxi
 
 ip -br link
-ethtool -i <ifname>
-udevadm info -q all -n <ifname> | egrep 'ID_MODEL|ID_SERIAL|PCI_SLOT_NAME|DRIVER'
-udevadm info -a -p /sys/class/net/<ifname>
-
-
 rdma dev show
-ibv_devinfo
-ibstat
-
-
-sudo mst start
+mst start
 mst status
-mst list
-sudo mlxconfig -d /dev/mst/mtXXXX q
-sudo mstflint -d /dev/mst/mtXXXX q
-sudo mlxfwmanager --query
-sudo lshw -C network | less
-
-
-ethtool -i <ifname>
+mst stop
+*ibv_devinfo
+*ibstat
 ethtool <ifname>
-ethtool -S <ifname>
-sudo ethtool -p <ifname> 10
-sudo ethtool -d <ifname>
+ethtool -v -s <ifname>
+ethtool -i <ifname>
+ethtool -S <ifname> # statistics
+ethtool -m <ifname> # Temp, volt ect
+*mlxfwmanager --query
+*mlnx_qos -i <ifname> # not supported on system
+mlxlink -d /dev/mst/mtXXXX
+mlxconfig -d /dev/mst/mtXXXX query # Port and module link status
+lspci -v -s <PCI_ID>
+lshw -C network
+lsmod
+lsb_release -a
 
 
-sudo ethtool -m <ifname>
-sudo ethtool -m <ifname> raw on > /tmp/<ifname>-sfp-raw.bin
-sudo ethtool -m <ifname> > /tmp/<ifname>-sfp.txt
 
-
-sudo ethtool -m <ifname> e2prom
-sudo ethtool --show-eeprom <ifname>
-
-
-devlink port show
-sudo devlink sbuf show > /tmp/devlink.txt
 
 
 dmesg | egrep -i 'mlx|mellanox|sfp|qsfp|phy|eth|port' | tail -n 200
-sudo journalctl -k -u NetworkManager --since "1 hour ago" | egrep -i 'mlx|mellanox|sfp|qsfp'
+dmesg | egrep -i 'mlx|sfp|qsfp|phy'
+dmesg | egrep -i 'mlx|mellanox|sfp|qsfp|phy|port'
+
+journalctl -k -u NetworkManager --since "1 hour ago" | egrep -i 'mlx|mellanox|sfp|qsfp'
+
 ls -l /sys/class/net/<ifname>/device/
 cat /sys/class/net/<ifname>/device/uevent
 cat /sys/class/net/<ifname>/device/vendor
 cat /sys/class/net/<ifname>/device/device
 cat /sys/class/net/<ifname>/phys_port_name 2>/dev/null
-
-
-ethtool -i <ifname>
-mlxfwmanager --query
-sudo mstflint -d /dev/mst/mtXXXX q
-sudo mlxconfig -d /dev/mst/mtXXXX q
-
-
-sudo lshw -C network
-sudo lspci -vvv | grep -A20 Mellanox
-sudo hwinfo --network | grep -A20 Mellanox  # optional, if hwinfo installed
-
+cat /etc/os-release
 
 uname -a
-lsb_release -a
-cat /etc/os-release
-ls /dev/mst/
-dpkg -l | grep -i mlx
+
 
 
 lspci -nn | egrep -i 'mellanox|mlx'
 lspci -v
-lsmod
-dmesg | egrep -i 'mlx|mellanox|sfp|qsfp|phy|port'
-ip -br link
-rdma dev show
-ibv_devinfo
-mst status
-ethtool -i <ifname>
-ethtool <ifname>
-ethtool -S <ifname>
-ethtool -m <ifname>
-ethtool -m <ifname> raw on
-
-
-sudo mlxlink -d /dev/mst/mtXXXX query       # Port and module link status
-sudo mlxstat -d /dev/mst/mtXXXX             # NIC performance counters
-sudo mlxreg -d /dev/mst/mtXXXX              # Registers access (read-only)
-sudo mlnx_qos -i <ifname>                   # QoS configuration (Mellanox tool)
-
-
 lspci -nn | grep -i mellanox
-ip -br link
-ethtool -i <if>
-ethtool -m <if>
-ethtool -S <if>
-rdma dev show
-ibv_devinfo
-sudo mst start && mst status
-sudo mlxconfig -d /dev/mst/mtXXXX q
-sudo mstflint -d /dev/mst/mtXXXX q
-mlxfwmanager --query
-dmesg | egrep -i 'mlx|sfp|qsfp|phy'
+lspci -vvv | grep -A20 Mellanox
+
+
+
+sudo hwinfo --network | grep -A20 Mellanox  # optional, if hwinfo installed
 
 
 """
@@ -149,7 +94,9 @@ class NetworkTool(ITool):
         """Execute tool command."""
         commands = self.get_commands()
         if command not in commands:
-            return ToolResult(command=command, data=None, success=False, error=f"Unknown command: {command}")
+            return ToolResult(
+                command=command, data=None, success=False, error=f"Unknown command: {command}"
+            )
 
         cmd_template = commands[command]
         if self._interface:
@@ -162,7 +109,12 @@ class NetworkTool(ITool):
         if result.success:
             try:
                 parsed_data = self.parse_output(command, result.stdout)
-                return ToolResult(command=cmd_template, data=parsed_data, success=True, execution_time=execution_time)
+                return ToolResult(
+                    command=cmd_template,
+                    data=parsed_data,
+                    success=True,
+                    execution_time=execution_time,
+                )
             except Exception as e:
                 logger.exception(f"Failed to parse output for {command}")
                 return ToolResult(
@@ -174,7 +126,11 @@ class NetworkTool(ITool):
                 )
         else:
             return ToolResult(
-                command=cmd_template, data=None, success=False, error=result.stderr, execution_time=execution_time
+                command=cmd_template,
+                data=None,
+                success=False,
+                error=result.stderr,
+                execution_time=execution_time,
             )
 
 

@@ -130,13 +130,23 @@ class SystemStatsCollector(CommandCollector):
     def _parse_system_stats(self, output: str) -> dict[str, Any]:
         """Parse system statistics output."""
         lines = output.strip().split("\n")
-        data = {"load_avg": [0.0, 0.0, 0.0], "memory_total": 0, "memory_used": 0, "memory_free": 0, "disk_usage": "0%"}
+        data = {
+            "load_avg": [0.0, 0.0, 0.0],
+            "memory_total": 0,
+            "memory_used": 0,
+            "memory_free": 0,
+            "disk_usage": "0%",
+        }
 
         # Parse load average
         if lines:
             load_parts = lines[0].split()
             if len(load_parts) >= 3:
-                data["load_avg"] = [float(load_parts[0]), float(load_parts[1]), float(load_parts[2])]
+                data["load_avg"] = [
+                    float(load_parts[0]),
+                    float(load_parts[1]),
+                    float(load_parts[2]),
+                ]
 
         # Parse memory info
         for line in lines:
@@ -174,7 +184,9 @@ class RefactoredCollectionService:
         """Cleanup collection service."""
         self._manager.cleanup()
 
-    def add_ethtool_collector(self, connection: Connection, interface: str, interval: float = 5.0) -> Result[str]:
+    def add_ethtool_collector(
+        self, connection: Connection, interface: str, interval: float = 5.0
+    ) -> Result[str]:
         """Add ethtool collector for interface."""
         collector = EthtoolCollector(connection, interface)
         result = self._manager.add_collector(collector, interval)
@@ -191,7 +203,9 @@ class RefactoredCollectionService:
 
         return result
 
-    def add_network_stats_collector(self, connection: Connection, interface: str, interval: float = 1.0) -> Result[str]:
+    def add_network_stats_collector(
+        self, connection: Connection, interface: str, interval: float = 1.0
+    ) -> Result[str]:
         """Add network statistics collector."""
         collector = NetworkStatsCollector(connection, interface)
         result = self._manager.add_collector(collector, interval)
@@ -208,7 +222,9 @@ class RefactoredCollectionService:
 
         return result
 
-    def add_system_stats_collector(self, connection: Connection, interval: float = 10.0) -> Result[str]:
+    def add_system_stats_collector(
+        self, connection: Connection, interval: float = 10.0
+    ) -> Result[str]:
         """Add system statistics collector."""
         collector = SystemStatsCollector(connection)
         result = self._manager.add_collector(collector, interval)

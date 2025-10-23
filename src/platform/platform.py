@@ -74,14 +74,21 @@ def run_command(command: list[str], *, fail_ok: bool = False) -> str:
 
     # Input is validated above - command is list of strings, shell=False prevents injection
     result = subprocess.run(  # noqa: S603
-        command, check=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, shell=False
+        command,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        shell=False,
     )
 
     if result.returncode != 0:
         if fail_ok:
             logger.warning(f"Command failed but will continue: {' '.join(command)}")
         else:
-            raise RuntimeError(f"Command failed: {' '.join(command)}\n{result.stdout}\n{result.stderr}")
+            raise RuntimeError(
+                f"Command failed: {' '.join(command)}\n{result.stdout}\n{result.stderr}"
+            )
     else:
         logger.info(result.stdout)
     return result.stdout
@@ -162,7 +169,9 @@ def load_json(full_path: Path) -> dict[str, Any] | list[Any]:
     return Json.load(full_path)
 
 
-def dump_lists_to_file(list1: list[Any], list2: list[Any], config_path: Path, file_name: str) -> None:
+def dump_lists_to_file(
+    list1: list[Any], list2: list[Any], config_path: Path, file_name: str
+) -> None:
     """
     Safely dump two lists into a JSON file.
     If the file already exists, it is renamed with a timestamp before writing.
@@ -394,7 +403,9 @@ class Platform:
                 for version_cmd in [f"{name} --version", f"{name} -V", f"{name} version"]:
                     ver_result = self._connection.execute_command(version_cmd)
                     if ver_result.success:
-                        info.version = ver_result.stdout.split()[0] if ver_result.stdout else "unknown"
+                        info.version = (
+                            ver_result.stdout.split()[0] if ver_result.stdout else "unknown"
+                        )
                         break
 
         self._software_cache[name] = info
@@ -468,7 +479,9 @@ class Platform:
 
         for interface in Interfaces().list:
             if self._connection:
-                result = self._connection.execute_command(f"cat /sys/class/net/{interface}/operstate")
+                result = self._connection.execute_command(
+                    f"cat /sys/class/net/{interface}/operstate"
+                )
                 status[interface] = result.success and "up" in result.stdout.lower()
             else:
                 status[interface] = False
@@ -496,13 +509,17 @@ class Platform:
                     health.cpu_usage = float(result.stdout.strip().replace("%us,", ""))
 
             # Memory usage
-            result = self._connection.execute_command("free | grep Mem | awk '{print ($3/$2) * 100.0}'")
+            result = self._connection.execute_command(
+                "free | grep Mem | awk '{print ($3/$2) * 100.0}'"
+            )
             if result.success:
                 with contextlib.suppress(ValueError):
                     health.memory_usage = float(result.stdout.strip())
 
             # Disk usage
-            result = self._connection.execute_command("df / | tail -1 | awk '{print $5}' | sed 's/%//'")
+            result = self._connection.execute_command(
+                "df / | tail -1 | awk '{print $5}' | sed 's/%//'"
+            )
             if result.success:
                 with contextlib.suppress(ValueError):
                     health.disk_usage = float(result.stdout.strip())

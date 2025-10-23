@@ -66,7 +66,9 @@ class SlxPanel(BasePanel, MultiScreen):
                 ui.label(f"Host {screen_num}").classes("text-lg font-semibold")
 
                 if screen_num not in self._slx_screens:
-                    self._slx_screens[screen_num] = SlxContent(None, self._host_handler, self._config, self, screen_num)
+                    self._slx_screens[screen_num] = SlxContent(
+                        None, self._host_handler, self._config, self, screen_num
+                    )
 
                 # Buttons next to host label
                 slx_content = self._slx_screens[screen_num]
@@ -114,15 +116,17 @@ class SlxContent:
 
     def build_buttons(self) -> None:
         """Build buttons next to host label."""
-        self._buttons["clear"] = ui.button("Clear Results", icon="clear", on_click=self._clear_results).classes(
-            "bg-gray-500 hover:bg-gray-600 text-white"
-        )
+        self._buttons["clear"] = ui.button(
+            "Clear Results", icon="clear", on_click=self._clear_results
+        ).classes("bg-gray-500 hover:bg-gray-600 text-white")
 
     def build_user_inputs(self) -> None:
         """Build user/password inputs centered in header."""
         with ui.row().classes("items-center gap-2 mx-8"):
             ui.icon("person", size="md").classes("text-gray-600")
-            self._user_input = ui.input("User", value="root", placeholder="Enter username").classes("w-28")
+            self._user_input = ui.input("User", value="root", placeholder="Enter username").classes(
+                "w-28"
+            )
             ui.space().classes("w-4")
             ui.icon("lock", size="md").classes("text-gray-600")
             self._pass_input = ui.input(
@@ -164,7 +168,9 @@ class SlxContent:
             # Spinner for eye scan progress (initially hidden)
             ui.spinner(size="md", color="blue").bind_visibility_from(self, "_show_spinner_flag")
             self._countdown_label = (
-                ui.label("30s").classes("text-blue-600 font-bold").bind_visibility_from(self, "_show_spinner_flag")
+                ui.label("30s")
+                .classes("text-blue-600 font-bold")
+                .bind_visibility_from(self, "_show_spinner_flag")
             )
 
         self._show_spinner_flag = False
@@ -193,10 +199,16 @@ class SlxContent:
             self._selected_route = getattr(self, "_route_value_map", {}).get(selected_value)
             if self._parent_panel:
                 self._parent_panel.set_screen_route(self._screen_num, self._selected_route)
-            logger.debug(f"Selected route label: '{selected_value}' -> route: {self._selected_route}")
+            logger.debug(
+                f"Selected route label: '{selected_value}' -> route: {self._selected_route}"
+            )
 
             # Check SSH connection state
-            connection = self._parent_panel.get_screen_connection(self._screen_num) if self._parent_panel else None
+            connection = (
+                self._parent_panel.get_screen_connection(self._screen_num)
+                if self._parent_panel
+                else None
+            )
             if connection:
                 is_connected = connection.is_connected()
                 logger.debug(f"SSH connection status: {is_connected}")
@@ -302,7 +314,11 @@ class SlxContent:
         ui.notify("Results cleared", color="info")
 
     def _update_device_chip(self) -> None:
-        connection = self._parent_panel.get_screen_connection(self._screen_num) if self._parent_panel else None
+        connection = (
+            self._parent_panel.get_screen_connection(self._screen_num)
+            if self._parent_panel
+            else None
+        )
         if connection and hasattr(connection, "_shell") and connection._shell is not None:
             logger.debug("Shell found - SLX device confirmed")
             self._device_chip.props("icon=router color=green")
@@ -314,7 +330,11 @@ class SlxContent:
 
     def _update_slx_tools_visibility(self) -> None:
         """Show/hide SLX tools based on device detection."""
-        connection = self._parent_panel.get_screen_connection(self._screen_num) if self._parent_panel else None
+        connection = (
+            self._parent_panel.get_screen_connection(self._screen_num)
+            if self._parent_panel
+            else None
+        )
         is_slx = connection and hasattr(connection, "_shell") and connection._shell is not None
 
         logger.debug(
@@ -349,7 +369,11 @@ class SlxContent:
 
     def _run_show_interface_status(self) -> None:
         """Run show interface status command and populate interface selector."""
-        connection = self._parent_panel.get_screen_connection(self._screen_num) if self._parent_panel else None
+        connection = (
+            self._parent_panel.get_screen_connection(self._screen_num)
+            if self._parent_panel
+            else None
+        )
         if not connection or not hasattr(connection, "_shell") or connection._shell is None:
             logger.error("No shell connection available")
             ui.notify("No shell connection", color="negative")
@@ -410,7 +434,9 @@ class SlxContent:
         match = re.search(pattern, ps_result)
         return match.group(1) if match else None
 
-    def run_eye_scan(self, ssh: SshConnection, interface_name: str, port_id: str) -> tuple[str, bool]:
+    def run_eye_scan(
+        self, ssh: SshConnection, interface_name: str, port_id: str
+    ) -> tuple[str, bool]:
         """Execute eye scan with interface toggle sequence."""
         try:
             # Run eye scan
@@ -490,7 +516,11 @@ class SlxContent:
 
     def _run_eye_scan(self, interface: str, user: str, password: str) -> None:
         """Run eye scan commands in shell."""
-        connection = self._parent_panel.get_screen_connection(self._screen_num) if self._parent_panel else None
+        connection = (
+            self._parent_panel.get_screen_connection(self._screen_num)
+            if self._parent_panel
+            else None
+        )
         if not connection or not hasattr(connection, "_shell") or connection._shell is None:
             ui.notify("No shell connection", color="negative")
             return None

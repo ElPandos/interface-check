@@ -2,8 +2,8 @@ import logging
 
 from dotenv import load_dotenv
 
-from src.ui.gui import Gui
 from src.core.config import Configure
+from src.ui.gui import Gui
 
 logger = logging.getLogger(__name__)
 

@@ -71,10 +71,14 @@ class Configure:
 
     def setup_logging(self, level: int = logging.INFO) -> None:
         """Configure rotating file and console logging."""
-        formatter = logging.Formatter("[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s():%(lineno)d]: %(message)s")
+        formatter = logging.Formatter(
+            "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s():%(lineno)d]: %(message)s"
+        )
 
         handlers = [
-            RotatingFileHandler(self._LOG_FILE, maxBytes=20 * 1024 * 1024, backupCount=5, encoding="utf-8"),
+            RotatingFileHandler(
+                self._LOG_FILE, maxBytes=20 * 1024 * 1024, backupCount=5, encoding="utf-8"
+            ),
             logging.StreamHandler(),
         ]
 

@@ -30,7 +30,9 @@ class DialogFactory:
                 ).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg")
                 ui.space()
                 ui.button(
-                    icon="cancel", text="Cancel", on_click=lambda: (dialog.close(), future.set_result(None))
+                    icon="cancel",
+                    text="Cancel",
+                    on_click=lambda: (dialog.close(), future.set_result(None)),
                 ).classes("bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg")
 
         dialog.open()

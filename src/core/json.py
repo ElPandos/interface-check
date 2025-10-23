@@ -69,7 +69,9 @@ class Json:
         return json.loads(json_string.strip())
 
     @classmethod
-    def export_download(cls, data: Any, filename_prefix: str, *, success_message: str | None = None) -> None:
+    def export_download(
+        cls, data: Any, filename_prefix: str, *, success_message: str | None = None
+    ) -> None:
         try:
             json_data = cls.dump_to_string(data)
             timestamp = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")

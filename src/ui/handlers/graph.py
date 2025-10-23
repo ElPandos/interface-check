@@ -11,7 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class GraphView:
-    def __init__(self, work_manager: WorkManager, config: Config, interf: str, source: str, value: str) -> None:
+    def __init__(
+        self, work_manager: WorkManager, config: Config, interf: str, source: str, value: str
+    ) -> None:
         self._config = config
         self._work_manager = work_manager
         self._interf = interf
@@ -38,7 +40,11 @@ class GraphView:
                 self._update_traces(plot_sample.get_data_x(), plot_sample.get_data_y())
             else:
                 self._fig.add_trace(
-                    go.Scatter(x=[plot_sample.get_data_x()], y=[plot_sample.get_data_y()], name=self._interf)
+                    go.Scatter(
+                        x=[plot_sample.get_data_x()],
+                        y=[plot_sample.get_data_y()],
+                        name=self._interf,
+                    )
                 )
 
             if y_axis_label is None:
@@ -58,8 +64,12 @@ class GraphView:
 
     def update_auto(self) -> None:
         if self._auto_update.value:
-            self._auto_update_timer = ui.timer(self._config.gui.get_graph_update_value(), self.update)
-            logger.debug(f"Auto update enabled each: {self._config.gui.get_graph_update_value()} sec")
+            self._auto_update_timer = ui.timer(
+                self._config.gui.get_graph_update_value(), self.update
+            )
+            logger.debug(
+                f"Auto update enabled each: {self._config.gui.get_graph_update_value()} sec"
+            )
         else:
             self._auto_update_timer.cancel()
             logger.debug("Auto update disabled")
@@ -83,7 +93,9 @@ class GraphHandler:
     def __init__(self) -> None:
         self._graphs: dict[str, GraphView] = {}
 
-    def add(self, work_manager: WorkManager, config: Config, interf: str, source: str, value: str) -> None:
+    def add(
+        self, work_manager: WorkManager, config: Config, interf: str, source: str, value: str
+    ) -> None:
         self._graphs[value] = GraphView(work_manager, config, interf, source, value)
         self._graphs[value].build()
 

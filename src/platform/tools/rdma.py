@@ -9,14 +9,12 @@ from src.interfaces.tool import ITool
 from src.platform.enums.software import CommandInputType
 
 
-class MstTool(ITool):
+class RdmaTool(ITool):
     """Abstract base class for CLI diagnostic tools."""
 
     # fmt: off
     _AVAILABLE_COMMANDS: ClassVar[list[list[str]]] = [
-        ["mst", "start"],
-        ["mst", "status"],
-        ["mst", "stop"],
+        ["rdma", "dev", "show"]
     ]
     # fmt: on
 
@@ -36,7 +34,7 @@ class MstTool(ITool):
     @property
     def name(self) -> str:
         """Name of the CLI tool."""
-        return "ip"
+        return "rdma"
 
     def get_available_commands(self) -> list[dict[CommandInputType, list[str]]]:
         """Get available commands for this tool.

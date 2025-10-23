@@ -55,7 +55,9 @@ class CpuMonitor(HealthMonitor):
         if not self._connection:
             return HealthMetric("cpu_usage", 0.0, "%")
 
-        result = self._connection.execute_command("top -bn1 | grep 'Cpu(s)' | awk '{print $2}' | sed 's/%us,//'")
+        result = self._connection.execute_command(
+            "top -bn1 | grep 'Cpu(s)' | awk '{print $2}' | sed 's/%us,//'"
+        )
         if result.success:
             try:
                 usage = float(result.stdout.strip())
@@ -65,7 +67,9 @@ class CpuMonitor(HealthMonitor):
                 elif usage > 75:
                     status = "warning"
 
-                return HealthMetric(name="cpu_usage", value=usage, unit="%", threshold_max=90.0, status=status)
+                return HealthMetric(
+                    name="cpu_usage", value=usage, unit="%", threshold_max=90.0, status=status
+                )
             except ValueError:
                 pass
 
@@ -96,7 +100,9 @@ class MemoryMonitor(HealthMonitor):
                 elif usage > 85:
                     status = "warning"
 
-                return HealthMetric(name="memory_usage", value=usage, unit="%", threshold_max=95.0, status=status)
+                return HealthMetric(
+                    name="memory_usage", value=usage, unit="%", threshold_max=95.0, status=status
+                )
             except ValueError:
                 pass
 
@@ -128,7 +134,9 @@ class TemperatureMonitor(HealthMonitor):
                 elif temp > 75:
                     status = "warning"
 
-                return HealthMetric(name="temperature", value=temp, unit="°C", threshold_max=85.0, status=status)
+                return HealthMetric(
+                    name="temperature", value=temp, unit="°C", threshold_max=85.0, status=status
+                )
             except ValueError:
                 pass
 
@@ -190,7 +198,9 @@ class Health:
             load_average=self._get_load_average(),
             network_errors=self._get_network_errors(),
             custom_metrics={
-                name: metric.value for name, metric in metrics.items() if name not in ["cpu", "memory", "temperature"]
+                name: metric.value
+                for name, metric in metrics.items()
+                if name not in ["cpu", "memory", "temperature"]
             },
         )
 
@@ -258,7 +268,9 @@ class Health:
         if not self._connection:
             return 0
 
-        result = self._connection.execute_command("cat /proc/net/dev | awk 'NR>2 {sum+=$4+$12} END {print sum}'")
+        result = self._connection.execute_command(
+            "cat /proc/net/dev | awk 'NR>2 {sum+=$4+$12} END {print sum}'"
+        )
         if result.success:
             try:
                 return int(result.stdout.strip())

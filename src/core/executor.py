@@ -74,7 +74,9 @@ class ProcessManager:
                 except subprocess.TimeoutExpired:
                     proc.terminate()
 
-                return ExecutionResult(cmd_str, "", f"Timeout after {timeout}s", -1, exec_time, False)
+                return ExecutionResult(
+                    cmd_str, "", f"Timeout after {timeout}s", -1, exec_time, False
+                )
 
     def execute_shell(self, command: str, **kwargs) -> ExecutionResult:
         return self.execute(shlex.split(command), **kwargs)
@@ -87,7 +89,12 @@ class ProcessManager:
                 raise RuntimeError(f"Too many processes ({self._max_processes} max)")
 
         proc = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=False, **kwargs
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            shell=False,
+            **kwargs,
         )
 
         with self._lock:

@@ -12,7 +12,7 @@
     "[ignore]": {
         "editor.defaultFormatter": "foxundermoon.shell-format"
     },
-    "[json][jsonc]": {
+    "[jsonc][json]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     },
     "[markdown]": {
@@ -26,12 +26,11 @@
         "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.formatOnSave": true
     },
-
     "[toml]": {
         "editor.defaultFormatter": "tamasfe.even-better-toml"
     },
     "[yaml]": {
         "editor.insertSpaces": true,
         "diffEditor.ignoreTrimWhitespace": false
-    }
+    },
 }

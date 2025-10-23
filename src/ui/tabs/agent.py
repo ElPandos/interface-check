@@ -148,12 +148,12 @@ class AgentContent:
                 self._buttons["start"] = ui.button(
                     "Start Agent", icon="play_arrow", on_click=self._start_agent
                 ).classes("bg-green-500 hover:bg-green-600 text-white")
-                self._buttons["stop"] = ui.button("Stop Agent", icon="stop", on_click=self._stop_agent).classes(
-                    "bg-red-500 hover:bg-red-600 text-white"
-                )
-                self._buttons["clear"] = ui.button("Clear Tasks", icon="clear_all", on_click=self._clear_tasks).classes(
-                    "bg-gray-500 hover:bg-gray-600 text-white"
-                )
+                self._buttons["stop"] = ui.button(
+                    "Stop Agent", icon="stop", on_click=self._stop_agent
+                ).classes("bg-red-500 hover:bg-red-600 text-white")
+                self._buttons["clear"] = ui.button(
+                    "Clear Tasks", icon="clear_all", on_click=self._clear_tasks
+                ).classes("bg-gray-500 hover:bg-gray-600 text-white")
 
             self._update_button_states()
 
@@ -189,22 +189,28 @@ class AgentContent:
                 # Task queue
                 with ui.column().classes("flex-1"):
                     ui.label("Task Queue").classes("text-lg font-bold mb-2")
-                    with ui.scroll_area().classes("h-64 border border-gray-300 rounded p-1 bg-gray-50"):
+                    with ui.scroll_area().classes(
+                        "h-64 border border-gray-300 rounded p-1 bg-gray-50"
+                    ):
                         self._task_container = ui.column().classes("w-full gap-1")
                         self._update_task_display()
 
                 # Results panel
                 with ui.column().classes("flex-1"):
                     ui.label("Results").classes("text-lg font-bold mb-2")
-                    with ui.scroll_area().classes("h-64 border border-gray-300 rounded p-2 bg-gray-50"):
+                    with ui.scroll_area().classes(
+                        "h-64 border border-gray-300 rounded p-2 bg-gray-50"
+                    ):
                         self._results_container = ui.column().classes("w-full gap-2")
 
             # Intelligent recommendations
-            with ui.expansion("Smart Recommendations", icon="psychology", value=True).classes("w-full"):
+            with ui.expansion("Smart Recommendations", icon="psychology", value=True).classes(
+                "w-full"
+            ):
                 with ui.column().classes("w-full gap-2"):
-                    ui.label("AI-powered task recommendations based on your network setup:").classes(
-                        "text-sm text-gray-600"
-                    )
+                    ui.label(
+                        "AI-powered task recommendations based on your network setup:"
+                    ).classes("text-sm text-gray-600")
 
                     with ui.row().classes("w-full gap-2 flex-wrap"):
                         ui.button(
@@ -225,9 +231,15 @@ class AgentContent:
             # Custom task builder
             with ui.expansion("Custom Task Builder", icon="build").classes("w-full"):
                 with ui.row().classes("w-full gap-2 items-end"):
-                    self._task_name = ui.input("Task Name", placeholder="Enter task name").classes("flex-1")
-                    self._task_command = ui.input("Command", placeholder="ethtool eth0").classes("flex-1")
-                    self._task_interval = ui.number("Interval (seconds)", value=60, min=1).classes("w-32")
+                    self._task_name = ui.input("Task Name", placeholder="Enter task name").classes(
+                        "flex-1"
+                    )
+                    self._task_command = ui.input("Command", placeholder="ethtool eth0").classes(
+                        "flex-1"
+                    )
+                    self._task_interval = ui.number("Interval (seconds)", value=60, min=1).classes(
+                        "w-32"
+                    )
                     self._task_repeat = ui.number("Repeat Count", value=1, min=1).classes("w-32")
                     ui.button(
                         "Add Task",
@@ -283,7 +295,13 @@ class AgentContent:
                     button.disable()
 
     def _create_task(
-        self, task_id: str, name: str, commands: list[str], description: str, task_type: str, **kwargs
+        self,
+        task_id: str,
+        name: str,
+        commands: list[str],
+        description: str,
+        task_type: str,
+        **kwargs,
     ) -> dict[str, Any]:
         """Create a standardized task dictionary."""
         return {
@@ -338,7 +356,11 @@ class AgentContent:
             return
 
         task = self._create_task(
-            f"{task_type}_{len(self._tasks)}", config["name"], config["commands"], config["description"], task_type
+            f"{task_type}_{len(self._tasks)}",
+            config["name"],
+            config["commands"],
+            config["description"],
+            task_type,
         )
 
         self._tasks.append(task)
@@ -347,7 +369,12 @@ class AgentContent:
 
     def _add_custom_task(self, screen_num: int):
         """Add a custom task to the queue."""
-        if not self._task_name or not self._task_command or not self._task_name.value or not self._task_command.value:
+        if (
+            not self._task_name
+            or not self._task_command
+            or not self._task_name.value
+            or not self._task_command.value
+        ):
             ui.notify("Task name and command are required", color="negative")
             return
 
@@ -386,7 +413,9 @@ class AgentContent:
 
         with self._task_container:
             for task in self._tasks:
-                with ui.card().classes("w-full border border-gray-200 shadow-sm hover:shadow-md transition-shadow"):
+                with ui.card().classes(
+                    "w-full border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+                ):
                     # Modern header with gradient background
                     with ui.row().classes(
                         "w-full items-center justify-between bg-gradient-to-r from-slate-50 to-gray-100 px-3 py-2"
@@ -469,13 +498,17 @@ class AgentContent:
             with ui.card().classes(f"w-full p-3 {border_class}"):
                 with ui.row().classes("w-full items-center justify-between"):
                     status_icon = "✅" if result["status"] == "completed" else "❌"
-                    ui.label(f"{status_icon} {task['name']}").classes(f"font-bold text-{status_color}-700")
+                    ui.label(f"{status_icon} {task['name']}").classes(
+                        f"font-bold text-{status_color}-700"
+                    )
                     ui.label(datetime.now().strftime("%H:%M:%S")).classes("text-xs text-gray-500")
 
                 # Show analysis if available
                 if "analysis" in result:
                     analysis = result["analysis"]
-                    ui.label(analysis.get("summary", "Analysis completed")).classes("text-sm text-gray-600")
+                    ui.label(analysis.get("summary", "Analysis completed")).classes(
+                        "text-sm text-gray-600"
+                    )
 
                     # Show issues and recommendations
                     if analysis.get("issues"):
@@ -484,7 +517,9 @@ class AgentContent:
                                 ui.label(f"⚠️ {issue}").classes("text-sm text-orange-600")
 
                     if analysis.get("recommendations"):
-                        with ui.expansion("Recommendations", icon="lightbulb").classes("w-full mt-2"):
+                        with ui.expansion("Recommendations", icon="lightbulb").classes(
+                            "w-full mt-2"
+                        ):
                             for rec in analysis["recommendations"]:
                                 ui.label(f"💡 {rec}").classes("text-sm text-blue-600")
 
@@ -493,13 +528,18 @@ class AgentContent:
                     with ui.expansion("Command Output", icon="terminal").classes("w-full mt-2"):
                         for cmd_result in result["results"]:
                             cmd_status = "✅" if cmd_result["success"] else "❌"
-                            ui.label(f"{cmd_status} {cmd_result['command']}").classes("font-mono text-sm")
+                            ui.label(f"{cmd_status} {cmd_result['command']}").classes(
+                                "font-mono text-sm"
+                            )
                             if cmd_result["stdout"]:
                                 ui.code(
-                                    cmd_result["stdout"][:500] + ("..." if len(cmd_result["stdout"]) > 500 else "")
+                                    cmd_result["stdout"][:500]
+                                    + ("..." if len(cmd_result["stdout"]) > 500 else "")
                                 ).classes("text-xs mt-1")
                             if cmd_result["stderr"]:
-                                ui.code(f"ERROR: {cmd_result['stderr']}").classes("text-xs text-red-600 mt-1")
+                                ui.code(f"ERROR: {cmd_result['stderr']}").classes(
+                                    "text-xs text-red-600 mt-1"
+                                )
 
         ui.notify(f"Task completed: {task['name']}", color="positive")
 
@@ -560,12 +600,18 @@ class AgentContent:
                             ui.label(rec["description"]).classes("text-sm text-gray-600")
 
                             with ui.row().classes("gap-2 mt-1"):
-                                priority_color = {"high": "red", "medium": "orange", "low": "green"}.get(
-                                    rec["priority"], "gray"
-                                )
+                                priority_color = {
+                                    "high": "red",
+                                    "medium": "orange",
+                                    "low": "green",
+                                }.get(rec["priority"], "gray")
 
-                                ui.badge(rec["priority"].title(), color=priority_color).classes("text-xs")
-                                ui.label(f"~{rec['estimated_time']}").classes("text-xs text-gray-500")
+                                ui.badge(rec["priority"].title(), color=priority_color).classes(
+                                    "text-xs"
+                                )
+                                ui.label(f"~{rec['estimated_time']}").classes(
+                                    "text-xs text-gray-500"
+                                )
 
                         ui.button(
                             "Add Task",
@@ -608,7 +654,9 @@ class AgentContent:
         for rec in high_priority_tasks:
             self._add_recommended_task(screen_num, rec)
 
-        ui.notify(f"Auto-scheduled {len(high_priority_tasks)} high-priority tasks", color="positive")
+        ui.notify(
+            f"Auto-scheduled {len(high_priority_tasks)} high-priority tasks", color="positive"
+        )
 
     def update_button_states(self) -> None:
         """Public method to update button states from parent."""

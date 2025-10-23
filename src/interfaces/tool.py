@@ -3,22 +3,46 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-import time
 from typing import Any
 
-from src.core.connect import SshConnection
-from src.core.json import Json
+from src.interfaces.connection import CommandResult
 
 
 @dataclass(frozen=True)
 class ToolResult:
     """Result of a tool execution."""
 
-    command: str
-    data: Any
-    success: bool
-    error: str | None = None
-    execution_time: float = 0.0
+    def __init__(self, command: str, data: Any, error: str, execution_time: float):
+        self.command = command
+        self.data = data
+        self.error = error
+        self.execution_time = execution_time
+
+    @property
+    def success(self) -> bool:
+        """Indicates whether the command executed successfully."""
+        return self.error.strip() == ""
+
+    # @staticmethod
+    # def error(command: str, message: str, exit_status: int = -1) -> "CommandResult":
+    #     """
+    #     Create a default error CommandResult for failed or skipped executions.
+
+    #     Args:
+    #         command: The command that failed.
+    #         message: Description or error message.
+    #         exit_status: Optional custom error code (default: -1).
+
+    #     Returns:
+    #         CommandResult instance representing a failed command.
+    #     """
+    #     return CommandResult(
+    #         command=command,
+    #         stdout="",
+    #         stderr=message.strip(),
+    #         exit_status=exit_status,
+    #         execution_time=0.0,
+    #     )
 
 
 class ITool(ABC):
@@ -30,154 +54,25 @@ class ITool(ABC):
         """Tool name identifier."""
 
     @abstractmethod
-    def get_commands(self) -> dict[str, str]:
+    def get_available_commands(self) -> dict[str, str]:
         """Get available commands for this tool."""
 
     @abstractmethod
-    def execute(self, command: str, **kwargs) -> ToolResult:
+    def _execute(self, command: str) -> CommandResult:
         """Execute a tool command."""
 
     @abstractmethod
-    def parse_output(self, command: str, output: str) -> Any:
+    def _parse(self, command: str, output: str) -> dict[str, str]:
         """Parse tool output into structured data."""
 
-
-class IToolFactory(ABC):
-    """Factory for creating tool instances."""
+    @abstractmethod
+    def _summarize(self) -> dict[str, Any]:
+        """Summarize tool results."""
 
     @abstractmethod
-    def create_tool(self, tool_name: str, **kwargs) -> ITool:
-        """Create tool instance."""
+    def log_summary(self) -> None:
+        """Log summary of tool results."""
 
     @abstractmethod
-    def get_available_tools(self) -> list[str]:
-        """Get list of available tools."""
-
-
-@dataclass(frozen=True)
-class ValueCollection:
-    """Holds a numeric value and its corresponding unit."""
-
-    value: float = None
-    unit: str = None
-    info: str = None
-    state: bool = None
-    raw: str = None
-
-
-@dataclass(frozen=True)
-class CommandResult:
-    """Result of a command execution."""
-
-    command: str
-    stdout: str
-    stderr: str
-    success: bool
-    execution_time: float
-
-
-class Tool(ABC):
-    """Abstract base class for CLI diagnostic tools."""
-
-    def __init__(self, ssh_connection: SshConnection, interface: str):
-        """Initialize tool with SSH connection and optional interface.
-
-        Args:
-            self.ssh_connection: SSH connection for command execution
-            interface: Network interface name (e.g., 'eth0')
-        """
-        self._ssh_connection = ssh_connection
-        self._interface = interface
-
-        self._cached_data: dict[str, Any] = {}
-
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Name of the CLI tool (e.g., 'ethtool', 'mlxconfig')."""
-
-    @abstractmethod
-    def available_commands(self) -> dict[str, str]:
-        """Get available commands for this tool.
-
-        Returns:
-            Dict mapping command names to CLI commands
-        """
-
-    @abstractmethod
-    def parse_output(self, command_name: str, raw_output: str) -> Any:
-        """Parse raw command output into structured data.
-
-        Args:
-            command_name: Name of the executed command
-            raw_output: Raw stdout from command execution
-
-        Returns:
-            Parsed data structure specific to the tool
-        """
-
-    @abstractmethod
-    def test(self, raw: str) -> dict[str, str]:
-        """Test method for verification of parsing."""
-
-    def execute_command(self, command_name: str, timeout: int = 30) -> CommandResult:
-        """Execute a specific command and return result.
-
-        Args:
-            command_name: Name of command from get_commands()
-            timeout: Command timeout in seconds
-
-        Returns:
-            CommandResult with execution details
-        """
-        commands = self.get_commands()
-        if command_name not in commands:
-            raise ValueError(f"Unknown command: {command_name}")
-
-        command = commands[command_name]
-        if self.interface:
-            command = command.format(interface=self.interface)
-
-        start_time = time.perf_counter()
-
-        try:
-            stdout, stderr = self._ssh.exec_command(command, timeout=timeout)
-            success = len(stderr.strip()) == 0
-        except (RuntimeError, OSError, TimeoutError) as e:
-            stdout, stderr = "", f"Command failed: {e}"
-            success = False
-
-        execution_time = time.perf_counter() - start_time
-
-        return CommandResult(
-            command=command, stdout=stdout, stderr=stderr, success=success, execution_time=execution_time
-        )
-
-    def collect_all(self) -> dict[str, Any]:
-        """Execute all commands and return parsed results.
-
-        Returns:
-            Dict mapping command names to parsed data
-        """
-        results = {}
-        for command in self.get_commands():
-            try:
-                result = self.execute_command(command)
-                if result.success:
-                    results[command] = self.parse_output(command, result.stdout)
-                else:
-                    results[command] = None
-            except (ValueError, RuntimeError, OSError):
-                results[command] = None
-
-        self._cached_data.update(results)
-        return results
-
-    def export_data(self, output_path: Path) -> None:
-        """Export collected data to JSON file.
-
-        Args:
-            output_path: Path to output file
-        """
-        data = self._cached_data if self._cached_data else self.collect_all()
-        Json.save(data, output_path)
+    def save(self, path: Path) -> None:
+        """Save results to file."""

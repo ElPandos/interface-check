@@ -15,7 +15,7 @@ from src.core.screen import SingleScreen
 from src.models.config import Config, Host, Networks, Route
 from src.ui.handlers.host import HostHandler
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.ui.theme.style import apply_global_theme
+from src.ui.themes.style import apply_global_theme
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,9 @@ class HostValidator:
         return sanitized if len(sanitized) <= MAX_INPUT_LENGTH else ""
 
     @staticmethod
-    def validate_host_data(ip: str, username: str, password: str, existing_hosts: list[dict[str, Any]]) -> str | None:
+    def validate_host_data(
+        ip: str, username: str, password: str, existing_hosts: list[dict[str, Any]]
+    ) -> str | None:
         """Validate complete host data. Returns error message or None if valid."""
         if not all([ip, username, password]):
             return "All fields are required"
@@ -209,9 +211,9 @@ class HostContent:
                 ui.icon("computer", size="lg").classes("text-blue-600")
                 ui.label("Hosts").classes("text-2xl font-semibold text-gray-800")
                 ui.space()
-                ui.button(icon="desktop_windows", text="Add Host", on_click=self._open_add_dialog).classes(
-                    "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
-                )
+                ui.button(
+                    icon="desktop_windows", text="Add Host", on_click=self._open_add_dialog
+                ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded")
             self.table_container = ui.column().classes("w-full")
 
     def _build_routes_section(self) -> None:
@@ -244,7 +246,10 @@ class HostContent:
 
     def _open_add_dialog(self) -> None:
         """Open dialog to add new host."""
-        with ui.dialog() as dialog, ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"):
+        with (
+            ui.dialog() as dialog,
+            ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"),
+        ):
             ui.label("Add new host").classes("text-xl font-bold mb-6 text-center text-gray-800")
 
             with ui.card().classes("w-full p-4 bg-gray-50 border border-gray-200 mb-4"):
@@ -256,7 +261,9 @@ class HostContent:
                 ui.label("Authentication").classes("font-semibold mb-3 text-gray-700")
                 user_input = ui.input("Username", placeholder="admin").classes("w-full mb-3")
                 user_input.props("outlined").tooltip("SSH username for server login")
-                pass_input = ui.input("Password", password=True, placeholder="••••••••").classes("w-full")
+                pass_input = ui.input("Password", password=True, placeholder="••••••••").classes(
+                    "w-full"
+                )
                 pass_input.props("outlined").tooltip("Password for authentication")
 
             with ui.row().classes("w-full mt-6"):
@@ -327,7 +334,11 @@ class HostContent:
             # Find affected routes
             affected_routes = []
             for i, route in enumerate(self.config.routes):
-                summary = route.get("summary", "") if isinstance(route, dict) else getattr(route, "summary", "")
+                summary = (
+                    route.get("summary", "")
+                    if isinstance(route, dict)
+                    else getattr(route, "summary", "")
+                )
                 if host_ip in summary:
                     affected_routes.append((i, summary))
 
@@ -363,7 +374,8 @@ class HostContent:
 
             # Check for duplicate routes early
             existing_summaries = {
-                r.get("summary") if isinstance(r, dict) else getattr(r, "summary", str(r)) for r in self.config.routes
+                r.get("summary") if isinstance(r, dict) else getattr(r, "summary", str(r))
+                for r in self.config.routes
             }
             if summary in existing_summaries:
                 ui.notify("Route already exists", color="negative")
@@ -372,7 +384,9 @@ class HostContent:
             route_data = {
                 "summary": summary,
                 "target": {k: remote_host[k] for k in ("ip", "username", "password")},
-                "jumps": [{k: jump[k] for k in ("ip", "username", "password")} for jump in jump_hosts],
+                "jumps": [
+                    {k: jump[k] for k in ("ip", "username", "password")} for jump in jump_hosts
+                ],
             }
 
             self.config.add_route(route_data)
@@ -426,7 +440,11 @@ class HostContent:
                 deleted_route = self.config.routes[index]
                 if self.config.delete_route(index):
                     # Store undo state
-                    self._last_deletion = {"type": "route_only", "host": None, "routes": [(index, deleted_route)]}
+                    self._last_deletion = {
+                        "type": "route_only",
+                        "host": None,
+                        "routes": [(index, deleted_route)],
+                    }
                     self._update_undo_button()
 
                     ui.notify("Route removed", color="warning")
@@ -495,7 +513,9 @@ class HostContent:
         with row:
             # Drag handle for reordering
             drag_btn = (
-                ui.button(icon="drag_indicator", on_click=lambda i=index: self._select_host_for_move(i))
+                ui.button(
+                    icon="drag_indicator", on_click=lambda i=index: self._select_host_for_move(i)
+                )
                 .props("flat")
                 .classes("text-gray-400 cursor-pointer w-16 justify-center")
             )
@@ -508,29 +528,37 @@ class HostContent:
 
             # Target checkbox
             cb_remote = ui.checkbox(value=is_remote).classes("w-28 justify-start")
-            cb_remote.on_value_change(lambda e, i=index: self._on_remote_toggle(checked=e.value, index=i))
+            cb_remote.on_value_change(
+                lambda e, i=index: self._on_remote_toggle(checked=e.value, index=i)
+            )
             if getattr(self.config, "remote_index", None) is not None and not is_remote:
                 cb_remote.disable()
 
             # Jump checkbox - disabled if no target selected
             cb_jump = ui.checkbox(value=is_jump).classes("w-24 justify-start")
-            cb_jump.on_value_change(lambda e, i=index: self._on_jump_toggle(checked=e.value, index=i))
+            cb_jump.on_value_change(
+                lambda e, i=index: self._on_jump_toggle(checked=e.value, index=i)
+            )
             if is_remote or getattr(self.config, "remote_index", None) is None:
                 cb_jump.disable()
 
             # Jump order select
             order_value = str(host.get("jump_order", "")) if host.get("jump_order") else None
             order_options = self._get_available_orders(host)
-            order_select = ui.select(order_options, value=order_value).props("outlined dense").classes("w-16")
+            order_select = (
+                ui.select(order_options, value=order_value).props("outlined dense").classes("w-16")
+            )
             order_select.on_value_change(lambda e, i=index: self._on_jump_order_change(e.value, i))
 
             if not is_jump or is_remote:
                 order_select.disable()
 
             # Delete button
-            ui.button(icon="delete", on_click=lambda i=index: self._delete_host(i)).props("unelevated").classes(
-                "bg-red-300 hover:bg-red-400 text-red-900 w-16 h-8 rounded shadow"
-            ).tooltip("Delete host")
+            ui.button(icon="delete", on_click=lambda i=index: self._delete_host(i)).props(
+                "unelevated"
+            ).classes("bg-red-300 hover:bg-red-400 text-red-900 w-16 h-8 rounded shadow").tooltip(
+                "Delete host"
+            )
 
     def _refresh_routes_table(self) -> None:
         """Refresh the routes table."""
@@ -579,7 +607,9 @@ class HostContent:
         with row:
             # Drag handle for reordering
             drag_btn = (
-                ui.button(icon="drag_indicator", on_click=lambda i=index: self._select_route_for_move(i))
+                ui.button(
+                    icon="drag_indicator", on_click=lambda i=index: self._select_route_for_move(i)
+                )
                 .props("flat")
                 .classes("text-gray-400 cursor-pointer w-16 justify-center")
             )
@@ -597,21 +627,23 @@ class HostContent:
                 # Connect/Disconnect button
                 is_connected = self._host_handler.is_route_connected(index)
                 if is_connected:
-                    ui.button(icon="power_off", on_click=lambda idx=index: self._disconnect_route(idx)).props(
-                        "unelevated"
-                    ).classes("bg-red-500 hover:bg-red-600 text-white w-16 h-8 rounded shadow").tooltip(
-                        "Disconnect from route"
-                    )
+                    ui.button(
+                        icon="power_off", on_click=lambda idx=index: self._disconnect_route(idx)
+                    ).props("unelevated").classes(
+                        "bg-red-500 hover:bg-red-600 text-white w-16 h-8 rounded shadow"
+                    ).tooltip("Disconnect from route")
                 else:
-                    ui.button(icon="power", on_click=lambda idx=index: self._connect_route(idx)).props(
-                        "unelevated"
-                    ).classes("bg-green-500 hover:bg-green-600 text-white w-16 h-8 rounded shadow").tooltip(
-                        "Connect to route"
-                    )
+                    ui.button(
+                        icon="power", on_click=lambda idx=index: self._connect_route(idx)
+                    ).props("unelevated").classes(
+                        "bg-green-500 hover:bg-green-600 text-white w-16 h-8 rounded shadow"
+                    ).tooltip("Connect to route")
                 # Delete button
                 ui.button(icon="delete", on_click=lambda idx=index: self._delete_route(idx)).props(
                     "unelevated"
-                ).classes("bg-red-300 hover:bg-red-400 text-red-900 w-16 h-8 rounded shadow").tooltip("Delete route")
+                ).classes(
+                    "bg-red-300 hover:bg-red-400 text-red-900 w-16 h-8 rounded shadow"
+                ).tooltip("Delete route")
 
     def _update_add_route_button(self) -> None:
         """Update add route button state."""
@@ -625,9 +657,9 @@ class HostContent:
                 remove="bg-gray-100 text-gray-400 cursor-not-allowed"
             ).classes(add="bg-blue-500 hover:bg-blue-600 text-white")
         else:
-            self.add_route_btn.props(add="disable").classes(add="bg-gray-100 text-gray-400 cursor-not-allowed").classes(
-                remove="bg-blue-500 hover:bg-blue-600 text-white"
-            )
+            self.add_route_btn.props(add="disable").classes(
+                add="bg-gray-100 text-gray-400 cursor-not-allowed"
+            ).classes(remove="bg-blue-500 hover:bg-blue-600 text-white")
 
     def _on_remote_toggle(self, *, checked: bool, index: int) -> None:
         """Handle remote host selection."""
@@ -665,9 +697,18 @@ class HostContent:
                 host["jump_order"] = None
             else:
                 # Auto-assign order efficiently
-                used_orders = {h.get("jump_order") for h in self.config.hosts if h.get("jump_order") and h != host}
+                used_orders = {
+                    h.get("jump_order")
+                    for h in self.config.hosts
+                    if h.get("jump_order") and h != host
+                }
                 host["jump_order"] = next(
-                    (order for order in range(1, len(self.config.hosts) + 1) if order not in used_orders), 1
+                    (
+                        order
+                        for order in range(1, len(self.config.hosts) + 1)
+                        if order not in used_orders
+                    ),
+                    1,
                 )
 
             self._invalidate_cache()
@@ -699,7 +740,11 @@ class HostContent:
         target_count = sum(1 for h in self.config.hosts if h.get("remote", False))
         max_order = len(self.config.hosts) - target_count
 
-        used_orders = {h.get("jump_order") for h in self.config.hosts if h.get("jump_order") and h != current_host}
+        used_orders = {
+            h.get("jump_order")
+            for h in self.config.hosts
+            if h.get("jump_order") and h != current_host
+        }
         return [str(j) for j in range(1, max_order + 1) if j not in used_orders]
 
     def _select_route_for_move(self, index: int) -> None:
@@ -717,11 +762,15 @@ class HostContent:
     def _move_route(self, from_index: int, to_index: int) -> None:
         """Move route from one position to another."""
         try:
-            if 0 <= from_index < len(self.config.routes) and 0 <= to_index < len(self.config.routes):
+            if 0 <= from_index < len(self.config.routes) and 0 <= to_index < len(
+                self.config.routes
+            ):
                 route = self.config.routes.pop(from_index)
                 self.config.routes.insert(to_index, route)
                 self.config.save()
-                ui.notify(f"Moved route from position {from_index + 1} to {to_index + 1}", color="info")
+                ui.notify(
+                    f"Moved route from position {from_index + 1} to {to_index + 1}", color="info"
+                )
         except Exception:
             logger.exception("Error moving route")
 
@@ -744,7 +793,9 @@ class HostContent:
                 host = self.config.hosts.pop(from_index)
                 self.config.hosts.insert(to_index, host)
                 self.config.save()
-                ui.notify(f"Moved host from position {from_index + 1} to {to_index + 1}", color="info")
+                ui.notify(
+                    f"Moved host from position {from_index + 1} to {to_index + 1}", color="info"
+                )
                 self._refresh_hosts_table()
         except Exception:
             logger.exception("Error moving host")
@@ -788,7 +839,9 @@ class HostContent:
 
                     jumps = [
                         Host(
-                            ip=jump.get("ip", ""), username=jump.get("username", ""), password=jump.get("password", "")
+                            ip=jump.get("ip", ""),
+                            username=jump.get("username", ""),
+                            password=jump.get("password", ""),
                         )
                         for jump in jump_hosts
                     ]
@@ -820,7 +873,11 @@ class HostContent:
             # Find matching host
             for host in self.config.hosts:
                 if host["ip"] == target_ip:
-                    return {"ip": host["ip"], "username": host["username"], "password": host["password"]}
+                    return {
+                        "ip": host["ip"],
+                        "username": host["username"],
+                        "password": host["password"],
+                    }
         return {"ip": "", "username": "", "password": ""}
 
     def _reconstruct_jumps_from_summary(self, summary: str) -> list[dict[str, str]]:
@@ -844,7 +901,13 @@ class HostContent:
         for jump_ip in jump_ips:
             for host in self.config.hosts:
                 if host["ip"] == jump_ip:
-                    jumps.append({"ip": host["ip"], "username": host["username"], "password": host["password"]})
+                    jumps.append(
+                        {
+                            "ip": host["ip"],
+                            "username": host["username"],
+                            "password": host["password"],
+                        }
+                    )
                     break
         return jumps
 
@@ -858,17 +921,22 @@ class HostContent:
                 remove="bg-gray-100 text-gray-400 cursor-not-allowed"
             ).classes(add="bg-blue-500 hover:bg-blue-600 text-white")
         else:
-            self._undo_btn.props(add="disable").classes(add="bg-gray-100 text-gray-400 cursor-not-allowed").classes(
-                remove="bg-blue-500 hover:bg-blue-600 text-white"
-            )
+            self._undo_btn.props(add="disable").classes(
+                add="bg-gray-100 text-gray-400 cursor-not-allowed"
+            ).classes(remove="bg-blue-500 hover:bg-blue-600 text-white")
 
     def _show_undo_dialog(self) -> None:
         """Show undo confirmation dialog."""
         if not self._last_deletion:
             return
 
-        with ui.dialog() as dialog, ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"):
-            ui.label("Undo Last Deletion").classes("text-xl font-bold mb-4 text-center text-gray-800")
+        with (
+            ui.dialog() as dialog,
+            ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"),
+        ):
+            ui.label("Undo Last Deletion").classes(
+                "text-xl font-bold mb-4 text-center text-gray-800"
+            )
 
             host_data = self._last_deletion["host"]
             routes_data = self._last_deletion["routes"]
@@ -942,12 +1010,21 @@ class HostContent:
             logger.exception("Error performing undo")
             ui.notify("Failed to undo deletion", color="negative")
 
-    def _show_delete_confirmation(self, host_index: int, host_ip: str, affected_routes: list[tuple[int, str]]) -> None:
+    def _show_delete_confirmation(
+        self, host_index: int, host_ip: str, affected_routes: list[tuple[int, str]]
+    ) -> None:
         """Show confirmation dialog for host deletion with affected routes."""
-        with ui.dialog() as dialog, ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"):
-            ui.label(f"Delete host {host_ip}?").classes("text-xl font-bold mb-4 text-center text-gray-800")
+        with (
+            ui.dialog() as dialog,
+            ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"),
+        ):
+            ui.label(f"Delete host {host_ip}?").classes(
+                "text-xl font-bold mb-4 text-center text-gray-800"
+            )
 
-            ui.label(f"This host is used in {len(affected_routes)} route(s):").classes("text-gray-700 mb-2")
+            ui.label(f"This host is used in {len(affected_routes)} route(s):").classes(
+                "text-gray-700 mb-2"
+            )
 
             with ui.column().classes("w-full mb-4 max-h-32 overflow-y-auto"):
                 for _, summary in affected_routes:
@@ -957,12 +1034,15 @@ class HostContent:
 
             with ui.row().classes("w-full gap-2"):
                 ui.button(
-                    "Remove All", on_click=lambda: self._delete_host_and_routes(host_index, affected_routes, dialog)
+                    "Remove All",
+                    on_click=lambda: self._delete_host_and_routes(
+                        host_index, affected_routes, dialog
+                    ),
                 ).classes("bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded")
 
-                ui.button("Host Only", on_click=lambda: self._perform_host_deletion(host_index, dialog)).classes(
-                    "bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded"
-                )
+                ui.button(
+                    "Host Only", on_click=lambda: self._perform_host_deletion(host_index, dialog)
+                ).classes("bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded")
 
                 ui.button("Cancel", on_click=dialog.close).classes(
                     "bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
@@ -1003,7 +1083,10 @@ class HostContent:
             dialog.close()
 
             if deleted_host:
-                ui.notify(f"Deleted host {deleted_host['ip']} and {len(affected_routes)} route(s)", color="warning")
+                ui.notify(
+                    f"Deleted host {deleted_host['ip']} and {len(affected_routes)} route(s)",
+                    color="warning",
+                )
                 self.config.save()
                 self._refresh_hosts_table()
                 self._refresh_routes_table()
@@ -1038,13 +1121,20 @@ class HostContent:
 
     def _open_import_dialog(self) -> None:
         """Open import dialog."""
-        with ui.dialog() as dialog, ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"):
-            ui.label("Import configuration").classes("text-xl font-bold mb-6 text-center text-gray-800")
+        with (
+            ui.dialog() as dialog,
+            ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"),
+        ):
+            ui.label("Import configuration").classes(
+                "text-xl font-bold mb-6 text-center text-gray-800"
+            )
 
             with ui.card().classes("w-full p-4 bg-gray-50 border border-gray-200 mb-4"):
                 ui.label("Upload JSON File").classes("font-semibold mb-3 text-gray-700")
                 file_upload = (
-                    ui.upload(on_upload=lambda e: self._handle_file_upload(e, dialog), auto_upload=True)
+                    ui.upload(
+                        on_upload=lambda e: self._handle_file_upload(e, dialog), auto_upload=True
+                    )
                     .props("accept=.json")
                     .classes("w-full")
                 )
@@ -1057,7 +1147,9 @@ class HostContent:
 
             with ui.row().classes("w-full mt-6"):
                 ui.button(
-                    icon="download", text="Import", on_click=lambda: self._import_config(config_input.value, dialog)
+                    icon="download",
+                    text="Import",
+                    on_click=lambda: self._import_config(config_input.value, dialog),
                 ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg")
                 ui.space()
                 ui.button(icon="cancel", text="Cancel", on_click=dialog.close).classes(
@@ -1171,7 +1263,10 @@ class HostContent:
         else:
             if self.selected_host_index != index:
                 self._move_host(self.selected_host_index, index)
-                ui.notify(f"Moved host {self.selected_host_index + 1} to position {index + 1}", color="positive")
+                ui.notify(
+                    f"Moved host {self.selected_host_index + 1} to position {index + 1}",
+                    color="positive",
+                )
             self.selected_host_index = None
             self._refresh_hosts_table()
 
@@ -1184,7 +1279,10 @@ class HostContent:
         else:
             if self.selected_route_index != index:
                 self._move_route(self.selected_route_index, index)
-                ui.notify(f"Moved route {self.selected_route_index + 1} to position {index + 1}", color="positive")
+                ui.notify(
+                    f"Moved route {self.selected_route_index + 1} to position {index + 1}",
+                    color="positive",
+                )
             self.selected_route_index = None
             self._refresh_routes_table()
 
@@ -1277,12 +1375,16 @@ class HostConfigManager:
 
                     jumps = [
                         Host(
-                            ip=jump.get("ip", ""), username=jump.get("username", ""), password=jump.get("password", "")
+                            ip=jump.get("ip", ""),
+                            username=jump.get("username", ""),
+                            password=jump.get("password", ""),
                         )
                         for jump in jump_hosts
                     ]
 
-                    routes.append(Route(summary=route.get("summary", ""), target=target, jumps=jumps))
+                    routes.append(
+                        Route(summary=route.get("summary", ""), target=target, jumps=jumps)
+                    )
                 else:
                     routes.append(route)
 
@@ -1325,7 +1427,9 @@ class HostConfigManager:
         target_count = sum(1 for h in self.hosts if h.get("remote", False))
         max_order = len(self.hosts) - target_count
 
-        used_orders = {h.get("jump_order") for h in self.hosts if h.get("jump_order") and h != current_host}
+        used_orders = {
+            h.get("jump_order") for h in self.hosts if h.get("jump_order") and h != current_host
+        }
         return [str(j) for j in range(1, max_order + 1) if j not in used_orders]
 
     def delete_host(self, index: int) -> dict[str, Any] | None:

@@ -61,7 +61,9 @@ class ChatPanel(BasePanel, MultiScreen):
                 ui.space()
 
                 if screen_num not in self._chat_screens:
-                    self._chat_screens[screen_num] = ChatContent(self._host_handler, self._config, self, screen_num)
+                    self._chat_screens[screen_num] = ChatContent(
+                        self._host_handler, self._config, self, screen_num
+                    )
 
                 # Route selector in header
                 chat_content = self._chat_screens[screen_num]
@@ -127,18 +129,20 @@ class ChatContent:
                     value=self._current_model,
                     on_change=self._update_model,
                 ).classes("w-32")
-                self._buttons["clear"] = ui.button("Clear Chat", icon="clear_all", on_click=self._clear_chat).classes(
-                    "bg-gray-300 hover:bg-gray-400 text-gray-800"
-                )
-                self._buttons["export"] = ui.button("Export Chat", icon="download", on_click=self._export_chat).classes(
-                    "bg-blue-300 hover:bg-blue-400 text-blue-900"
-                )
+                self._buttons["clear"] = ui.button(
+                    "Clear Chat", icon="clear_all", on_click=self._clear_chat
+                ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800")
+                self._buttons["export"] = ui.button(
+                    "Export Chat", icon="download", on_click=self._export_chat
+                ).classes("bg-blue-300 hover:bg-blue-400 text-blue-900")
                 self._buttons["context"] = ui.button(
                     "System Context", icon="settings", on_click=self._add_system_context
                 ).classes("bg-green-300 hover:bg-green-400 text-green-900")
 
             # Chat messages area
-            self.scroll_area = ui.scroll_area().classes("w-full h-96 border border-gray-300 rounded p-4 bg-gray-50")
+            self.scroll_area = ui.scroll_area().classes(
+                "w-full h-96 border border-gray-300 rounded p-4 bg-gray-50"
+            )
             with self.scroll_area:
                 self.chat_container = ui.column().classes("w-full gap-2")
                 self._restore_chat_history()
@@ -146,7 +150,9 @@ class ChatContent:
             # Input area
             with ui.row().classes("w-full gap-2"):
                 self.message_input = (
-                    ui.textarea(placeholder="Type your message here... (Ctrl+Enter to send)", value="")
+                    ui.textarea(
+                        placeholder="Type your message here... (Ctrl+Enter to send)", value=""
+                    )
                     .classes("flex-1")
                     .props("outlined autogrow")
                     .on("keydown.ctrl.enter", self._send_message)
@@ -166,9 +172,9 @@ class ChatContent:
                 self._buttons["explain"] = ui.button(
                     "Explain Code", on_click=lambda: self._quick_action("explain_code")
                 ).classes("bg-orange-300 hover:bg-orange-400 text-orange-900")
-                self._buttons["debug"] = ui.button("Debug Issue", on_click=lambda: self._quick_action("debug")).classes(
-                    "bg-red-300 hover:bg-red-400 text-red-900"
-                )
+                self._buttons["debug"] = ui.button(
+                    "Debug Issue", on_click=lambda: self._quick_action("debug")
+                ).classes("bg-red-300 hover:bg-red-400 text-red-900")
                 self._buttons["network_help"] = ui.button(
                     "Network Help", on_click=lambda: self._quick_action("network")
                 ).classes("bg-teal-300 hover:bg-teal-400 text-teal-900")
@@ -183,7 +189,9 @@ class ChatContent:
 
         with self.chat_container:
             if not self._chat_history:
-                ui.label("👋 Hello! I'm your AI assistant. How can I help you today?").classes("text-gray-600 italic")
+                ui.label("👋 Hello! I'm your AI assistant. How can I help you today?").classes(
+                    "text-gray-600 italic"
+                )
             else:
                 for msg in self._chat_history:
                     self._render_message(msg["role"], msg["content"], msg["timestamp"])
@@ -282,7 +290,9 @@ class ChatContent:
             "messages": self._chat_history,
         }
 
-        Json.export_download(chat_data, "ai_chat", success_message="Chat history exported successfully")
+        Json.export_download(
+            chat_data, "ai_chat", success_message="Chat history exported successfully"
+        )
 
     def _add_system_context(self) -> None:
         """Add system context to chat."""
@@ -330,7 +340,7 @@ class ChatContent:
 
     def update_button_states(self) -> None:
         """Public method to update button states from parent."""
-        pass  # Chat doesn't need button state updates
+        # Chat doesn't need button state updates
 
     def build(self, screen_num: int) -> None:
         """Legacy method for compatibility."""

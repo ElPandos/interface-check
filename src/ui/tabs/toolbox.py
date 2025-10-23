@@ -5,7 +5,6 @@ from nicegui import ui
 from src.core.connect import SshConnection
 from src.core.screen import MultiScreen
 from src.models.config import Config
-from src.ui.components.selector import Selector
 from src.ui.tabs.base import BasePanel, BaseTab
 
 NAME = "toolbox"
@@ -103,19 +102,19 @@ class ToolboxContent:
         )
         ui.timer(0.5, self._update_route_options, active=True)
 
-    def build_content(self, screen_num: int) -> None:
+    def build_content(self) -> None:
         """Build toolbox content area."""
         # Controls
         with ui.row().classes("w-full gap-2 mb-4 flex-wrap"):
-            self._buttons["scan"] = ui.button("Scan Interfaces", icon="search", on_click=self._scan_interfaces).classes(
-                "bg-red-500 hover:bg-red-600 text-white"
-            )
-            self._buttons["tools"] = ui.button("Network Tools", icon="build", on_click=self._network_tools).classes(
-                "bg-blue-500 hover:bg-blue-600 text-white"
-            )
-            self._buttons["clear"] = ui.button("Clear Results", icon="clear", on_click=self._clear_results).classes(
-                "bg-gray-500 hover:bg-gray-600 text-white"
-            )
+            self._buttons["scan"] = ui.button(
+                "Scan Interfaces", icon="search", on_click=self._scan_interfaces
+            ).classes("bg-red-500 hover:bg-red-600 text-white")
+            self._buttons["tools"] = ui.button(
+                "Network Tools", icon="build", on_click=self._network_tools
+            ).classes("bg-blue-500 hover:bg-blue-600 text-white")
+            self._buttons["clear"] = ui.button(
+                "Clear Results", icon="clear", on_click=self._clear_results
+            ).classes("bg-gray-500 hover:bg-gray-600 text-white")
 
         # Results area
         with ui.column().classes("w-full"):
@@ -183,10 +182,9 @@ class ToolboxContent:
         if not self._tool_results:
             return
 
-        with self._tool_results:
-            with ui.card().classes("w-full p-4 border"):
-                ui.label(title).classes(f"font-bold text-{color}-600")
-                ui.label(content).classes("text-sm text-gray-600")
+        with self._tool_results, ui.card().classes("w-full p-4 border"):
+            ui.label(title).classes(f"font-bold text-{color}-600")
+            ui.label(content).classes("text-sm text-gray-600")
 
     def _scan_interfaces(self) -> None:
         """Scan network interfaces."""
@@ -194,7 +192,9 @@ class ToolboxContent:
             ui.notify("SSH connection required", color="negative")
             return
 
-        self._add_result_card("Interface Scan Completed", "Network interface information would appear here", "red")
+        self._add_result_card(
+            "Interface Scan Completed", "Network interface information would appear here", "red"
+        )
         ui.notify("Interface scan completed", color="positive")
 
     def _network_tools(self) -> None:
@@ -203,7 +203,9 @@ class ToolboxContent:
             ui.notify("SSH connection required", color="negative")
             return
 
-        self._add_result_card("Network Tools Executed", "Network diagnostic tools results would appear here", "blue")
+        self._add_result_card(
+            "Network Tools Executed", "Network diagnostic tools results would appear here", "blue"
+        )
         ui.notify("Network tools completed", color="positive")
 
     def _clear_results(self) -> None:

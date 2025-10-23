@@ -6,7 +6,7 @@ from nicegui import nicegui, ui
 
 from src.core.terminal import Cli
 from src.models.config import Config
-from src.platform.commands import Git
+from src.platform.bak.commands import Git
 from src.ui.handlers.host import HostHandler
 from src.ui.handlers.settings import settings
 from src.ui.tabs.agent import AgentPanel, AgentTab
@@ -20,7 +20,7 @@ from src.ui.tabs.log import LogPanel, LogTab
 from src.ui.tabs.slx import SlxPanel, SlxTab
 from src.ui.tabs.system import SystemPanel, SystemTab
 from src.ui.tabs.toolbox import ToolboxPanel, ToolboxTab
-from src.ui.theme.style import apply_global_theme
+from src.ui.themes.style import apply_global_theme
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,9 @@ class Gui:
             ]
 
             for panel_class, extra_kwargs in panel_configs:
-                panel = panel_class(build=True, config=self._config, host_handler=self._host_handler, **extra_kwargs)
+                panel = panel_class(
+                    build=True, config=self._config, host_handler=self._host_handler, **extra_kwargs
+                )
                 self._panel_content[panel.name] = panel
 
     def _build_right_drawer(self) -> None:

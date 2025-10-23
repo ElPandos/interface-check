@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from src.tools.factory import ToolFactory
 from src.core.connect import SshConnection
+from src.tools.factory import ToolFactory
 
 
 def main():

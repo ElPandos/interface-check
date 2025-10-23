@@ -7,20 +7,20 @@ from src.core.connect import SshConnection
 from src.interfaces.connection import CommandResult
 from src.interfaces.tool import ITool
 from src.platform.enums.software import CommandInputType
+from src.platform.tools.helper import get_pci_id_command
 
 
-class MstTool(ITool):
+class MlxTool(ITool):
     """Abstract base class for CLI diagnostic tools."""
 
     # fmt: off
     _AVAILABLE_COMMANDS: ClassVar[list[list[str]]] = [
-        ["mst", "start"],
-        ["mst", "status"],
-        ["mst", "stop"],
+        ["mlxlink", "-d"],
+        ["mlxconfig", "-d", CommandInputType.MST_PCICONF, "query"]
     ]
     # fmt: on
 
-    def __init__(self, ssh_connection: SshConnection):
+    def __init__(self, ssh_connection: SshConnection, interfaces: list[str]):
         """Initialize tool with SSH connection and interfaces.
 
         Args:
@@ -28,6 +28,7 @@ class MstTool(ITool):
             interfaces: List of network interface names
         """
         self._ssh_connection = ssh_connection
+        self._interfaces = interfaces
 
         self._results: dict[str, Any] = {}
 
@@ -36,7 +37,7 @@ class MstTool(ITool):
     @property
     def name(self) -> str:
         """Name of the CLI tool."""
-        return "ip"
+        return "lspci"
 
     def get_available_commands(self) -> list[dict[CommandInputType, list[str]]]:
         """Get available commands for this tool.
@@ -94,19 +95,19 @@ class MstTool(ITool):
         available_commands = self.get_available_commands()
 
         response = {}
-        for command_config in available_commands:
-            for cmd_type, args in command_config.items():
-                target = ""
-                if cmd_type != CommandInputType.NOT_USED:
-                    continue
-                final_command = f"{' '.join(args)} {target}"
-                result = self._execute(final_command)
-                if result.success:
-                    response[CommandInputType.NOT_USED.value] = result.stdout.strip()
-                else:
-                    response[CommandInputType.NOT_USED.value] = CommandResult.error(
-                        result.stderr, result.exit_status
-                    )
+        for interface in self._interfaces:
+            for command_config in available_commands:
+                for cmd_type, args in command_config.items():
+                    target = interface
+                    if cmd_type == CommandInputType.MST_PCICONF:
+                        target = get_pci_id_command(interface)
+
+                    final_command = f"{' '.join(args)} {target}"
+                    result = self._execute(final_command)
+                    if result.success:
+                        response[interface] = result.stdout.strip()
+                    else:
+                        response[interface] = CommandResult.error(result.stderr, result.exit_status)
         return response
 
     def _check_response(

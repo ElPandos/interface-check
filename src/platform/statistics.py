@@ -56,8 +56,12 @@ class NetworkStatCollector(StatCollector):
             return StatPoint(datetime.now(UTC), 0.0)
 
         # Get RX/TX bytes
-        rx_result = self._connection.execute_command(f"cat /sys/class/net/{self._interface}/statistics/rx_bytes")
-        tx_result = self._connection.execute_command(f"cat /sys/class/net/{self._interface}/statistics/tx_bytes")
+        rx_result = self._connection.execute_command(
+            f"cat /sys/class/net/{self._interface}/statistics/rx_bytes"
+        )
+        tx_result = self._connection.execute_command(
+            f"cat /sys/class/net/{self._interface}/statistics/tx_bytes"
+        )
 
         rx_bytes = 0
         tx_bytes = 0
@@ -99,7 +103,9 @@ class CpuStatCollector(StatCollector):
         if result.success:
             try:
                 cpu_usage = float(result.stdout.strip())
-                return StatPoint(timestamp=datetime.now(UTC), value=cpu_usage, metadata={"unit": "percent"})
+                return StatPoint(
+                    timestamp=datetime.now(UTC), value=cpu_usage, metadata={"unit": "percent"}
+                )
             except ValueError:
                 pass
 
@@ -124,7 +130,9 @@ class MemoryStatCollector(StatCollector):
         if result.success:
             try:
                 mem_usage = float(result.stdout.strip())
-                return StatPoint(timestamp=datetime.now(UTC), value=mem_usage, metadata={"unit": "percent"})
+                return StatPoint(
+                    timestamp=datetime.now(UTC), value=mem_usage, metadata={"unit": "percent"}
+                )
             except ValueError:
                 pass
 
@@ -174,7 +182,9 @@ class Statistics:
 
             except Exception:
                 # Create error point
-                results[name] = StatPoint(timestamp=datetime.now(UTC), value=0.0, metadata={"error": True})
+                results[name] = StatPoint(
+                    timestamp=datetime.now(UTC), value=0.0, metadata={"error": True}
+                )
 
         return results
 
@@ -226,7 +236,9 @@ class Statistics:
             return "increasing"
         return "decreasing"
 
-    def get_anomalies(self, collector_name: str, hours: int = 24, threshold: float = 2.0) -> list[StatPoint]:
+    def get_anomalies(
+        self, collector_name: str, hours: int = 24, threshold: float = 2.0
+    ) -> list[StatPoint]:
         """Get anomalous data points (beyond threshold standard deviations)."""
         data_points = self.get_data(collector_name, hours)
         if len(data_points) < 3:
@@ -257,7 +269,8 @@ class Statistics:
             "collector": collector_name,
             "time_range_hours": hours,
             "data_points": [
-                {"timestamp": p.timestamp.isoformat(), "value": p.value, "metadata": p.metadata} for p in data_points
+                {"timestamp": p.timestamp.isoformat(), "value": p.value, "metadata": p.metadata}
+                for p in data_points
             ],
             "summary": {
                 "count": summary.count,

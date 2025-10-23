@@ -9,4 +9,6 @@ venv/
 .generated/
 .config/
 .ericai_authrecord
-.converage
+.coverage
+logs/
+htmlcov/

@@ -51,13 +51,17 @@ class ScreenBase(ABC):
         if not self.container:
             return
 
-        rows_needed = (self.num_screens + self._grid_config.screens_per_row - 1) // self._grid_config.screens_per_row
+        rows_needed = (
+            self.num_screens + self._grid_config.screens_per_row - 1
+        ) // self._grid_config.screens_per_row
 
         with self.container, ui.column().classes("w-full h-full gap-2"):
             screen_index = 1
             for _ in range(rows_needed):
                 with ui.row().classes("w-full flex-1 gap-2"):
-                    screens_in_row = min(self._grid_config.screens_per_row, self.num_screens - screen_index + 1)
+                    screens_in_row = min(
+                        self._grid_config.screens_per_row, self.num_screens - screen_index + 1
+                    )
                     for _ in range(screens_in_row):
                         self._build_screen(screen_index, "flex-1 h-full")
                         screen_index += 1
@@ -98,9 +102,9 @@ class MultiScreen(ScreenBase):
             ui.icon(self._icon_name, size="lg").classes("text-blue-600")
             ui.label(label).classes("text-2xl font-bold")
             ui.space()
-            ui.select(options=list(range(1, self._grid_config.max_screens + 1)), value=1, label="Screens").classes(
-                "w-32"
-            ).on_value_change(self._on_screen_change)
+            ui.select(
+                options=list(range(1, self._grid_config.max_screens + 1)), value=1, label="Screens"
+            ).classes("w-32").on_value_change(self._on_screen_change)
 
     def get_connected_route_options(self) -> list[dict[str, Any]]:
         """Get connected route options for screen selectors."""

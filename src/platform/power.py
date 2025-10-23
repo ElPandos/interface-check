@@ -225,7 +225,11 @@ class Power:
                     watts = float(line.split(":")[1].strip().split()[0])
                     info.append(
                         PowerInfo(
-                            component="system", current_watts=watts, voltage=0.0, current_amps=0.0, state=PowerState.ON
+                            component="system",
+                            current_watts=watts,
+                            voltage=0.0,
+                            current_amps=0.0,
+                            state=PowerState.ON,
                         )
                     )
                 except (ValueError, IndexError):

@@ -2,24 +2,40 @@
 
 from typing import ClassVar
 
+from src.core.connect import SshConnection
 from src.mixins.tool import Tool
+from src.platform.tools.ls import LspciTool
 from src.tools.dmesg import DmesgTool
 from src.tools.ethtool import EthtoolTool
 from src.tools.mlxconfig import MlxconfigTool
-from src.core.connect import SshConnection
+
+# SUPPORTED_PACKAGES: list[str] = {
+#     "pciutils",  # PCI utilities for hardware info
+#     "ethtool",  # Ethernet tool for NIC management
+#     "rdma-core",  # RDMA/InfiniBand tools
+#     "lshw",  # Hardware lister
+#     "lm-sensors",  # Hardware monitoring sensors
+#     "python3-pip",  # Python package installer
+#     "mstflint",  # Mellanox firmware tools
+#     "mlnx-tools",  # Mellanox configuration tools
+# }
 
 
 class ToolFactory:
     """Factory for creating diagnostic tool instances."""
 
     _TOOLS: ClassVar[dict[str, type[Tool]]] = {
+        "lspci": LspciTool,
+        "ip": IpTool,
         "ethtool": EthtoolTool,
         "mlxconfig": MlxconfigTool,
         "dmesg": DmesgTool,
     }
 
     @classmethod
-    def create_tool(cls, tool_name: str, ssh_connection: SshConnection, interface: str | None = None) -> Tool:
+    def create_tool(
+        cls, tool_name: str, ssh_connection: SshConnection, interface: str | None = None
+    ) -> Tool:
         """Create a tool instance.
 
         Args:

@@ -214,7 +214,9 @@ class Hardware:
 
         # CPU thermal zones
         for i in range(10):  # Check up to 10 thermal zones
-            result = self._connection.execute_command(f"cat /sys/class/thermal/thermal_zone{i}/temp")
+            result = self._connection.execute_command(
+                f"cat /sys/class/thermal/thermal_zone{i}/temp"
+            )
             if result.success:
                 try:
                     temp = float(result.stdout.strip()) / 1000.0

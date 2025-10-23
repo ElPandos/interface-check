@@ -7,7 +7,6 @@ from nicegui import ui
 from src.core.connect import SshConnection
 from src.core.screen import MultiScreen
 from src.models.config import Config
-from src.ui.components.selector import Selector
 from src.ui.tabs.base import BasePanel, BaseTab
 
 NAME = "system"
@@ -106,21 +105,21 @@ class SystemContent:
         """Build system interface for the screen."""
         # System controls
         with ui.row().classes("w-full gap-2 mt-2 flex-wrap"):
-            self._buttons["system"] = ui.button("System Info", icon="info", on_click=self._get_system_info).classes(
-                "bg-green-500 hover:bg-green-600 text-white"
-            )
+            self._buttons["system"] = ui.button(
+                "System Info", icon="info", on_click=self._get_system_info
+            ).classes("bg-green-500 hover:bg-green-600 text-white")
 
-            self._buttons["cpu"] = ui.button("CPU Info", icon="memory", on_click=self._get_cpu_info).classes(
-                "bg-blue-500 hover:bg-blue-600 text-white"
-            )
+            self._buttons["cpu"] = ui.button(
+                "CPU Info", icon="memory", on_click=self._get_cpu_info
+            ).classes("bg-blue-500 hover:bg-blue-600 text-white")
 
-            self._buttons["memory"] = ui.button("Memory Info", icon="storage", on_click=self._get_memory_info).classes(
-                "bg-purple-500 hover:bg-purple-600 text-white"
-            )
+            self._buttons["memory"] = ui.button(
+                "Memory Info", icon="storage", on_click=self._get_memory_info
+            ).classes("bg-purple-500 hover:bg-purple-600 text-white")
 
-            self._buttons["clear"] = ui.button("Clear", icon="clear", on_click=self._clear_info).classes(
-                "bg-gray-500 hover:bg-gray-600 text-white"
-            )
+            self._buttons["clear"] = ui.button(
+                "Clear", icon="clear", on_click=self._clear_info
+            ).classes("bg-gray-500 hover:bg-gray-600 text-white")
 
         # System information display
         with ui.column().classes("w-full mt-4"):
@@ -190,7 +189,7 @@ class SystemContent:
                 connection = self._parent_panel.get_screen_connection(self._screen_num)
                 if connection and connection.is_connected():
                     return connection.exec_command(cmd, timeout=timeout)
-            return "", "No connection available"
+                return "", "No connection available"
         except Exception:
             return "", "Command execution failed"
 
@@ -207,16 +206,15 @@ class SystemContent:
             ("pwd", "Current Directory"),
         ]
 
-        with self._system_info_container:
-            with ui.card().classes("w-full p-4 border"):
-                ui.label("General System Information").classes("font-bold text-green-600 mb-2")
+        with self._system_info_container, ui.card().classes("w-full p-4 border"):
+            ui.label("General System Information").classes("font-bold text-green-600 mb-2")
 
-                for cmd, label in commands:
-                    stdout, stderr = self._execute_command(cmd)
-                    if stdout:
-                        ui.label(f"{label}: {stdout.strip()}").classes("text-sm")
-                    elif stderr:
-                        ui.label(f"{label}: Error - {stderr.strip()}").classes("text-sm text-red-600")
+            for cmd, label in commands:
+                stdout, stderr = self._execute_command(cmd)
+                if stdout:
+                    ui.label(f"{label}: {stdout.strip()}").classes("text-sm")
+                elif stderr:
+                    ui.label(f"{label}: Error - {stderr.strip()}").classes("text-sm text-red-600")
 
         ui.notify("System information retrieved", color="positive")
 
@@ -228,13 +226,12 @@ class SystemContent:
 
         stdout, stderr = self._execute_command("cat /proc/cpuinfo | head -20")
 
-        with self._system_info_container:
-            with ui.card().classes("w-full p-4 border"):
-                ui.label("CPU Information").classes("font-bold text-blue-600 mb-2")
-                if stdout:
-                    ui.code(stdout).classes("text-xs")
-                elif stderr:
-                    ui.label(f"Error: {stderr}").classes("text-sm text-red-600")
+        with self._system_info_container, ui.card().classes("w-full p-4 border"):
+            ui.label("CPU Information").classes("font-bold text-blue-600 mb-2")
+            if stdout:
+                ui.code(stdout).classes("text-xs")
+            elif stderr:
+                ui.label(f"Error: {stderr}").classes("text-sm text-red-600")
 
         ui.notify("CPU information retrieved", color="positive")
 
@@ -246,17 +243,16 @@ class SystemContent:
 
         commands = [("free -h", "Memory Usage"), ("df -h", "Disk Usage")]
 
-        with self._system_info_container:
-            with ui.card().classes("w-full p-4 border"):
-                ui.label("Memory & Storage Information").classes("font-bold text-purple-600 mb-2")
+        with self._system_info_container, ui.card().classes("w-full p-4 border"):
+            ui.label("Memory & Storage Information").classes("font-bold text-purple-600 mb-2")
 
-                for cmd, label in commands:
-                    stdout, stderr = self._execute_command(cmd)
-                    if stdout:
-                        ui.label(label).classes("font-semibold text-sm mt-2")
-                        ui.code(stdout).classes("text-xs")
-                    elif stderr:
-                        ui.label(f"{label}: Error - {stderr}").classes("text-sm text-red-600")
+            for cmd, label in commands:
+                stdout, stderr = self._execute_command(cmd)
+                if stdout:
+                    ui.label(label).classes("font-semibold text-sm mt-2")
+                    ui.code(stdout).classes("text-xs")
+                elif stderr:
+                    ui.label(f"{label}: Error - {stderr}").classes("text-sm text-red-600")
 
         ui.notify("Memory information retrieved", color="positive")
 

@@ -9,16 +9,12 @@ from src.interfaces.tool import ITool
 from src.platform.enums.software import CommandInputType
 
 
-class MstTool(ITool):
+class SystemTool(ITool):
     """Abstract base class for CLI diagnostic tools."""
 
-    # fmt: off
     _AVAILABLE_COMMANDS: ClassVar[list[list[str]]] = [
-        ["mst", "start"],
-        ["mst", "status"],
-        ["mst", "stop"],
+        ["ip", "-br", "link"],
     ]
-    # fmt: on
 
     def __init__(self, ssh_connection: SshConnection):
         """Initialize tool with SSH connection and interfaces.

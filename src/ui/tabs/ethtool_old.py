@@ -6,8 +6,7 @@ logger = logging.getLogger(__name__)
 
 from src.core.connect import SshConnection
 from src.models.config import Config
-from src.platform.commands import Common, Ethtool, Modify, System
-from src.ui.components.selector import Selector
+from src.platform.bak.commands import Common, Ethtool, Modify, System
 from src.ui.handlers.graph import GraphHandler
 from src.ui.tabs.base import BasePanel, BaseTab
 from src.utils.collector import Worker, WorkManager
@@ -59,7 +58,9 @@ class EthtoolPanel(BasePanel):
             if self._icon:
                 self._icon.style("color: #ef4444")
 
-    def _close_card(self, card: ui.card, _interf: str | None = None, kill_worker: bool = False) -> None:
+    def _close_card(
+        self, card: ui.card, _interf: str | None = None, kill_worker: bool = False
+    ) -> None:
         if kill_worker:
             logger.debug("Kill worker")
             self._work_manager.reset()
@@ -70,7 +71,9 @@ class EthtoolPanel(BasePanel):
         with ui.card().classes("w-full mb-4"), ui.row().classes("w-full items-center gap-4"):
             ui.label("Ethtool").classes("text-lg font-bold")
             ui.space()
-            ui.select([1, 2, 3, 4], value=1, label="Hosts").classes("w-32").on_value_change(self._on_screen_change)
+            ui.select([1, 2, 3, 4], value=1, label="Hosts").classes("w-32").on_value_change(
+                self._on_screen_change
+            )
 
     def _build_content(self) -> None:
         self.content_container = ui.column().classes("w-full h-full")
@@ -102,13 +105,16 @@ class EthtoolPanel(BasePanel):
                         self._build_screen(4, "flex-1 h-full")
 
     def _build_screen(self, screen_num, classes):
-        with ui.card().classes(classes), ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"):
+        with (
+            ui.card().classes(classes),
+            ui.expansion(f"Host {screen_num}", icon="computer").classes("w-full"),
+        ):
             if self._host_handler:
                 # TODO: Implement proper connection selector with SelectionProvider
                 ui.label("Connection selector placeholder").classes("text-gray-500")
-            ui.button("Scan Interfaces", on_click=lambda s=screen_num: self._scan_interfaces_for_screen(s)).classes(
-                "bg-red-300 hover:bg-red-400 text-red-900 mt-2"
-            )
+            ui.button(
+                "Scan Interfaces", on_click=lambda s=screen_num: self._scan_interfaces_for_screen(s)
+            ).classes("bg-red-300 hover:bg-red-400 text-red-900 mt-2")
             ui.label(f"Content for host {screen_num}").classes("mt-4")
 
     def _on_screen_change(self, e):
@@ -123,7 +129,11 @@ class EthtoolPanel(BasePanel):
         self._update_icon_status()
 
     def _update_icon_status(self):
-        if hasattr(self, "screen_connections") and any(self.screen_connections.values()) and self._icon:
+        if (
+            hasattr(self, "screen_connections")
+            and any(self.screen_connections.values())
+            and self._icon
+        ):
             self._icon.style("color: #10b981")
         elif self._icon:
             self._icon.style("color: #ef4444")
@@ -171,7 +181,9 @@ class EthtoolPanel(BasePanel):
 
     def _activate_workers(self, options: list) -> None:
         for interf in options.value:
-            self._work_manager.add(Worker(Ethtool().module_info(interf), interf, self._config, self._ssh_connection))
+            self._work_manager.add(
+                Worker(Ethtool().module_info(interf), interf, self._config, self._ssh_connection)
+            )
             self._build_source(interf)
 
     def _build_source(self, interf: str) -> None:
@@ -191,7 +203,9 @@ class EthtoolPanel(BasePanel):
             )
             ui.button("Start", on_click=lambda opt=selection: self._activate_source(interf, opt))
             ui.space()
-            ui.button("X", on_click=lambda opt=card: self._close_card(opt, interf, kill_worker=True))
+            ui.button(
+                "X", on_click=lambda opt=card: self._close_card(opt, interf, kill_worker=True)
+            )
 
     def _activate_source(self, interf: str, options: list) -> None:
         for source in options.value:
@@ -212,7 +226,9 @@ class EthtoolPanel(BasePanel):
                 .classes("w-64")
                 .props("use-chips")
             )
-            ui.button("Start", on_click=lambda opt=selection: self._plot_values(interf, source, opt))
+            ui.button(
+                "Start", on_click=lambda opt=selection: self._plot_values(interf, source, opt)
+            )
             ui.space()
             ui.button("X", on_click=lambda opt=card: self._close_card(opt))
 

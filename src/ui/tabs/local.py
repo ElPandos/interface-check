@@ -50,13 +50,18 @@ class LocalPanel(BasePanel):
     def build(self):
         with ui.tab_panel(self.name).classes("w-full h-screen"):
             if not self._local_content:
-                self._local_content = LocalContent(self._ssh_connection, self._host_handler, self._config)
+                self._local_content = LocalContent(
+                    self._ssh_connection, self._host_handler, self._config
+                )
             self._local_content.build()
 
 
 class LocalContent:
     def __init__(
-        self, ssh_connection: SshConnection | None = None, host_handler=None, config: Config | None = None
+        self,
+        ssh_connection: SshConnection | None = None,
+        host_handler=None,
+        config: Config | None = None,
     ) -> None:
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
@@ -78,7 +83,9 @@ class LocalContent:
                 ui.icon("dashboard", size="lg").classes("text-blue-600")
                 ui.label("Local System").classes("text-2xl font-bold text-gray-800")
                 ui.space()
-                ui.checkbox("Refresh", value=self._auto_refresh, on_change=self._toggle_auto_refresh).classes("mr-4")
+                ui.checkbox(
+                    "Refresh", value=self._auto_refresh, on_change=self._toggle_auto_refresh
+                ).classes("mr-4")
                 ui.button(icon="upload", on_click=self._export_data).classes(
                     "bg-blue-300 hover:bg-blue-400 text-blue-900 px-4 py-2 rounded ml-2"
                 ).tooltip("Export system data")
@@ -106,7 +113,9 @@ class LocalContent:
 
         # Update button icon
         if self._expand_button:
-            self._expand_button.props(f"icon={'sym_r_collapse_all' if self._all_expanded else 'sym_r_expand_all'}")
+            self._expand_button.props(
+                f"icon={'sym_r_collapse_all' if self._all_expanded else 'sym_r_expand_all'}"
+            )
 
     def _refresh_stats(self):
         """Refresh system statistics."""
@@ -137,7 +146,9 @@ class LocalContent:
     def _export_data(self):
         """Export all dashboard data to JSON."""
         data = self._collect_all_data()
-        Json.export_download(data, "system_dashboard", success_message="System dashboard data exported successfully")
+        Json.export_download(
+            data, "system_dashboard", success_message="System dashboard data exported successfully"
+        )
 
     def _get_system_info(self):
         """Get system information."""
@@ -184,12 +195,22 @@ class LocalContent:
 
         try:
             # Sort processes once and slice for both CPU and memory
-            cpu_sorted = sorted(processes, key=lambda x: x.info.get("cpu_percent") or 0, reverse=True)[:10]
-            mem_sorted = sorted(processes, key=lambda x: x.info.get("memory_percent") or 0, reverse=True)[:10]
+            cpu_sorted = sorted(
+                processes, key=lambda x: x.info.get("cpu_percent") or 0, reverse=True
+            )[:10]
+            mem_sorted = sorted(
+                processes, key=lambda x: x.info.get("memory_percent") or 0, reverse=True
+            )[:10]
 
             data["top_processes"] = {
-                "cpu": [{"name": p.info["name"], "cpu_percent": p.info["cpu_percent"]} for p in cpu_sorted],
-                "memory": [{"name": p.info["name"], "memory_percent": p.info["memory_percent"]} for p in mem_sorted],
+                "cpu": [
+                    {"name": p.info["name"], "cpu_percent": p.info["cpu_percent"]}
+                    for p in cpu_sorted
+                ],
+                "memory": [
+                    {"name": p.info["name"], "memory_percent": p.info["memory_percent"]}
+                    for p in mem_sorted
+                ],
             }
         except Exception:
             data["top_processes"] = {"cpu": [], "memory": []}
@@ -199,7 +220,9 @@ class LocalContent:
     def _create_table(self, columns, rows):
         """Create optimized table with consistent styling."""
         return (
-            ui.table(columns=columns, rows=rows).classes("w-full").style("background-color: white; text-align: left;")
+            ui.table(columns=columns, rows=rows)
+            .classes("w-full")
+            .style("background-color: white; text-align: left;")
         )
 
     def _build_system_stats(self):
@@ -216,7 +239,9 @@ class LocalContent:
             with ui.row().classes("w-full gap-2 mb-2"):
                 # System Info Table
                 exp1 = ui.expansion(
-                    "System Info", icon="computer", value=self._expansion_states.get("system", False)
+                    "System Info",
+                    icon="computer",
+                    value=self._expansion_states.get("system", False),
                 ).classes("flex-1 bg-blue-50 border border-blue-200")
                 exp1.on_value_change(lambda e: self._expansion_states.update({"system": e.value}))
                 self._expansions["system"] = exp1
@@ -237,9 +262,13 @@ class LocalContent:
 
                 # Performance Table
                 exp2 = ui.expansion(
-                    "Performance", icon="memory", value=self._expansion_states.get("performance", False)
+                    "Performance",
+                    icon="memory",
+                    value=self._expansion_states.get("performance", False),
                 ).classes("flex-1 bg-orange-50 border border-orange-200")
-                exp2.on_value_change(lambda e: self._expansion_states.update({"performance": e.value}))
+                exp2.on_value_change(
+                    lambda e: self._expansion_states.update({"performance": e.value})
+                )
                 self._expansions["performance"] = exp2
                 with exp2:
                     memory = psutil.virtual_memory()
@@ -272,7 +301,9 @@ class LocalContent:
 
                 # Network Table
                 exp3 = ui.expansion(
-                    "Network", icon="network_check", value=self._expansion_states.get("network", False)
+                    "Network",
+                    icon="network_check",
+                    value=self._expansion_states.get("network", False),
                 ).classes("flex-1 bg-teal-50 border border-teal-200")
                 exp3.on_value_change(lambda e: self._expansion_states.update({"network": e.value}))
                 self._expansions["network"] = exp3
@@ -283,8 +314,14 @@ class LocalContent:
                     except (OSError, psutil.AccessDenied):
                         connections = "N/A"
                     net_data = [
-                        {"Metric": "Bytes Sent", "Value": f"{net_io.bytes_sent / (1024**2):.0f} MB"},
-                        {"Metric": "Bytes Received", "Value": f"{net_io.bytes_recv / (1024**2):.0f} MB"},
+                        {
+                            "Metric": "Bytes Sent",
+                            "Value": f"{net_io.bytes_sent / (1024**2):.0f} MB",
+                        },
+                        {
+                            "Metric": "Bytes Received",
+                            "Value": f"{net_io.bytes_recv / (1024**2):.0f} MB",
+                        },
                         {"Metric": "Packets Sent", "Value": f"{net_io.packets_sent:,}"},
                         {"Metric": "Active Connections", "Value": str(connections)},
                     ]
@@ -300,7 +337,9 @@ class LocalContent:
             with ui.row().classes("w-full gap-2 mb-2"):
                 # Top CPU Processes Table
                 exp4 = ui.expansion(
-                    "Top CPU Processes", icon="trending_up", value=self._expansion_states.get("top_cpu", False)
+                    "Top CPU Processes",
+                    icon="trending_up",
+                    value=self._expansion_states.get("top_cpu", False),
                 ).classes("flex-1 bg-red-50 border border-red-200")
                 exp4.on_value_change(lambda e: self._expansion_states.update({"top_cpu": e.value}))
                 self._expansions["top_cpu"] = exp4
@@ -333,9 +372,13 @@ class LocalContent:
 
                 # Top Memory Processes Table
                 exp5 = ui.expansion(
-                    "Top Memory Processes", icon="storage", value=self._expansion_states.get("top_memory", False)
+                    "Top Memory Processes",
+                    icon="storage",
+                    value=self._expansion_states.get("top_memory", False),
                 ).classes("flex-1 bg-purple-50 border border-purple-200")
-                exp5.on_value_change(lambda e: self._expansion_states.update({"top_memory": e.value}))
+                exp5.on_value_change(
+                    lambda e: self._expansion_states.update({"top_memory": e.value})
+                )
                 self._expansions["top_memory"] = exp5
                 with exp5:
                     try:
@@ -366,7 +409,9 @@ class LocalContent:
 
                 # Process Health Table
                 exp6 = ui.expansion(
-                    "Process Health", icon="health_and_safety", value=self._expansion_states.get("health", False)
+                    "Process Health",
+                    icon="health_and_safety",
+                    value=self._expansion_states.get("health", False),
                 ).classes("flex-1 bg-yellow-50 border border-yellow-200")
                 exp6.on_value_change(lambda e: self._expansion_states.update({"health": e.value}))
                 self._expansions["health"] = exp6
@@ -466,7 +511,9 @@ class LocalContent:
 
                 # Users Table
                 exp9 = ui.expansion(
-                    "Active Users", icon="security", value=self._expansion_states.get("security", False)
+                    "Active Users",
+                    icon="security",
+                    value=self._expansion_states.get("security", False),
                 ).classes("flex-1 bg-pink-50 border border-pink-200")
                 exp9.on_value_change(lambda e: self._expansion_states.update({"security": e.value}))
                 self._expansions["security"] = exp9
@@ -474,10 +521,16 @@ class LocalContent:
                     try:
                         users = psutil.users()
                         current_user = psutil.Process().username()
-                        user_data = [{"Type": "Current User", "Name": current_user, "Status": "Active"}]
+                        user_data = [
+                            {"Type": "Current User", "Name": current_user, "Status": "Active"}
+                        ]
                         for user in users[-3:]:  # Show last 3 users
                             user_data.append(
-                                {"Type": "Session", "Name": user.name, "Status": f"Terminal: {user.terminal or 'N/A'}"}
+                                {
+                                    "Type": "Session",
+                                    "Name": user.name,
+                                    "Status": f"Terminal: {user.terminal or 'N/A'}",
+                                }
                             )
                         self._create_table(
                             [
@@ -494,14 +547,21 @@ class LocalContent:
             with ui.row().classes("w-full gap-2"):
                 # Application Stats Table
                 exp10 = ui.expansion(
-                    "Application Stats", icon="code", value=self._expansion_states.get("application", False)
+                    "Application Stats",
+                    icon="code",
+                    value=self._expansion_states.get("application", False),
                 ).classes("flex-1 bg-indigo-50 border border-indigo-200")
-                exp10.on_value_change(lambda e: self._expansion_states.update({"application": e.value}))
+                exp10.on_value_change(
+                    lambda e: self._expansion_states.update({"application": e.value})
+                )
                 self._expansions["application"] = exp10
                 with exp10:
                     current_process = psutil.Process()
                     app_data = [
-                        {"Metric": "Memory Usage", "Value": f"{current_process.memory_info().rss / (1024**2):.0f} MB"},
+                        {
+                            "Metric": "Memory Usage",
+                            "Value": f"{current_process.memory_info().rss / (1024**2):.0f} MB",
+                        },
                         {"Metric": "Thread Count", "Value": str(current_process.num_threads())},
                         {"Metric": "Process ID", "Value": str(current_process.pid)},
                         {"Metric": "Status", "Value": "Online ✅"},
@@ -516,7 +576,9 @@ class LocalContent:
 
                 # Sensors Table
                 exp11 = ui.expansion(
-                    "System Sensors", icon="thermostat", value=self._expansion_states.get("sensors", False)
+                    "System Sensors",
+                    icon="thermostat",
+                    value=self._expansion_states.get("sensors", False),
                 ).classes("flex-1 bg-amber-50 border border-amber-200")
                 exp11.on_value_change(lambda e: self._expansion_states.update({"sensors": e.value}))
                 self._expansions["sensors"] = exp11
@@ -535,11 +597,21 @@ class LocalContent:
                                         }
                                     )
                         if not sensor_data:
-                            sensor_data = [{"Sensor": "No sensors detected", "Temperature": "N/A", "Status": "i"}]
+                            sensor_data = [
+                                {
+                                    "Sensor": "No sensors detected",
+                                    "Temperature": "N/A",
+                                    "Status": "i",
+                                }
+                            ]
                         self._create_table(
                             [
                                 {"name": "Sensor", "label": "Sensor", "field": "Sensor"},
-                                {"name": "Temperature", "label": "Temperature", "field": "Temperature"},
+                                {
+                                    "name": "Temperature",
+                                    "label": "Temperature",
+                                    "field": "Temperature",
+                                },
                                 {"name": "Status", "label": "Status", "field": "Status"},
                             ],
                             sensor_data,
@@ -549,7 +621,9 @@ class LocalContent:
 
                 # Uptime Table
                 exp12 = ui.expansion(
-                    "System Uptime", icon="schedule", value=self._expansion_states.get("uptime", False)
+                    "System Uptime",
+                    icon="schedule",
+                    value=self._expansion_states.get("uptime", False),
                 ).classes("flex-1 bg-green-50 border border-green-200")
                 exp12.on_value_change(lambda e: self._expansion_states.update({"uptime": e.value}))
                 self._expansions["uptime"] = exp12
@@ -562,7 +636,10 @@ class LocalContent:
                             "Event": "Uptime Duration",
                             "Time": f"{uptime.days}d {uptime.seconds // 3600}h {(uptime.seconds // 60) % 60}m",
                         },
-                        {"Event": "Current Time", "Time": datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S")},
+                        {
+                            "Event": "Current Time",
+                            "Time": datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S"),
+                        },
                     ]
                     self._create_table(
                         [
