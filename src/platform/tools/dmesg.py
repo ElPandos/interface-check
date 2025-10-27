@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, ClassVar
 
+from src.core.connect import SshConnection
+from src.interfaces.tool import ITool, Tool
+from src.platform.enums.software import ToolType
+
 
 @dataclass(frozen=True)
 class DmesgEntry:
@@ -15,30 +19,50 @@ class DmesgEntry:
     message: str
 
 
-class DmesgTool(TIool):
+class DmesgTool(Tool, ITool):
     """Dmesg kernel message diagnostic tool."""
 
     # fmt: off
-    _AVAILABLE_COMMANDS: ClassVar[list[list[str]]] = [
+    _AVAILABLE_COMMANDS: ClassVar[list[list[Any]]] = [
         ["dmesg", "|", "egrep", "-i", "'mlx|mellanox|sfp|qsfp|phy|eth|port'", "|", "tail", "-n", "200" ],
         ["dmesg", "|", "egrep", "-i", "'mlx|sfp|qsfp|phy"],
         ["dmesg", "|", "egrep", "-i", "'mlx|mellanox|sfp|qsfp|phy|port'"]
     ]
     # fmt: on
 
+    def __init__(self, ssh_connection: SshConnection, interfaces: list[str]):
+        """Initialize tool with SSH connection.
+
+        Args:
+            ssh_connection: SSH connection for command execution
+        """
+        Tool.__init__(self, ssh_connection)
+        self._interfaces = interfaces
+
     @property
-    def tool_name(self) -> str:
-        return "dmesg"
+    def type(self) -> ToolType:
+        return ToolType.DMESG
 
-    def get_commands(self) -> dict[str, str]:
-        """Get available dmesg commands."""
-        return self._AVAILABLE_COMMANDS
+    def available_commands(self) -> list[str]:
+        """Get available commands for this tool.
 
-    def parse_output(self, _command_name: str, raw_output: str) -> Any:
-        """Parse dmesg command output."""
-        return self._parse_dmesg_entries(raw_output)
+        Returns:
+            List of CLI commands
+        """
+        commands_modified = []
+        for command in self._AVAILABLE_COMMANDS:
+            commands_modified.append(" ".join(command))
 
-    def _parse_dmesg_entries(self, output: str) -> list[DmesgEntry]:
+        return commands_modified
+
+    def execute(self) -> None:
+        for command in self.available_commands():
+            super().__execute(command)
+
+    def log(self) -> None:
+        super().log()
+
+    def _parse(self, command_name: str, output: str) -> Any:
         """Parse dmesg entries with timestamps."""
         entries = []
         lines = output.strip().split("\n")
@@ -78,3 +102,6 @@ class DmesgTool(TIool):
             )
 
         return entries
+
+    def _summarize(self) -> dict[str, Any]:
+        """Summarize tool results."""

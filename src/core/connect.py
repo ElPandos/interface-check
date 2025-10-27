@@ -8,7 +8,7 @@ from typing import Any, ClassVar
 
 import paramiko
 
-from src.interfaces.connection import CommandResult, IConnection, IConnectionFactory
+from src.interfaces.connection import CommandResult, IConnection
 from src.models.config import Host, Route
 
 
@@ -179,13 +179,19 @@ class SshConnection(IConnection):
 
             stdout_data = stdout.read().decode()
             stderr_data = stderr.read().decode()
-            exit_status = stdout.channel.recv_exit_status()
+            return_code = stdout.channel.recv_exit_status()
 
-            self.logger.debug(f"Command completed with exit status {exit_status}")
+            self.logger.debug(f"Command completed with exit status {return_code}")
             if stderr_data:
                 self.logger.warning(f"Command stderr: {stderr_data[:200]}")
 
-            return CommandResult(stdout_data, stderr_data, execution_time, exit_status)
+            return CommandResult(
+                command=command,
+                stdout=stdout_data,
+                stderr=stderr_data,
+                execution_time=execution_time,
+                return_code=return_code,
+            )
 
         except Exception as e:
             self.logger.exception(f"Command execution failed: {command}")
@@ -490,16 +496,16 @@ class SshConnection(IConnection):
             self.logger.debug("Shell already closed or not opened")
 
 
-class SshConnectionFactory(IConnectionFactory):
-    def create_connection(self, config: Any) -> IConnection:
-        password = (
-            config.password.get_secret_value()
-            if hasattr(config.password, "get_secret_value")
-            else config.password
-        )
-        return SshConnection(
-            getattr(config, "ip", "localhost"),
-            getattr(config, "username", "user"),
-            password,
-            getattr(config, "jump_hosts", None),
-        )
+# class SshConnectionFactory(IConnectionFactory):
+#     def create_connection(self, config: Any) -> IConnection:
+#         password = (
+#             config.password.get_secret_value()
+#             if hasattr(config.password, "get_secret_value")
+#             else config.password
+#         )
+#         return SshConnection(
+#             getattr(config, "ip", "localhost"),
+#             getattr(config, "username", "user"),
+#             password,
+#             getattr(config, "jump_hosts", None),
+#         )

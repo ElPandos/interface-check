@@ -1,21 +1,17 @@
-import json
-import logging
-from pathlib import Path
 from typing import Any, ClassVar
 
 from src.core.connect import SshConnection
 from src.interfaces.connection import CommandResult
-from src.interfaces.tool import ITool
-from src.platform.enums.software import CommandInputType
-from src.platform.tools.helper import get_pci_id_command
+from src.interfaces.tool import ITool, Tool
+from src.platform.enums.software import CommandInputType, ToolType
 
 
-class MlxTool(ITool):
-    """Abstract base class for CLI diagnostic tools."""
+class MlxTool(Tool, ITool):
+    """Mlx class for CLI diagnostic tools."""
 
     # fmt: off
-    _AVAILABLE_COMMANDS: ClassVar[list[list[str]]] = [
-        ["mlxlink", "-d"],
+    _AVAILABLE_COMMANDS: ClassVar[list[list[Any]]] = [
+        ["mlxlink", "-d", CommandInputType.MST_PCICONF],
         ["mlxconfig", "-d", CommandInputType.MST_PCICONF, "query"]
     ]
     # fmt: on
@@ -27,52 +23,33 @@ class MlxTool(ITool):
             ssh_connection: SSH connection for command execution
             interfaces: List of network interface names
         """
-        self._ssh_connection = ssh_connection
+        Tool.__init__(self, ssh_connection)
         self._interfaces = interfaces
 
-        self._results: dict[str, Any] = {}
-
-        self.logger = logging.getLogger(__name__)
-
     @property
-    def name(self) -> str:
+    def type(self) -> ToolType:
         """Name of the CLI tool."""
-        return "lspci"
+        return ToolType.MLX
 
-    def get_available_commands(self) -> list[dict[CommandInputType, list[str]]]:
+    def available_commands(self) -> list[str]:
         """Get available commands for this tool.
 
         Returns:
-            Dict mapping command names to CLI commands
+            List of CLI commands
         """
-        return self._AVAILABLE_COMMANDS
+        commands_modified = []
+        for interface in self._interfaces:
+            for command in self._AVAILABLE_COMMANDS:
+                commands_modified.append(self._generate_commands(interface, command))
 
-    def _execute(self, command: str) -> CommandResult:
-        """Execute a specific command and return result.
+        return commands_modified
 
-        Args:
-            command: CLI command to execute
+    def execute(self) -> None:
+        for command in self.available_commands():
+            self._execute(command)
 
-        Returns:
-            CommandResult with execution details
-        """
-        if not self._ssh_connection.is_connected():
-            message = f"Cannot execute command '{command}': No SSH connection"
-            self.logger.error(message)
-            return CommandResult.error(command, message)
-
-        try:
-            result = self._ssh_connection.execute_command(command)
-            if result.success:
-                self.logger.info(f"Succesfully executed command: {command}")
-            else:
-                return CommandResult.error(command, result.stderr)
-        except Exception as e:
-            return CommandResult.error(command, e)
-
-        return CommandResult(
-            stdout=result.stdout, stderr=result.stderr, exit_status=result.exit_status
-        )
+    def log(self) -> None:
+        self._log()
 
     def _parse(self, command: str, output: str) -> dict[str, str]:
         """Parse raw command output into structured data.
@@ -92,7 +69,7 @@ class MlxTool(ITool):
         Returns:
             Dict mapping command names to parsed data
         """
-        available_commands = self.get_available_commands()
+        available_commands = self.available_commands()
 
         response = {}
         for interface in self._interfaces:
@@ -107,31 +84,5 @@ class MlxTool(ITool):
                     if result.success:
                         response[interface] = result.stdout.strip()
                     else:
-                        response[interface] = CommandResult.error(result.stderr, result.exit_status)
+                        response[interface] = CommandResult.error(result.stderr, result.return_code)
         return response
-
-    def _check_response(
-        self, interface: str, response: dict[str, Any], result: CommandResult
-    ) -> None:
-        if result.success:
-            response[interface] = result.stdout.strip()
-        else:
-            response[interface] = CommandResult.error(result.stderr, result.exit_status)
-
-    def log_summary(self) -> None:
-        data = self.summarize()
-
-        for interface, output in data:
-            self.logger.info("==================")
-            self.logger.info(f"== {interface}")
-            self.logger.info("==================")
-            self.logger.info(f"\n{output}")
-
-    def save(self, path: Path) -> None:
-        """Export collected data to JSON file.
-
-        Args:
-            output_path: Path to output file
-        """
-        with open(path, "w") as f:
-            json.dump(self._summarize(), f, indent=2)

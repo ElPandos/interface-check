@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, auto
 
 
 class ServiceStatus(Enum):
@@ -33,3 +33,12 @@ class CommandInputType(Enum):
     PCI_ID = "PCI id"
     MST_PCICONF = "_pciconfig"
     NOTHING = ""
+
+
+class ToolType(Enum):
+    DMESG = auto()
+    ETHTOOL = auto()
+    MLX = auto()
+    MST = auto()
+    RDMA = auto()
+    SYSTEM = auto()

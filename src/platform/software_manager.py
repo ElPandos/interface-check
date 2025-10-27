@@ -26,17 +26,19 @@ from src.interfaces.connection import CommandResult
 from src.interfaces.software import IPackageManager, Package
 from src.platform.enums.software import PackageManagerType
 
+# fmt: off
 SUPPORTED_PACKAGES: list[str] = {
-    "pciutils",  # PCI utilities for hardware info
-    "ethtool",  # Ethernet tool for NIC management
-    "rdma-core",  # RDMA/InfiniBand tools
-    "ibverbs-utils",  # RDMA/InfiniBand tools
-    "lshw",  # Hardware lister
-    "lm-sensors",  # Hardware monitoring sensors
-    "python3-pip",  # Python package installer
-    "mstflint",  # Mellanox firmware tools
-    "mlnx-tools",  # Mellanox configuration tools
+    "pciutils",         # PCI utilities for hardware info
+    "ethtool",          # Ethernet tool for NIC management
+    "rdma-core",        # RDMA/InfiniBand tools
+    "ibverbs-utils",    # RDMA/InfiniBand tools
+    "lshw",             # Hardware lister
+    "lm-sensors",       # Hardware monitoring sensors
+    "python3-pip",      # Python package installer
+    "mstflint",         # Mellanox firmware tools
+    "mlnx-tools",       # Mellanox configuration tools
 }
+# fmt: on
 
 
 class AptManager(IPackageManager):
@@ -391,6 +393,9 @@ class SoftwareManager:
         self.logger = logging.getLogger(__name__)
         self.logger.info("Initializing Software Manager")
 
+        # Other logger
+        self.sut_system_info_logger = logging.getLogger("sut_info")
+
         # Detect and initialize the appropriate package manager
         self._detect_package_manager()
 
@@ -660,11 +665,11 @@ class SoftwareManager:
         Args:
             config: Table configuration dictionary
         """
-        self.logger.info(f"{config['header_line']}")
-        self.logger.info(
+        self.sut_system_info_logger.info(f"{config['header_line']}")
+        self.sut_system_info_logger.info(
             f"| {'Package':<{config['name_width'] - 2}} | {'Version Information':<{config['version_width'] - 2}} | {'Status':<{config['status_width'] - 2}} |"
         )
-        self.logger.info(f"{config['header_line']}")
+        self.sut_system_info_logger.info(f"{config['header_line']}")
 
     def _log_package_rows(
         self,
@@ -709,7 +714,7 @@ class SoftwareManager:
             else version
         )
 
-        self.logger.info(
+        self.sut_system_info_logger.info(
             f"| {pkg:<{config['name_width'] - 2}} | {display_version:<{config['version_width'] - 2}} | {status:<{config['status_width'] - 2}} |"
         )
         self.logger.debug(f"Package '{pkg}' status: {status}")
@@ -720,7 +725,7 @@ class SoftwareManager:
         Args:
             config: Table configuration dictionary
         """
-        self.logger.info(f"{config['header_line']}")
+        self.sut_system_info_logger.info(f"{config['header_line']}")
 
     def _log_summary_statistics(self, version_info: dict[str, str]) -> None:
         """Log installation summary statistics.
@@ -735,28 +740,32 @@ class SoftwareManager:
         failed = total_packages - successful
         success_rate = (successful / total_packages * 100) if total_packages > 0 else 0
 
-        self.logger.info("Software Installation Verification Summary")
-        self.logger.info(f"   Total packages verified: {total_packages}")
-        self.logger.info(f"   Successfully installed: {successful} ({success_rate:.1f}%)")
+        self.sut_system_info_logger.info("Software Installation Verification Summary")
+        self.sut_system_info_logger.info(f"   Total packages verified: {total_packages}")
+        self.sut_system_info_logger.info(
+            f"   Successfully installed: {successful} ({success_rate:.1f}%)"
+        )
         if failed > 0:
-            self.logger.info(f"   Missing or failed: {failed} ({100 - success_rate:.1f}%)")
-            self.logger.warning(
+            self.sut_system_info_logger.info(
+                f"   Missing or failed: {failed} ({100 - success_rate:.1f}%)"
+            )
+            self.sut_system_info_logger.warning(
                 "Some required packages are missing. Consider installing them manually."
             )
         else:
-            self.logger.info("   All required packages are properly installed!")
-        self.logger.info("")
+            self.sut_system_info_logger.info("   All required packages are properly installed!")
+        self.sut_system_info_logger.info("")
 
-    def log_system_info(self, required_packages: list[Package]) -> None:
-        if not self._package_manager:
-            self.logger.error("Cannot update package index: No package manager available")
-            return
+    # def log_system_info(self, required_packages: list[Package]) -> None:
+    #     if not self._package_manager:
+    #         self.logger.error("Cannot update package index: No package manager available")
+    #         return
 
-        # Validate package support
-        supported_packages, _ = self._validate_package_support(required_packages)
+    #     # Validate package support
+    #     supported_packages, _ = self._validate_package_support(required_packages)
 
-        for package in supported_packages:
-            self.log_system_info()
+    #     for package in supported_packages:
+    #         self.log_system_info()
 
     def update_installed_packages(self) -> bool:
         """Update package index using detected package manager.

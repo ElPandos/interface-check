@@ -1,3 +1,4 @@
+import logging
 import re
 from typing import Any, ClassVar
 
@@ -37,6 +38,8 @@ class EyeScanParser(IParser):
         self._raw_output = raw_output
         self._rows: list[dict[str, str]] = self._parse_rows()
 
+        self.logger = logging.getLogger("main")
+
     def _parse_rows(self) -> list[dict[str, str]]:
         """Extract voltage/pattern rows from CLI output."""
         rows = []
@@ -75,8 +78,8 @@ class EyeScanParser(IParser):
 
         return matrix, voltages, phase_offsets
 
-    def log(self) -> None:
-        pass
+    def log(self) -> str:
+        return ""
 
 
 # ---------------------------------------------------------------------------- #
@@ -105,6 +108,8 @@ class MstStatusParser(IParser):
         self._raw_output = raw_output
         self._mst_map: dict[str, str] = self._parse_mst_output()
 
+        self.logger = logging.getLogger("main")
+
     def _parse(self) -> dict[str, str]:
         """
         Internal method to extract all MST device to PCI ID mappings.
@@ -117,6 +122,7 @@ class MstStatusParser(IParser):
             pci_id = match.group("pci_id")
             mst_dev = match.group("mst_dev")
             mapping[pci_id] = mst_dev
+
         return mapping
 
     def get_mst_by_pci(self, pci_id: str) -> str | None:
@@ -161,8 +167,10 @@ class MstVersionDevice:
         self.net = net.replace("net-", "") if net and net.startswith("net-") else net
         self.numa = numa if numa != "-" else None
 
-    def __repr__(self):
-        return (
+        self.logger = logging.getLogger("main")
+
+    def log(self) -> str:
+        self.logger.info(
             f"MstDevice(device_type={self.device_type!r}, "
             f"mst={self.mst!r}, pci={self.pci!r}, "
             f"rdma={self.rdma!r}, net={self.net!r}, "
@@ -179,6 +187,8 @@ class MstStatusVersionParser(IParser):
     def __init__(self, raw_output: str):
         self._raw_output = raw_output
         self._devices: list[MstVersionDevice] = self._parse_output()
+
+        self.logger = logging.getLogger("main")
 
     def _parse(self) -> list[MstVersionDevice]:
         devices: list[MstVersionDevice] = []
@@ -223,5 +233,5 @@ class MstStatusVersionParser(IParser):
         return self._devices
 
     def log(self) -> None:
-        for _dev in self.devices:
-            pass
+        for device in self.devices:
+            device.log()

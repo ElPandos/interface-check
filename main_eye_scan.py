@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 from src.core.connect import SshConnection
 from src.models.config import Host
 from src.platform.software_manager import SoftwareManager
+from src.platform.tools.tool_factory import ToolFactory
 
 # Event for graceful shutdown
 shutdown_event = threading.Event()
@@ -38,40 +39,47 @@ sut_system_info_log = log_dir / f"sut_system_info_{log_time_stamp}.log"
 sut_temp_scan_log = log_dir / f"sut_temp_scan_{log_time_stamp}.log"
 main_log = log_dir / f"main_{log_time_stamp}.log"
 
+log_level = logging.DEBUG
+
+# Log formatter
+log_format_string = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+
 # Configure root logger
 logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=log_level,
+    format=log_format_string,
     handlers=[
         logging.FileHandler(main_log),
         logging.StreamHandler(),
     ],
 )
 
+# Main logger
+main_logger = logging.getLogger("main")
+
 # Create specialized loggers
-logger = logging.getLogger(__name__)
-slx_logger = logging.getLogger("slx_scanner")
-sut_info_logger = logging.getLogger("sut_info")
-sut_temp_logger = logging.getLogger("sut_temp")
+slx_eye_scan_logger = logging.getLogger("slx_scanner")
+sut_system_info_logger = logging.getLogger("sut_info")
+sut_temp_scan_logger = logging.getLogger("sut_temp")
 
 # Add file handlers for specialized loggers
-slx_handler = logging.FileHandler(slx_eye_scan_log)
-sut_info_handler = logging.FileHandler(sut_system_info_log)
-sut_temp_handler = logging.FileHandler(sut_temp_scan_log)
+slx_eye_scan_handler = logging.FileHandler(slx_eye_scan_log)
+sut_system_info_handler = logging.FileHandler(sut_system_info_log)
+sut_temp_scan_handler = logging.FileHandler(sut_temp_scan_log)
 
-log_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-for handler in [slx_handler, sut_info_handler, sut_temp_handler]:
-    handler.setFormatter(log_formatter)
-    handler.setLevel(logging.DEBUG)
+for handler in [slx_eye_scan_handler, sut_system_info_handler, sut_temp_scan_handler]:
+    handler.setFormatter(logging.Formatter(log_format_string))
+    handler.setLevel(log_level)
 
-slx_logger.addHandler(slx_handler)
-sut_info_logger.addHandler(sut_info_handler)
-sut_temp_logger.addHandler(sut_temp_handler)
+slx_eye_scan_logger.addHandler(slx_eye_scan_handler)
+sut_system_info_logger.addHandler(sut_system_info_handler)
+sut_temp_scan_logger.addHandler(sut_temp_scan_handler)
 
 # Prevent duplicate logs in root logger
-slx_logger.propagate = False
-sut_info_logger.propagate = False
-sut_temp_logger.propagate = False
+slx_eye_scan_logger.propagate = False
+sut_system_info_logger.propagate = False
+sut_temp_scan_logger.propagate = False
 
 
 @dataclass(frozen=True)
@@ -144,11 +152,11 @@ def load_config() -> Config:
             data = json.load(f)
         return Config.from_dict(data)
     except FileNotFoundError:
-        logger.exception(f"Config file not found: {config_file}")
-        logger.exception("Make sure config.json is in the same directory as the executable")
+        main_logger.exception(f"Config file not found: {config_file}")
+        main_logger.exception("Make sure config.json is in the same directory as the executable")
         raise
     except json.JSONDecodeError:
-        logger.exception("Invalid JSON in config file")
+        main_logger.exception("Invalid JSON in config file")
         raise
 
 
@@ -171,7 +179,7 @@ class SlxEyeScanner:
             str, tuple[str, str]
         ] = {}  # interface -> (port_id, interface_name)
         self._ssh_connection: SshConnection | None = None
-        self.logger = slx_logger
+        self.logger = slx_eye_scan_logger
 
     def connect(self) -> bool:
         """Establish SSH connection and setup environment."""
@@ -401,8 +409,8 @@ class SutSystemScanner:
         self._temps: list[TempResult] = []
         self._ssh_connection: SshConnection | None = None
         self._software_manager: SoftwareManager | None = None
-        self.info_logger = sut_info_logger
-        self.temp_logger = sut_temp_logger
+        self.info_logger = sut_system_info_logger
+        self.temp_logger = sut_temp_scan_logger
 
     def connect(self) -> bool:
         """Establish SSH connection and setup environment."""
@@ -472,7 +480,6 @@ class SutSystemScanner:
 
         try:
             self.info_logger.info("Logging required software versions")
-            # Fixed: method name typo
             self._software_manager.log_required_package_versions(
                 self._config.sut_required_software_packages
             )
@@ -484,14 +491,16 @@ class SutSystemScanner:
 
     def log_system_info(self) -> None:
         """Log system information."""
-        if not self._software_manager:
-            self.info_logger.error("Software manager not initialized")
-            return
-
         try:
             self.info_logger.info("Logging system information")
-            # Fixed: method name typo
-            self._software_manager.log_system_info()
+            for tool_type in ToolFactory.get_available_tools():
+                tool = ToolFactory.create_tool(
+                    tool_type=tool_type,
+                    ssh_connection=self._ssh_connection,
+                    interfaces=self._config.sut_scan_interfaces,  # Use None for system info, not interface list
+                )
+                tool.execute()
+                tool.log()
         except Exception as e:
             self.info_logger.exception(f"Failed to log system info: {e}")
 
@@ -516,31 +525,31 @@ def main():
     """Main execution with continuous scanning loop."""
     try:
         config = load_config()
-        logger.info("Configuration loaded successfully")
+        main_logger.info("Configuration loaded successfully")
     except Exception as e:
-        logger.exception(f"Failed to load configuration: {e}")
+        main_logger.exception(f"Failed to load configuration: {e}")
         return
 
     slx_eye_scanner = SlxEyeScanner(config)
     sut_system_scanner = SutSystemScanner(config)
 
     try:
-        logger.info("Starting SUT system scanner initialization")
+        main_logger.info("Starting SUT system scanner initialization")
         if not sut_system_scanner.connect():
-            logger.error("Failed to connect to SUT system")
+            main_logger.error("Failed to connect to SUT system")
             return
 
-        logger.info(f"Starting system information scan. Logs saved to: {sut_system_info_log}")
+        main_logger.info(f"Starting system information scan. Logs saved to: {sut_system_info_log}")
 
         # ---------------------------------------------------------------------------- #
         #                           Install required software                          #
         # ---------------------------------------------------------------------------- #
 
         if not sut_system_scanner.install_required_software():
-            logger.warning("Software installation failed, continuing anyway")
+            main_logger.warning("Software installation failed, continuing anyway")
 
         if not sut_system_scanner.log_required_software_versions():
-            logger.warning("Failed to log software versions")
+            main_logger.warning("Failed to log software versions")
 
         # ---------------------------------------------------------------------------- #
         #                                Log system info                               #
@@ -552,66 +561,70 @@ def main():
         #                          Start temp scanning thread                          #
         # ---------------------------------------------------------------------------- #
 
-        logger.info(f"Starting system interface scan. Logs saved to: {sut_temp_scan_log}")
-        logger.info(f"Scanning interfaces: {config.sut_scan_interfaces}")
+        main_logger.info(f"Starting system interface scan. Logs saved to: {sut_temp_scan_log}")
+        main_logger.info(f"Scanning interfaces: {config.sut_scan_interfaces}")
 
         if not sut_system_scanner.run_scan_temp():
-            logger.warning("Temperature scanning failed to start")
+            main_logger.warning("Temperature scanning failed to start")
 
     except Exception as e:
-        logger.exception(f"SUT system scanner failed: {e}")
+        main_logger.exception(f"SUT system scanner failed: {e}")
 
     # ---------------------------------------------------------------------------- #
     #                              Start eye scanning                              #
     # ---------------------------------------------------------------------------- #
 
-    logger.info(f"Starting eye scan automation. Logs saved to: {slx_eye_scan_log}")
-    logger.info(f"Scanning ports: {config.slx_scan_ports}")
-    logger.info("Press Ctrl+C to stop the program")
+    main_logger.info(f"Starting eye scan automation. Logs saved to: {slx_eye_scan_log}")
+    main_logger.info(f"Scanning ports: {config.slx_scan_ports}")
+    main_logger.info("Press Ctrl+C to stop the program")
 
     try:
         if not slx_eye_scanner.connect():
-            logger.error("Failed to connect to SLX eye scanner")
+            main_logger.error("Failed to connect to SLX eye scanner")
             return
 
         scan_count = 0
         while not shutdown_event.is_set():
             try:
-                logger.info(f"Starting scan iteration #{scan_count + 1}")
+                main_logger.info(f"Starting scan iteration #{scan_count + 1}")
                 # Scan ports in config
                 if slx_eye_scanner.scan_interfaces(config.slx_scan_ports):
                     scan_count += 1
-                    logger.info(f"Completed scan #{scan_count}")
+                    main_logger.info(f"Completed scan #{scan_count}")
                 else:
-                    logger.warning(f"Scan iteration #{scan_count + 1} failed")
+                    main_logger.warning(f"Scan iteration #{scan_count + 1} failed")
 
                 # Wait before next scan (if still running)
                 if not shutdown_event.is_set():
-                    logger.info(f"Waiting {config.slx_scan_interval} seconds before next scan...")
+                    main_logger.info(
+                        f"Waiting {config.slx_scan_interval} seconds before next scan..."
+                    )
                     for _ in range(config.slx_scan_interval):
                         if shutdown_event.is_set():
                             break
                         time.sleep(1)
 
             except Exception as e:
-                logger.exception(f"Scan iteration failed: {e}")
+                main_logger.exception(f"Scan iteration failed: {e}")
                 if not shutdown_event.is_set():
-                    logger.info("Waiting 5 seconds before retry...")
+                    main_logger.info("Waiting 5 seconds before retry...")
                     time.sleep(5)  # Brief pause before retry
 
     except Exception as e:
-        logger.exception(f"Main execution failed: {e}")
+        main_logger.exception(f"Main execution failed: {e}")
     finally:
-        logger.info("Shutting down scanners...")
+        main_logger.info("Shutting down scanners...")
         slx_eye_scanner.disconnect()
         sut_system_scanner.disconnect()
 
-        logger.info(f"Programs stopped. Total eye scans completed: {len(slx_eye_scanner.results)}")
-        logger.info("Logs saved to:")
-        logger.info(f"  Main: {main_log}")
-        logger.info(f"  SUT System Info: {sut_system_info_log}")
-        logger.info(f"  SUT Temperature: {sut_temp_scan_log}")
-        logger.info(f"  SLX Eye Scan: {slx_eye_scan_log}")
+        main_logger.info(
+            f"Programs stopped. Total eye scans completed: {len(slx_eye_scanner.results)}"
+        )
+        main_logger.info("Logs saved to:")
+        main_logger.info(f"  Main: {main_log}")
+        main_logger.info(f"  SUT System Info: {sut_system_info_log}")
+        main_logger.info(f"  SUT Temperature: {sut_temp_scan_log}")
+        main_logger.info(f"  SLX Eye Scan: {slx_eye_scan_log}")
 
     return
 

@@ -12,22 +12,18 @@ from pympler import asizeof
 from src.core.connect import SshConnection
 from src.core.json import Json
 from src.models.config import Config
-from src.platform.bak.commands import Command
+from src.platform.bak.commands import Command, Type
 
 logger = logging.getLogger(__name__)
 
 
 class Sample:
-    _start: dt = None
-    _stop: dt = None
-
-    _interface: str
-    _config: Config
-    _ssh_connection: SshConnection
-
-    snapshot: Any = None
-
     def __init__(self, interface: str, config: Config, ssh_connection: SshConnection) -> None:
+        self._start: dt = None
+        self._stop: dt = None
+
+        self.snapshot: Any = None
+
         self._interface = interface
         self._config = config
         self._ssh_connection = ssh_connection

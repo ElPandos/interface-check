@@ -2,10 +2,16 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+import itertools
+import logging
 from pathlib import Path
 from typing import Any
 
+from src.core import json
+from src.core.connect import SshConnection
 from src.interfaces.connection import CommandResult
+from src.platform.enums.software import CommandInputType, ToolType
+from src.platform.tools import helper
 
 
 @dataclass(frozen=True)
@@ -23,43 +29,26 @@ class ToolResult:
         """Indicates whether the command executed successfully."""
         return self.error.strip() == ""
 
-    # @staticmethod
-    # def error(command: str, message: str, exit_status: int = -1) -> "CommandResult":
-    #     """
-    #     Create a default error CommandResult for failed or skipped executions.
-
-    #     Args:
-    #         command: The command that failed.
-    #         message: Description or error message.
-    #         exit_status: Optional custom error code (default: -1).
-
-    #     Returns:
-    #         CommandResult instance representing a failed command.
-    #     """
-    #     return CommandResult(
-    #         command=command,
-    #         stdout="",
-    #         stderr=message.strip(),
-    #         exit_status=exit_status,
-    #         execution_time=0.0,
-    #     )
-
 
 class ITool(ABC):
     """Abstract interface for diagnostic tools."""
 
     @property
     @abstractmethod
-    def name(self) -> str:
+    def type(self) -> ToolType:
         """Tool name identifier."""
 
     @abstractmethod
-    def get_available_commands(self) -> dict[str, str]:
+    def available_commands(self) -> list[list[str]]:
         """Get available commands for this tool."""
 
     @abstractmethod
-    def _execute(self, command: str) -> CommandResult:
-        """Execute a tool command."""
+    def execute(self) -> None:
+        """Execute all commands for tool."""
+
+    @abstractmethod
+    def log(self) -> None:
+        """Log all commands results for tool."""
 
     @abstractmethod
     def _parse(self, command: str, output: str) -> dict[str, str]:
@@ -69,10 +58,81 @@ class ITool(ABC):
     def _summarize(self) -> dict[str, Any]:
         """Summarize tool results."""
 
-    @abstractmethod
-    def log_summary(self) -> None:
-        """Log summary of tool results."""
 
-    @abstractmethod
-    def save(self, path: Path) -> None:
-        """Save results to file."""
+class Tool:
+    def __init__(self, ssh_connection: SshConnection):
+        self._ssh_connection = ssh_connection
+        self._results: dict[str, CommandResult] = {}
+
+        self.logger = logging.getLogger("sut_info")
+
+    def _execute(self, command: str) -> None:
+        """Execute a specific command and return result.
+
+        Args:
+            command: CLI command to execute
+        """
+        result = None
+        if not self._ssh_connection.is_connected():
+            message = f"Cannot execute command '{command}': No SSH connection"
+            self.logger.error(message)
+            self._results[command] = CommandResult.error(command, message)
+            return
+
+        try:
+            result = self._ssh_connection.execute_command(command)
+            if result.success:
+                self.logger.info(f"Succesfully executed command: {command}")
+            else:
+                result = CommandResult.error(command, result.stderr)
+        except Exception as e:
+            result = CommandResult.error(command, e)
+
+        self._results[command] = result
+
+    def _generate_commands(self, interface: str, command: list[Any]) -> str:
+        command_modified = []
+        for part in command:
+            match part:
+                case CommandInputType.INTERFACE:
+                    command_modified.append(interface)
+                case CommandInputType.MST_PCICONF:
+                    command_modified.append(helper.get_mst_device(self._ssh_connection, interface))
+                case CommandInputType.PCI_ID:
+                    command_modified.append(helper.get_pci_id(self._ssh_connection, interface))
+                case _:
+                    command_modified.append(part)
+
+        return " ".join(command_modified)
+
+    def _log(self) -> None:
+        for command, result in self._results.items():
+            if result.success:
+                border = "".join(itertools.repeat("=", len(f"= {command}")))
+                self.logger.info(border)
+                self.logger.info(f"= {command}")
+                self.logger.info(border)
+                self.logger.info(f"\n{result.stdout}")
+            else:
+                border = "".join(itertools.repeat("=", len(f"= {command} -> FAILED")))
+                self.logger.warning(border)
+                self.logger.warning(f"= {command} -> FAILED")
+                self.logger.warning(f"= Reason: {result.stderr}")
+                self.logger.warning(border)
+
+    def _save(self, path: Path) -> None:
+        """Export collected data to JSON file.
+
+        Args:
+            path: Path to output file
+        """
+        with open(path, "w") as f:
+            json.dump(self._summarize(), f, indent=2)
+
+    def _check_response(
+        self, interface: str, response: dict[str, Any], result: CommandResult
+    ) -> None:
+        if result.success:
+            response[interface] = result.stdout.strip()
+        else:
+            response[interface] = CommandResult.error(result.stderr, result.return_code)

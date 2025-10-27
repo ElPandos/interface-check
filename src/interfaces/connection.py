@@ -1,10 +1,8 @@
 """Connection interface for abstracting SSH and other remote connections."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
 class CommandResult:
     """Result of a command execution."""
 
@@ -13,29 +11,29 @@ class CommandResult:
         command: str = "",
         stdout: str = "",
         stderr: str = "",
-        exit_status: int = 0,
+        return_code: int = 0,
         execution_time: float = 0.0,
     ):
         self.command = command
         self.stdout = stdout
         self.stderr = stderr
-        self.exit_status = exit_status
+        self.return_code = return_code
         self.execution_time = execution_time
 
     @property
     def success(self) -> bool:
         """Indicates whether the command executed successfully."""
-        return self.exit_status == 0 and not self.stderr.strip()
+        return self.return_code == 0 and not self.stderr.strip()
 
     @staticmethod
-    def error(command: str, message: str, exit_status: int = -1) -> "CommandResult":
+    def error(command: str, message: str, return_code: int = -1) -> "CommandResult":
         """
         Create a default error CommandResult for failed or skipped executions.
 
         Args:
             command: The command that failed.
             message: Description or error message.
-            exit_status: Optional custom error code (default: -1).
+            return_code: Optional custom error code (default: -1).
 
         Returns:
             CommandResult instance representing a failed command.
@@ -44,7 +42,7 @@ class CommandResult:
             command=command,
             stdout="",
             stderr=message.strip(),
-            exit_status=exit_status,
+            return_code=return_code,
             execution_time=0.0,
         )
 
