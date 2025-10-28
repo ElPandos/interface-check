@@ -13,12 +13,12 @@ class EthtoolTool(Tool, ITool):
     _AVAILABLE_COMMANDS: ClassVar[list[list[Any]]] = [
         ["sudo", "ethtool", CommandInputType.INTERFACE],
         #["ethtool", "-v", "-s", CommandInputType.INTERFACE],
-        ["ethtool", "-i", CommandInputType.INTERFACE],
-        ["ethtool", "-S", CommandInputType.INTERFACE],  # Statistics
-        ["ethtool", "-m", CommandInputType.INTERFACE],  # Temp, Volt
-        ["ethtool", "-k", CommandInputType.INTERFACE],  # Features
-        ["ethtool", "-g", CommandInputType.INTERFACE],  # Features
-        ["ethtool", "-c", CommandInputType.INTERFACE],  # Coalesce
+        ["sudo", "ethtool", "-i", CommandInputType.INTERFACE],
+        ["sudo", "ethtool", "-S", CommandInputType.INTERFACE],  # Statistics
+        ["sudo", "ethtool", "-m", CommandInputType.INTERFACE],  # Temp, Volt
+        ["sudo", "ethtool", "-k", CommandInputType.INTERFACE],  # Features
+        ["sudo", "ethtool", "-g", CommandInputType.INTERFACE],  # Features
+        ["sudo", "ethtool", "-c", CommandInputType.INTERFACE],  # Coalesce
     ]
     # fmt: on
 

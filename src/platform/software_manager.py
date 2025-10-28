@@ -122,7 +122,7 @@ class AptManager(IPackageManager):
 
         return success
 
-    def get_package_info(self, package: str) -> Package:
+    def get_package_info(self, package: str) -> Package | None:
         """List all installed packages using dpkg.
 
         Returns:
@@ -130,17 +130,17 @@ class AptManager(IPackageManager):
         """
         if not self._ssh_connection:
             self.logger.error("No SSH connection available for package listing")
-            return []
+            return None
 
         self.logger.debug("Retrieving list of installed packages using dpkg")
 
         # Use dpkg -l to list all installed packages
         result = self._ssh_connection.execute_command(f"dpkg -l {package}")
-        if not (hasattr(result, "success") and result.success):
-            self.logger.error("Failed to retrieve package list from dpkg")
-            return []
+        if result.success:
+            return self._parse_version(result.stdout)
 
-        return self._parse_version(result.stdout)
+        self.logger.error("Failed to retrieve package list from dpkg")
+        return None
 
     def _parse_version(self, output: str) -> list[Package]:
         """Parse dpkg -l output into Package object.
@@ -270,7 +270,7 @@ class YumManager(IPackageManager):
         Returns:
             list[Package]: List of installed packages with metadata
         """
-        self.logger.error("NNot implemented yet")
+        self.logger.error("Not implemented yet")
         return None
 
         if not self._ssh_connection:
@@ -446,6 +446,7 @@ class SoftwareManager:
         if not self._ssh_connection:
             self.logger.debug("SSH connection is not available")
             return False
+        return True
 
     def _execute_command(self, command: str) -> CommandResult:
         """Execute command safely with error handling and logging.

@@ -11,11 +11,11 @@ class SystemTool(Tool, ITool):
 
     # fmt: off
     _AVAILABLE_COMMANDS: ClassVar[list[list[Any]]] = [
-        ["ip", "-br", "link"],
-        ["lspci", "-v", "-s", CommandInputType.PCI_ID],
-        ["lshw", "-C", "network"],
-        ["lsmod"],
-        ["lsb_release", "-a"],
+        ["sudo", "ip", "-br", "link"],
+        ["sudo", "lspci", "-v", "-s", CommandInputType.PCI_ID],
+        ["sudo", "lshw", "-C", "network"],
+        ["sudo", "lsmod"],
+        ["sudo", "lsb_release", "-a"],
     ]
     # fmt: off
 
@@ -41,17 +41,18 @@ class SystemTool(Tool, ITool):
             List of CLI commands
         """
         commands_modified = []
-        for command in self._AVAILABLE_COMMANDS:
-            commands_modified.append(" ".join(command))
+        for interface in self._interfaces:
+            for command in self._AVAILABLE_COMMANDS:
+                commands_modified.append(self._generate_commands(interface, command))
 
         return commands_modified
 
     def execute(self) -> None:
         for command in self.available_commands():
-            super().__execute(command)
+            self._execute(command)
 
     def log(self) -> None:
-        super().log()
+        self._log()
 
     def _parse(self, command: str, output: str) -> dict[str, str]:
         """Parse raw command output into structured data.

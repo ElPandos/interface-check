@@ -34,6 +34,7 @@ class SshConnection(IConnection):
         "allow_agent": False,
         "timeout": 30,
     }
+
     _PROMPT_PATTERN: ClassVar[bytes] = (
         rb"SLX#\s*$|\[.*@.*\][$#]\s*$|.*[$#]\s*$|Password:\s*$|password for.*:\s*$|FBR\.\d+>\s*$|.*@.*:.*[$#]\s*$|Shell>\s*$|.*>\s*$"
     )
@@ -84,7 +85,7 @@ class SshConnection(IConnection):
 
     def connect(self) -> bool:
         if self.is_connected():
-            self.logger.info("Already connected to %s", self._host)
+            self.logger.info(f"Already connected to host: {self._host}")
             return True
 
         self.logger.info(f"Connecting to {self._host} via {len(self._jump_hosts)} jump hosts")
@@ -108,19 +109,18 @@ class SshConnection(IConnection):
             if not self.is_connected():
                 self.logger.error("Connection established but transport is not active")
                 return False
-
             self._start_keepalive()
             self.logger.info(f"Successfully connected to {self._host}")
             return True
 
-        except TimeoutError as e:
-            self.logger.error(f"SSH connection timeout to {self._host}: {e}")
-        except paramiko.AuthenticationException as e:
-            self.logger.error(f"SSH authentication failed for {self._host}: {e}")
-        except paramiko.SSHException as e:
-            self.logger.error(f"SSH protocol error for {self._host}: {e}")
-        except Exception as e:
-            self.logger.exception(f"SSH connection failed to {self._host}: {e}")
+        except TimeoutError:
+            self.logger.exception(f"SSH connection timeout for host: {self._host}")
+        except paramiko.AuthenticationException:
+            self.logger.exception(f"SSH authentication failed for host: {self._host}")
+        except paramiko.SSHException:
+            self.logger.exception(f"SSH protocol error for host: {self._host}")
+        except Exception:
+            self.logger.exception(f"SSH connection failed for host: {self._host}")
 
         self.disconnect()
         return False
@@ -167,8 +167,9 @@ class SshConnection(IConnection):
 
     def execute_command(self, command: str, timeout: int | None = None) -> CommandResult:
         if not self.is_connected():
-            self.logger.error(f"Cannot execute command '{command}': not connected")
-            return CommandResult("", "Not connected", -1)
+            message = f"Cannot execute command '{command}': not connected"
+            self.logger.error(message)
+            return CommandResult.error(message)
 
         self.logger.debug(f"Executing command: {command} (timeout: {timeout})")
 

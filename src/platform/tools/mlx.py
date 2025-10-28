@@ -11,8 +11,8 @@ class MlxTool(Tool, ITool):
 
     # fmt: off
     _AVAILABLE_COMMANDS: ClassVar[list[list[Any]]] = [
-        ["mlxlink", "-d", CommandInputType.MST_PCICONF],
-        ["mlxconfig", "-d", CommandInputType.MST_PCICONF, "query"]
+        ["sudo", "mlxlink", "-d", CommandInputType.MST_PCICONF],
+        ["sudo", "mlxconfig", "-d", CommandInputType.MST_PCICONF, "query"]
     ]
     # fmt: on
 

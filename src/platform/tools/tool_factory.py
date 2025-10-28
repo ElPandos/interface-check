@@ -5,6 +5,7 @@ from typing import ClassVar
 from src.core.connect import SshConnection
 from src.interfaces.tool import ITool
 from src.platform.enums.software import ToolType
+from src.platform.tools.dmesg import DmesgTool
 from src.platform.tools.ethtool import EthtoolTool
 from src.platform.tools.mlx import MlxTool
 from src.platform.tools.mst import MstTool
@@ -21,6 +22,7 @@ class ToolFactory:
         ToolType.MST: MstTool,
         ToolType.RDMA: RdmaTool,
         ToolType.SYSTEM: SystemTool,
+        ToolType.DMESG: DmesgTool,
     }
 
     @classmethod

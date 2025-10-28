@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import itertools
 import logging
 from pathlib import Path
+import re
 from typing import Any
 
 from src.core import json
@@ -82,11 +83,14 @@ class Tool:
         try:
             result = self._ssh_connection.execute_command(command)
             if result.success:
-                self.logger.info(f"Succesfully executed command: {command}")
+                self.logger.debug(f"Succesfully executed command: {command}")
             else:
                 result = CommandResult.error(command, result.stderr)
         except Exception as e:
             result = CommandResult.error(command, e)
+
+        # Clean output
+        result.stdout = re.sub(r"\x1B\[[0-?]*[ -/]*[@-~]", "", result.stdout)
 
         self._results[command] = result
 
@@ -108,13 +112,13 @@ class Tool:
     def _log(self) -> None:
         for command, result in self._results.items():
             if result.success:
-                border = "".join(itertools.repeat("=", len(f"= {command}")))
+                border = "".join(itertools.repeat("=", len(f"= {command}") + 2))
                 self.logger.info(border)
                 self.logger.info(f"= {command}")
                 self.logger.info(border)
                 self.logger.info(f"\n{result.stdout}")
             else:
-                border = "".join(itertools.repeat("=", len(f"= {command} -> FAILED")))
+                border = "".join(itertools.repeat("=", len(f"= {command} -> FAILED") + 2))
                 self.logger.warning(border)
                 self.logger.warning(f"= {command} -> FAILED")
                 self.logger.warning(f"= Reason: {result.stderr}")

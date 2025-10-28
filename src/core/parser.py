@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Any, ClassVar
+from typing import ClassVar
 
 import numpy as np
 
@@ -39,6 +39,9 @@ class EyeScanParser(IParser):
         self._rows: list[dict[str, str]] = self._parse_rows()
 
         self.logger = logging.getLogger("main")
+
+    def name(self) -> str:
+        return "eye"
 
     def _parse_rows(self) -> list[dict[str, str]]:
         """Extract voltage/pattern rows from CLI output."""
@@ -87,62 +90,65 @@ class EyeScanParser(IParser):
 # ---------------------------------------------------------------------------- #
 
 
-class MstStatusParser(IParser):
-    """
-    Parses MST device listings and extracts mappings between PCI IDs and MST device paths.
+# class MstStatusParser(IParser):
+#     """
+#     Parses MST device listings and extracts mappings between PCI IDs and MST device paths.
 
-    Example use case:
-        parser = MstDeviceParser(mst_output)
-        mst_device = parser.get_mst_by_pci('0000:86:00')
-    """
+#     Example use case:
+#         parser = MstDeviceParser(raw_output)
+#         mst_device = parser.get_mst_by_pci('0000:86:00')
+#     """
 
-    # Regex pattern for capturing /dev/mst/... and corresponding PCI ID
-    _mst_pattern = re.compile(
-        r"(?P<mst_dev>/dev/mst/\S+).*?domain:bus:dev\.fn=(?P<pci_id>[0-9a-fA-F:]+)", re.DOTALL
-    )
+#     # Regex pattern for capturing /dev/mst/... and corresponding PCI ID
+#     _mst_pattern = re.compile(
+#         r"(?P<mst_dev>/dev/mst/\S+).*?domain:bus:dev\.fn=(?P<pci_id>[0-9a-fA-F:]+)", re.DOTALL
+#     )
 
-    def __init__(self, raw_output: str):
-        """
-        Initialize the parser with raw MST output (from `mst status` or a file).
-        """
-        self._raw_output = raw_output
-        self._mst_map: dict[str, str] = self._parse_mst_output()
+#     def __init__(self, raw_output: str):
+#         """
+#         Initialize the parser with raw MST output (from `mst status` or a file).
+#         """
+#         self._raw_output = raw_output
+#         self._mst_map: dict[str, str] = self._parse()
 
-        self.logger = logging.getLogger("main")
+#         self.logger = logging.getLogger("main")
 
-    def _parse(self) -> dict[str, str]:
-        """
-        Internal method to extract all MST device to PCI ID mappings.
+#     def name(self) -> str:
+#         return "mst"
 
-        Returns:
-            dict: Mapping {pci_id: mst_device}
-        """
-        mapping = {}
-        for match in self._mst_pattern.finditer(self.mst_output):
-            pci_id = match.group("pci_id")
-            mst_dev = match.group("mst_dev")
-            mapping[pci_id] = mst_dev
+#     def _parse(self) -> dict[str, str]:
+#         """
+#         Internal method to extract all MST device to PCI ID mappings.
 
-        return mapping
+#         Returns:
+#             dict: Mapping {pci_id: mst_device}
+#         """
+#         mapping = {}
+#         for match in self._mst_pattern.finditer(self._raw_output):
+#             pci_id = match.group("pci_id")
+#             mst_dev = match.group("mst_dev")
+#             mapping[pci_id] = mst_dev
 
-    def get_mst_by_pci(self, pci_id: str) -> str | None:
-        """
-        Retrieve the MST device path for a given PCI ID.
+#         return mapping
 
-        Args:
-            pci_id (str): PCI address in format '0000:86:00'
+#     def get_mst_by_pci(self, pci_id: str) -> str | None:
+#         """
+#         Retrieve the MST device path for a given PCI ID.
 
-        Returns:
-            str | None: MST device path if found, else None.
-        """
-        return self._mst_map.get(pci_id)
+#         Args:
+#             pci_id (str): PCI address in format '0000:86:00'
 
-    def result(self) -> Any:
-        return self._mst_map
+#         Returns:
+#             str | None: MST device path if found, else None.
+#         """
+#         return self._mst_map.get(pci_id)
 
-    def log(self) -> None:
-        for key, value in self._mst_map.items():
-            pass
+#     def result(self) -> Any:
+#         return self._mst_map
+
+#     def log(self) -> None:
+#         for key, value in self._mst_map.items():
+#             pass
 
 
 class MstVersionDevice:
@@ -186,12 +192,16 @@ class MstStatusVersionParser(IParser):
 
     def __init__(self, raw_output: str):
         self._raw_output = raw_output
-        self._devices: list[MstVersionDevice] = self._parse_output()
+        self._devices: list[MstVersionDevice] = []
+
+        self._parse()
 
         self.logger = logging.getLogger("main")
 
-    def _parse(self) -> list[MstVersionDevice]:
-        devices: list[MstVersionDevice] = []
+    def name(self) -> str:
+        return "mst version"
+
+    def _parse(self) -> None:
         lines = self._raw_output.splitlines()
 
         # Find header line (starts with DEVICE_TYPE)
@@ -201,7 +211,7 @@ class MstStatusVersionParser(IParser):
                 start_idx = i + 1
                 break
         if start_idx is None:
-            return devices  # no devices found
+            return  # No devices found
 
         # Parse table rows
         for line in lines[start_idx:]:
@@ -225,13 +235,27 @@ class MstStatusVersionParser(IParser):
             net = parts[mst_index + 3]
             numa = parts[mst_index + 4] if len(parts) > mst_index + 4 else None
 
-            devices.append(MstVersionDevice(device_type, mst, pci, rdma, net, numa))
+            self._devices.append(MstVersionDevice(device_type, mst, pci, rdma, net, numa))
 
-        return devices
-
-    def result(self) -> Any:
+    def result(self) -> list[MstVersionDevice]:
         return self._devices
 
+    def get_mst_by_pci(self, pci_id: str) -> str | None:
+        """
+        Retrieve the MST device path for a given PCI ID.
+
+        Args:
+            pci_id (str): PCI address in format '86:00.0'
+
+        Returns:
+            str | None: MST device path if found, else None.
+        """
+        for mst in self._devices:
+            if mst.pci == pci_id:
+                return mst.mst
+
+        return None
+
     def log(self) -> None:
-        for device in self.devices:
+        for device in self._devices:
             device.log()

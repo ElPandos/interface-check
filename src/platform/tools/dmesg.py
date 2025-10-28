@@ -1,6 +1,5 @@
 """Dmesg CLI tool implementation."""
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, ClassVar
 
@@ -9,24 +8,14 @@ from src.interfaces.tool import ITool, Tool
 from src.platform.enums.software import ToolType
 
 
-@dataclass(frozen=True)
-class DmesgEntry:
-    """Dmesg log entry."""
-
-    timestamp: datetime | None
-    facility: str
-    level: str
-    message: str
-
-
 class DmesgTool(Tool, ITool):
     """Dmesg kernel message diagnostic tool."""
 
     # fmt: off
     _AVAILABLE_COMMANDS: ClassVar[list[list[Any]]] = [
-        ["dmesg", "|", "egrep", "-i", "'mlx|mellanox|sfp|qsfp|phy|eth|port'", "|", "tail", "-n", "200" ],
-        ["dmesg", "|", "egrep", "-i", "'mlx|sfp|qsfp|phy"],
-        ["dmesg", "|", "egrep", "-i", "'mlx|mellanox|sfp|qsfp|phy|port'"]
+        ["sudo", "dmesg", "-T", "|", "egrep", "-i", "'mlx|mellanox|sfp|qsfp|phy|eth|port'", "|", "tail", "-n", "100" ],
+        #["sudo", "dmesg", "|", "egrep", "-i", "'mlx|sfp|qsfp|phy"],
+        #["sudo", "dmesg", "|", "egrep", "-i", "'mlx|mellanox|sfp|qsfp|phy|port'"]
     ]
     # fmt: on
 
@@ -57,10 +46,10 @@ class DmesgTool(Tool, ITool):
 
     def execute(self) -> None:
         for command in self.available_commands():
-            super().__execute(command)
+            self._execute(command)
 
     def log(self) -> None:
-        super().log()
+        self._log()
 
     def _parse(self, command_name: str, output: str) -> Any:
         """Parse dmesg entries with timestamps."""

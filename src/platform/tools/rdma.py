@@ -11,7 +11,7 @@ class RdmaTool(Tool, ITool):
 
     # fmt: off
     _AVAILABLE_COMMANDS: ClassVar[list[list[Any]]] = [
-        ["rdma", "dev", "show"]
+        ["sudo", "rdma", "dev", "show"]
     ]
     # fmt: on
 
@@ -43,10 +43,10 @@ class RdmaTool(Tool, ITool):
 
     def execute(self) -> None:
         for command in self.available_commands():
-            super().__execute(command)
+            self._execute(command)
 
     def log(self) -> None:
-        super().log()
+        self._log()
 
     def _parse(self, command: str, output: str) -> dict[str, str]:
         """Parse raw command output into structured data.

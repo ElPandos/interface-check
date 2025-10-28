@@ -39,7 +39,7 @@ sut_system_info_log = log_dir / f"sut_system_info_{log_time_stamp}.log"
 sut_temp_scan_log = log_dir / f"sut_temp_scan_{log_time_stamp}.log"
 main_log = log_dir / f"main_{log_time_stamp}.log"
 
-log_level = logging.DEBUG
+log_level = logging.INFO
 
 # Log formatter
 log_format_string = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -474,20 +474,21 @@ class SutSystemScanner:
 
     def log_required_software_versions(self) -> bool:
         """Log versions of required software packages."""
+        result = False
         if not self._software_manager:
             self.info_logger.error("Software manager not initialized")
-            return False
-
+            return result
         try:
             self.info_logger.info("Logging required software versions")
             self._software_manager.log_required_package_versions(
                 self._config.sut_required_software_packages
             )
-            return True
-
+            result = True
         except Exception as e:
             self.info_logger.exception(f"Failed to log software versions: {e}")
-            return False
+            result = False
+
+        return result
 
     def log_system_info(self) -> None:
         """Log system information."""
