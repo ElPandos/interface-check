@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime as dt
 from typing import Any
 
 from nicegui import ui
@@ -310,7 +310,7 @@ class AgentContent:
             "commands": commands,
             "description": description,
             "status": "queued",
-            "created": datetime.now().strftime("%m/%d/%Y %H:%M:%S"),
+            "created": dt.now(tz=UTC).strftime("%m/%d/%Y %H:%M:%S"),
             "type": task_type,
             **kwargs,
         }
@@ -501,7 +501,7 @@ class AgentContent:
                     ui.label(f"{status_icon} {task['name']}").classes(
                         f"font-bold text-{status_color}-700"
                     )
-                    ui.label(datetime.now().strftime("%H:%M:%S")).classes("text-xs text-gray-500")
+                    ui.label(dt.now(tz=UTC).strftime("%H:%M:%S")).classes("text-xs text-gray-500")
 
                 # Show analysis if available
                 if "analysis" in result:
@@ -556,7 +556,7 @@ class AgentContent:
         with self._results_container, ui.card().classes("w-full p-3 border-l-4 border-red-500"):
             with ui.row().classes("w-full items-center justify-between"):
                 ui.label(f"❌ {task['name']}").classes("font-bold text-red-700")
-                ui.label(datetime.now().strftime("%H:%M:%S")).classes("text-xs text-gray-500")
+                ui.label(dt.now(tz=UTC).strftime("%H:%M:%S")).classes("text-xs text-gray-500")
 
             ui.label(f"Task failed: {error}").classes("text-sm text-red-600")
 
@@ -629,7 +629,7 @@ class AgentContent:
             "commands": recommendation["commands"],
             "description": recommendation["description"],
             "status": "queued",
-            "created": datetime.now().strftime("%m/%d/%Y %H:%M:%S"),
+            "created": dt.now(tz=UTC).strftime("%m/%d/%Y %H:%M:%S"),
             "type": "recommended",
             "priority": recommendation["priority"],
         }

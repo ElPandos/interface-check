@@ -9,7 +9,7 @@ from nicegui import ui
 from src.core.connect import SshConnection
 from src.models.config import Config
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 class HostHandler:

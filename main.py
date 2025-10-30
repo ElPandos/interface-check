@@ -7,7 +7,7 @@ setup_logging(logging.DEBUG)
 
 
 if __name__ in {"__main__", "__mp_main__"}:
-    logger = logging.getLogger(__name__)
+    logger = logging.getLogger(LogName.MAIN.value)
     try:
         logger.debug("Main init")
         app = App()

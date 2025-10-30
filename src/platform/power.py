@@ -8,7 +8,9 @@ from enum import Enum
 import logging
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from src.platform.enums.log import LogName
+
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 class PowerState(Enum):

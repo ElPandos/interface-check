@@ -41,7 +41,7 @@ class CommandResult:
         return CommandResult(
             command=command,
             stdout="",
-            stderr=message.strip(),
+            stderr=message,
             return_code=return_code,
             execution_time=0.0,
         )

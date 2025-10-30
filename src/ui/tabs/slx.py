@@ -12,7 +12,7 @@ from src.core.screen import MultiScreen
 from src.models.config import Config
 from src.ui.tabs.base import BasePanel, BaseTab
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(LogName.MAIN.value)
 
 NAME = "slx"
 LABEL = "SLX"

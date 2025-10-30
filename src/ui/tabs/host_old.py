@@ -17,7 +17,7 @@ from src.ui.handlers.host import HostHandler
 from src.ui.tabs.base import BasePanel, BaseTab
 from src.ui.themes.style import apply_global_theme
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(LogName.MAIN.value)
 
 NAME = "hosts"
 LABEL = "Host"

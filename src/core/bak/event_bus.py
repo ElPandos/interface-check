@@ -8,7 +8,7 @@ from typing import Any
 
 from src.interfaces.ui import IEventBus
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 class EventBus(IEventBus):

@@ -1,6 +1,6 @@
 """JSON handling utility."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime as dt
 import json
 import logging
 from pathlib import Path
@@ -9,7 +9,9 @@ from typing import Any
 from nicegui import ui
 from pydantic import SecretStr
 
-logger = logging.getLogger(__name__)
+from src.platform.enums.log import LogName
+
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 class Json:
@@ -23,7 +25,7 @@ class Json:
             return obj.get_secret_value()
         if isinstance(obj, Path):
             return str(obj)
-        if isinstance(obj, datetime):
+        if isinstance(obj, dt):
             return obj.isoformat()
         raise TypeError(f"{type(obj).__name__} not JSON serializable")
 
@@ -32,7 +34,7 @@ class Json:
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
         if create_backup and file_path.exists():
-            timestamp = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
+            timestamp = dt.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
             file_path.rename(file_path.with_suffix(f".{timestamp}.bak"))
 
         with file_path.open("w", encoding="utf-8") as f:
@@ -74,7 +76,7 @@ class Json:
     ) -> None:
         try:
             json_data = cls.dump_to_string(data)
-            timestamp = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
+            timestamp = dt.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
             filename = f"{filename_prefix}_{timestamp}.json"
 
             ui.download(json_data.encode("utf-8"), filename)
@@ -85,7 +87,7 @@ class Json:
     @classmethod
     def backup_and_save(cls, data: Any, file_path: Path, *, max_backups: int = 5) -> None:
         if file_path.exists():
-            timestamp = datetime.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
+            timestamp = dt.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
             file_path.rename(file_path.with_suffix(f".{timestamp}.bak"))
             cls._cleanup_backups(file_path, max_backups)
         cls.save(data, file_path)

@@ -1,11 +1,15 @@
 """Tool interface for CLI-based network diagnostic tools."""
 
 from abc import ABC, abstractmethod
+import logging
 from typing import Any
 
 
 class IParser(ABC):
     """Abstract interface for parsers."""
+
+    def __init__(self, log_name: str):
+        self._logger = logging.getLogger(log_name)
 
     @property
     @abstractmethod
@@ -13,9 +17,9 @@ class IParser(ABC):
         """Tool name identifier."""
 
     @abstractmethod
-    def result(self) -> dict[str, Any]:  # hmm what here?
+    def result(self) -> list[Any]:
         """Get parsed result."""
 
     @abstractmethod
-    def log(self, command: str) -> None:
+    def log(self) -> None:
         """Log info."""

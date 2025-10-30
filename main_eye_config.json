@@ -36,6 +36,7 @@
             "python3-pip",
             "mstflint",
             "mlnx-tools"
-        ]
+        ],
+        "scan_interval": 5
     }
 }

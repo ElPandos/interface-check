@@ -8,8 +8,9 @@ import logging
 from src.core.connect import SshConnection
 from src.core.parser import MstStatusVersionParser
 from src.interfaces.connection import CommandResult
+from src.platform.enums.log import LogName
 
-logger = logging.getLogger("main")
+_logger = logging.getLogger(LogName.MAIN.value)
 
 
 def get_pci_id(ssh_connection: SshConnection, interface: str) -> str | None:
@@ -17,7 +18,7 @@ def get_pci_id(ssh_connection: SshConnection, interface: str) -> str | None:
     result = _execute(ssh_connection, command)
     if result.success:
         return ":".join(result.stdout.split(":")[1:]).strip()
-    logger.warning(f"Failed to get pci id: {result.stderr}")
+    _logger.warning(f"Failed to get pci id: {result.stderr}")
     return None
 
 
@@ -27,7 +28,7 @@ def get_mst_device(ssh_connection: SshConnection, interface: str) -> str | None:
     if result.success:
         parser = MstStatusVersionParser(result.stdout)
         return parser.get_mst_by_pci(get_pci_id(ssh_connection, interface))
-    logger.warning(f"Failed to get mst device: {result.stderr}")
+    _logger.warning(f"Failed to get mst device: {result.stderr}")
     return None
 
 
@@ -36,12 +37,12 @@ def _execute(ssh_connection: SshConnection, command: str) -> CommandResult:
     try:
         if not ssh_connection.is_connected():
             message = f"Cannot execute command '{command}': No SSH connection"
-            logger.error(message)
+            _logger.error(message)
             result = CommandResult.error(command, message)
         else:
             result = ssh_connection.execute_command(command)
             if result.success:
-                logger.debug(f"Succesfully executed command: {command}")
+                _logger.debug(f"Succesfully executed command: {command}")
             else:
                 result = CommandResult.error(command, result.stderr)
     except Exception as e:

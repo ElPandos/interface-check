@@ -6,9 +6,10 @@ from nicegui import ui
 
 from src.models.config import Config
 from src.platform import platform
+from src.platform.enums.log import LogName
 from src.platform.platform import create_dir
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 class Configure:

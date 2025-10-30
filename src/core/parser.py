@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import logging
 import re
 from typing import ClassVar
@@ -5,6 +6,17 @@ from typing import ClassVar
 import numpy as np
 
 from src.interfaces.component import IParser
+from src.platform.enums.log import LogName
+
+# ---------------------------------------------------------------------------- #
+#                                    Common                                    #
+# ---------------------------------------------------------------------------- #
+
+
+class ParsedDevice:
+    def __init__(self, log_name: str):
+        self._logger = logging.getLogger(log_name)
+
 
 # ---------------------------------------------------------------------------- #
 #                                   EYE scan                                   #
@@ -35,10 +47,9 @@ class EyeScanParser(IParser):
     }
 
     def __init__(self, raw_output: str):
+        IParser.__init__(self, LogName.SLX_EYE_SCANNER.value)
         self._raw_output = raw_output
         self._rows: list[dict[str, str]] = self._parse_rows()
-
-        self.logger = logging.getLogger("main")
 
     def name(self) -> str:
         return "eye"
@@ -90,68 +101,7 @@ class EyeScanParser(IParser):
 # ---------------------------------------------------------------------------- #
 
 
-# class MstStatusParser(IParser):
-#     """
-#     Parses MST device listings and extracts mappings between PCI IDs and MST device paths.
-
-#     Example use case:
-#         parser = MstDeviceParser(raw_output)
-#         mst_device = parser.get_mst_by_pci('0000:86:00')
-#     """
-
-#     # Regex pattern for capturing /dev/mst/... and corresponding PCI ID
-#     _mst_pattern = re.compile(
-#         r"(?P<mst_dev>/dev/mst/\S+).*?domain:bus:dev\.fn=(?P<pci_id>[0-9a-fA-F:]+)", re.DOTALL
-#     )
-
-#     def __init__(self, raw_output: str):
-#         """
-#         Initialize the parser with raw MST output (from `mst status` or a file).
-#         """
-#         self._raw_output = raw_output
-#         self._mst_map: dict[str, str] = self._parse()
-
-#         self.logger = logging.getLogger("main")
-
-#     def name(self) -> str:
-#         return "mst"
-
-#     def _parse(self) -> dict[str, str]:
-#         """
-#         Internal method to extract all MST device to PCI ID mappings.
-
-#         Returns:
-#             dict: Mapping {pci_id: mst_device}
-#         """
-#         mapping = {}
-#         for match in self._mst_pattern.finditer(self._raw_output):
-#             pci_id = match.group("pci_id")
-#             mst_dev = match.group("mst_dev")
-#             mapping[pci_id] = mst_dev
-
-#         return mapping
-
-#     def get_mst_by_pci(self, pci_id: str) -> str | None:
-#         """
-#         Retrieve the MST device path for a given PCI ID.
-
-#         Args:
-#             pci_id (str): PCI address in format '0000:86:00'
-
-#         Returns:
-#             str | None: MST device path if found, else None.
-#         """
-#         return self._mst_map.get(pci_id)
-
-#     def result(self) -> Any:
-#         return self._mst_map
-
-#     def log(self) -> None:
-#         for key, value in self._mst_map.items():
-#             pass
-
-
-class MstVersionDevice:
+class MstVersionDevice(ParsedDevice):
     """
     Represents a single Mellanox/NVIDIA device entry from `mst status -v`.
     Contains all relevant fields for diagnostics and mapping.
@@ -166,6 +116,7 @@ class MstVersionDevice:
         net: str | None,
         numa: str | None,
     ):
+        ParsedDevice.__init__(self, LogName.MAIN.value)
         self.device_type = device_type
         self.mst = mst
         self.pci = pci
@@ -173,10 +124,8 @@ class MstVersionDevice:
         self.net = net.replace("net-", "") if net and net.startswith("net-") else net
         self.numa = numa if numa != "-" else None
 
-        self.logger = logging.getLogger("main")
-
     def log(self) -> str:
-        self.logger.info(
+        self._logger.info(
             f"MstDevice(device_type={self.device_type!r}, "
             f"mst={self.mst!r}, pci={self.pci!r}, "
             f"rdma={self.rdma!r}, net={self.net!r}, "
@@ -191,12 +140,12 @@ class MstStatusVersionParser(IParser):
     """
 
     def __init__(self, raw_output: str):
+        IParser.__init__(self, LogName.MAIN.value)
+
         self._raw_output = raw_output
         self._devices: list[MstVersionDevice] = []
 
         self._parse()
-
-        self.logger = logging.getLogger("main")
 
     def name(self) -> str:
         return "mst version"
@@ -259,3 +208,280 @@ class MstStatusVersionParser(IParser):
     def log(self) -> None:
         for device in self._devices:
             device.log()
+
+
+# ---------------------------------------------------------------------------- #
+#                                  Ethtool -m                                  #
+# ---------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class ValueWithUnit:
+    """Represents a value with its unit."""
+
+    value: float
+    unit: str
+    raw: str
+
+
+class EthtoolModuleDevice(ParsedDevice):
+    """Represents parsed ethtool -m module information."""
+
+    def __init__(self, data: dict[str, str]):
+        EthtoolModuleDevice.__init__(self, LogName.MAIN.value)
+
+        self._data = data
+
+    @property
+    def module_temperature(self) -> list[ValueWithUnit] | None:
+        temp_str = self._data.get("Module temperature")
+        if temp_str:
+            return self._parse_temperature(temp_str)
+        return None
+
+    @property
+    def laser_bias_current(self) -> ValueWithUnit | None:
+        current_str = self._data.get("Laser bias current")
+        if current_str:
+            return self._parse_single_value(current_str)
+        return None
+
+    @property
+    def laser_output_power(self) -> list[ValueWithUnit] | None:
+        power_str = self._data.get("Laser output power")
+        if power_str:
+            return self._parse_power(power_str)
+        return None
+
+    def _parse_temperature(self, temp_str: str) -> list[ValueWithUnit]:
+        """Parse temperature string like '46.11 degrees C / 115.00 degrees F'."""
+        pattern = r"([\d.]+)\s*degrees\s*([CF])"
+        matches = re.findall(pattern, temp_str)
+        return [
+            ValueWithUnit(float(val), f"degrees {unit}", f"{val} degrees {unit}")
+            for val, unit in matches
+        ]
+
+    def _parse_power(self, power_str: str) -> list[ValueWithUnit]:
+        """Parse power string like '0.8070 mW / -0.93 dBm'."""
+        pattern = r"([\d.-]+)\s*(mW|dBm)"
+        matches = re.findall(pattern, power_str)
+        return [ValueWithUnit(float(val), unit, f"{val} {unit}") for val, unit in matches]
+
+    def _parse_single_value(self, value_str: str) -> ValueWithUnit | None:
+        """Parse single value with unit like '7.294 mA'."""
+        pattern = r"([\d.-]+)\s*([a-zA-Z%]+)"
+        match = re.search(pattern, value_str)
+        if match:
+            val, unit = match.groups()
+            return ValueWithUnit(float(val), unit, f"{val} {unit}")
+        return None
+
+
+class EthtoolModuleParser(IParser):
+    """Parser for `ethtool -m <interface>` output."""
+
+    def __init__(self, raw_output: str):
+        IParser.__init__(self, LogName.MAIN.value)
+
+        self._raw_output = raw_output
+        self._result: dict[str, str] = {}
+        self._parse()
+
+    def name(self) -> str:
+        return "ethtool -m"
+
+    def _parse(self) -> None:
+        """Parse key-value pairs from ethtool -m output."""
+        for line in self._raw_output.splitlines():
+            if ":" in line:
+                key, value = line.split(":", 1)
+                self._result[key.strip()] = value.strip()
+
+    def result(self) -> EthtoolModuleDevice:
+        """Return parsed module device."""
+        return EthtoolModuleDevice(self._result)
+
+    def log(self) -> None:
+        """Log parsed data."""
+        device = self.result()
+        self._logger.info(f"Vendor: {device.vendor_name}")
+        self._logger.info(f"Part Number: {device.vendor_pn}")
+        self._logger.info(f"Serial Number: {device.vendor_sn}")
+        if device.module_temperature:
+            temps = ", ".join([f"{t.value} {t.unit}" for t in device.module_temperature])
+            self._logger.info(f"Temperature: {temps}")
+
+
+# ---------------------------------------------------------------------------- #
+#                                   Mlxlink                                   #
+# ---------------------------------------------------------------------------- #
+
+
+class MlxlinkDevice(ParsedDevice):
+    """Represents parsed mlxlink module information."""
+
+    def __init__(self, data: dict[str, str]):
+        ParsedDevice.__init__(self, LogName.MAIN.value)
+
+        self._data = data
+
+    @property
+    def state(self) -> str | None:
+        return self._data.get("State")
+
+    @property
+    def speed(self) -> str | None:
+        return self._data.get("Speed")
+
+    @property
+    def temperature(self) -> ValueWithUnit | None:
+        temp_str = self._data.get("Temperature [C]")
+        if temp_str:
+            return self._parse_temperature_with_range(temp_str)
+        return None
+
+    @property
+    def voltage(self) -> ValueWithUnit | None:
+        voltage_str = self._data.get("Voltage [mV]")
+        if voltage_str:
+            return self._parse_value_with_range(voltage_str)
+        return None
+
+    @property
+    def bias_current(self) -> ValueWithUnit | None:
+        current_str = self._data.get("Bias Current [mA]")
+        if current_str:
+            return self._parse_value_with_range(current_str)
+        return None
+
+    @property
+    def rx_power(self) -> ValueWithUnit | None:
+        power_str = self._data.get("Rx Power Current [dBm]")
+        if power_str:
+            return self._parse_value_with_range(power_str)
+        return None
+
+    @property
+    def tx_power(self) -> ValueWithUnit | None:
+        power_str = self._data.get("Tx Power Current [dBm]")
+        if power_str:
+            return self._parse_value_with_range(power_str)
+        return None
+
+    @property
+    def vendor_name(self) -> str | None:
+        return self._data.get("Vendor Name")
+
+    @property
+    def vendor_part_number(self) -> str | None:
+        return self._data.get("Vendor Part Number")
+
+    @property
+    def vendor_serial_number(self) -> str | None:
+        return self._data.get("Vendor Serial Number")
+
+    @property
+    def time_since_last_clear(self) -> ValueWithUnit | None:
+        time_str = self._data.get("Time Since Last Clear [Min]")
+        if time_str and time_str != "N/A":
+            return self._parse_scientific_value(time_str, "Min")
+        return None
+
+    @property
+    def effective_physical_errors(self) -> ValueWithUnit | None:
+        errors_str = self._data.get("Effective Physical Errors")
+        if errors_str and errors_str != "N/A":
+            return self._parse_scientific_value(errors_str, "")
+        return None
+
+    @property
+    def effective_physical_ber(self) -> ValueWithUnit | None:
+        ber_str = self._data.get("Effective Physical BER")
+        if ber_str and ber_str != "N/A":
+            return self._parse_scientific_value(ber_str, "")
+        return None
+
+    @property
+    def raw_physical_errors_per_lane(self) -> ValueWithUnit | None:
+        errors_str = self._data.get("Raw Physical Errors Per Lane")
+        if errors_str and errors_str != "N/A":
+            return self._parse_scientific_value(errors_str, "")
+        return None
+
+    @property
+    def raw_physical_ber(self) -> ValueWithUnit | None:
+        ber_str = self._data.get("Raw Physical BER")
+        if ber_str and ber_str != "N/A":
+            return self._parse_scientific_value(ber_str, "")
+        return None
+
+    def _parse_temperature_with_range(self, temp_str: str) -> ValueWithUnit | None:
+        """Parse temperature like '50 [-5..75]'."""
+        pattern = r"([\d.-]+)"
+        match = re.search(pattern, temp_str)
+        if match:
+            return ValueWithUnit(float(match.group(1)), "C", temp_str)
+        return None
+
+    def _parse_value_with_range(self, value_str: str) -> ValueWithUnit | None:
+        """Parse value with range like '3317.5 [3000..3600]'."""
+        pattern = r"([\d.-]+)"
+        match = re.search(pattern, value_str)
+        if match:
+            # Extract unit from the key (e.g., "mV" from "Voltage [mV]")
+            unit_match = re.search(r"\[([a-zA-Z]+)\]", value_str)
+            unit = unit_match.group(1) if unit_match else ""
+            return ValueWithUnit(float(match.group(1)), unit, value_str)
+        return None
+
+    def _parse_scientific_value(self, value_str: str, unit: str) -> ValueWithUnit | None:
+        """Parse scientific notation values like '15E-255'."""
+        pattern = r"([\d.-]+[Ee][+-]?\d+|[\d.-]+)"
+        match = re.search(pattern, value_str)
+        if match:
+            try:
+                return ValueWithUnit(float(match.group(1)), unit, value_str)
+            except ValueError:
+                return None
+        return None
+
+
+class MlxlinkParser(IParser):
+    """Parser for command output.
+    CoOmmand: `mlxlink -d <device> -e -m -c`
+    """
+
+    def __init__(self, raw_output: str):
+        IParser.__init__(self, LogName.MAIN.value)
+        self._raw_output = raw_output
+
+        self._result: dict[str, str] = {}
+        self._parse()
+
+    @property
+    def name(self) -> str:
+        return "mlxlink"
+
+    def _parse(self) -> None:
+        """Parse key-value pairs from mlxlink output."""
+        if self._raw_output is not None:
+            for line in self._raw_output.splitlines():
+                if ":" in line and not line.strip().endswith(":"):
+                    key, value = line.split(":", 1)
+                    self._result[key.strip()] = value.strip()
+
+    def result(self) -> MlxlinkDevice:
+        """Return parsed mlxlink device."""
+        return MlxlinkDevice(self._result)
+
+    def log(self) -> None:
+        """Log parsed data."""
+        device = self.result()
+        self._logger.info(f"State: {device.state}")
+        self._logger.info(f"Speed: {device.speed}")
+        self._logger.info(f"Vendor: {device.vendor_name}")
+        if device.temperature:
+            self._logger.info(f"Temperature: {device.temperature.value} {device.temperature.unit}")
+        if device.voltage:
+            self._logger.info(f"Voltage: {device.voltage.value} {device.voltage.unit}")

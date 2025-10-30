@@ -1,11 +1,12 @@
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime as dt
 import logging
 from typing import Any
 
 from src.core.connect import SshConnection
+from src.platform.enums.log import LogName
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 @dataclass(frozen=True)
@@ -72,7 +73,7 @@ class Agent:
             return {
                 "status": "failed",
                 "error": "SSH connection not available",
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": dt.now(tz=UTC).isoformat(),
             }
 
         task_id = task.get("id", "unknown")
@@ -101,7 +102,7 @@ class Agent:
                 for r in results
             ],
             "analysis": analysis.__dict__,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": dt.now(tz=UTC).isoformat(),
         }
 
     def _analyze_results(self, task: dict[str, Any], results: list[TaskResult]) -> TaskAnalysis:

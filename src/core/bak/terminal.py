@@ -9,7 +9,7 @@ import threading
 from typing import Any
 import weakref
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 @dataclass(frozen=True)

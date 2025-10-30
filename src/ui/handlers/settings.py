@@ -1,8 +1,8 @@
 from nicegui import ui
 
+from src.core.bak.terminal import Cli
 from src.core.config import Configure
 from src.core.json import Json
-from src.core.terminal import Cli
 from src.models.config import Config
 from src.platform.bak.commands import Python
 from src.ui.enums.settings import Options, Types

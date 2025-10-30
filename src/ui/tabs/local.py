@@ -1,6 +1,6 @@
 """Dashboard tab implementation."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime as dt
 import logging
 import platform
 import socket
@@ -20,9 +20,9 @@ LABEL = "Local"
 class LocalTab(BaseTab):
     ICON_NAME: str = "dashboard"
 
-    def __init__(self, build: bool = False) -> None:
+    def __init__(self, *, create: bool = False) -> None:
         super().__init__(NAME, LABEL, self.ICON_NAME)
-        if build:
+        if create:
             self.build()
 
     def build(self) -> None:
@@ -174,7 +174,7 @@ class LocalContent:
         processes = list(psutil.process_iter(["name", "cpu_percent", "memory_percent", "status"]))
 
         data = {
-            "timestamp": datetime.now(tz=UTC).isoformat(),
+            "timestamp": dt.now(tz=UTC).isoformat(),
             "system_info": self._get_system_info(),
             "performance": self._get_performance_data(),
             "network": dict(psutil.net_io_counters()._asdict()),
@@ -188,7 +188,7 @@ class LocalContent:
             "uptime": {
                 "boot_time": psutil.boot_time(),
                 "uptime_seconds": (
-                    datetime.now(tz=UTC) - datetime.fromtimestamp(psutil.boot_time(), tz=UTC)
+                    dt.now(tz=UTC) - dt.fromtimestamp(psutil.boot_time(), tz=UTC)
                 ).total_seconds(),
             },
         }
@@ -628,8 +628,8 @@ class LocalContent:
                 exp12.on_value_change(lambda e: self._expansion_states.update({"uptime": e.value}))
                 self._expansions["uptime"] = exp12
                 with exp12:
-                    boot_time = datetime.fromtimestamp(psutil.boot_time(), tz=UTC)
-                    uptime = datetime.now(tz=UTC) - boot_time
+                    boot_time = dt.fromtimestamp(psutil.boot_time(), tz=UTC)
+                    uptime = dt.now(tz=UTC) - boot_time
                     uptime_data = [
                         {"Event": "System Boot", "Time": boot_time.strftime("%Y-%m-%d %H:%M:%S")},
                         {
@@ -638,7 +638,7 @@ class LocalContent:
                         },
                         {
                             "Event": "Current Time",
-                            "Time": datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S"),
+                            "Time": dt.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S"),
                         },
                     ]
                     self._create_table(
@@ -650,6 +650,6 @@ class LocalContent:
                     )
 
         except Exception as e:
-            logger = logging.getLogger(__name__)
+            logger = logging.getLogger(LogName.MAIN.value)
             logger.exception("Error building system stats")
             ui.label(f"Error loading system statistics: {e}").classes("text-red-600")

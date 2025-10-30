@@ -5,12 +5,12 @@ from dataclasses import dataclass
 import itertools
 import logging
 from pathlib import Path
-import re
 from typing import Any
 
 from src.core import json
 from src.core.connect import SshConnection
 from src.interfaces.connection import CommandResult
+from src.platform.enums.log import LogName
 from src.platform.enums.software import CommandInputType, ToolType
 from src.platform.tools import helper
 
@@ -65,9 +65,9 @@ class Tool:
         self._ssh_connection = ssh_connection
         self._results: dict[str, CommandResult] = {}
 
-        self.logger = logging.getLogger("sut_info")
+        self._logger = logging.getLogger(LogName.MAIN.value)
 
-    def _execute(self, command: str) -> None:
+    def _execute(self, command: str) -> CommandResult | None:
         """Execute a specific command and return result.
 
         Args:
@@ -76,23 +76,23 @@ class Tool:
         result = None
         if not self._ssh_connection.is_connected():
             message = f"Cannot execute command '{command}': No SSH connection"
-            self.logger.error(message)
-            self._results[command] = CommandResult.error(command, message)
-            return
+            self._logger.error(message)
+            result = CommandResult.error(command, message)
+            self._results[command] = result
+            return result
 
         try:
             result = self._ssh_connection.execute_command(command)
             if result.success:
-                self.logger.debug(f"Succesfully executed command: {command}")
+                self._logger.debug(f"Succesfully executed command: {command}")
             else:
                 result = CommandResult.error(command, result.stderr)
         except Exception as e:
             result = CommandResult.error(command, e)
 
-        # Clean output
-        result.stdout = re.sub(r"\x1B\[[0-?]*[ -/]*[@-~]", "", result.stdout)
-
         self._results[command] = result
+
+        return result
 
     def _generate_commands(self, interface: str, command: list[Any]) -> str:
         command_modified = []
@@ -113,16 +113,16 @@ class Tool:
         for command, result in self._results.items():
             if result.success:
                 border = "".join(itertools.repeat("=", len(f"= {command}") + 2))
-                self.logger.info(border)
-                self.logger.info(f"= {command}")
-                self.logger.info(border)
-                self.logger.info(f"\n{result.stdout}")
+                self._logger.info(border)
+                self._logger.info(f"= {command}")
+                self._logger.info(border)
+                self._logger.info(f"\n\n{result.stdout}")
             else:
                 border = "".join(itertools.repeat("=", len(f"= {command} -> FAILED") + 2))
-                self.logger.warning(border)
-                self.logger.warning(f"= {command} -> FAILED")
-                self.logger.warning(f"= Reason: {result.stderr}")
-                self.logger.warning(border)
+                self._logger.warning(border)
+                self._logger.warning(f"= {command} -> FAILED")
+                self._logger.warning(f"= Reason: {result.stderr}")
+                self._logger.warning(border)
 
     def _save(self, path: Path) -> None:
         """Export collected data to JSON file.

@@ -24,6 +24,7 @@ from typing import ClassVar
 from src.core.connect import SshConnection
 from src.interfaces.connection import CommandResult
 from src.interfaces.software import IPackageManager, Package
+from src.platform.enums.log import LogName
 from src.platform.enums.software import PackageManagerType
 
 # fmt: off
@@ -62,7 +63,7 @@ class AptManager(IPackageManager):
         super().__init__()
         self._ssh_connection = ssh_connection
 
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(LogName.MAIN.value)
         self.logger.debug("Initialized APT package manager")
 
     def install(self, package: str, sudo_pass: str) -> bool:
@@ -204,7 +205,7 @@ class YumManager(IPackageManager):
             ssh_connection: Active SSH connection to target system
         """
         self._ssh_connection = ssh_connection
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(LogName.MAIN.value)
         self.logger.debug("Initialized YUM package manager")
 
     def install(self, package: str, sudo_pass: str) -> bool:
@@ -390,11 +391,11 @@ class SoftwareManager:
         self._package_manager: IPackageManager | None = None
 
         # Initialize logger first for detection logging
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger(LogName.MAIN.value)
         self.logger.info("Initializing Software Manager")
 
         # Other logger
-        self.sut_system_info_logger = logging.getLogger("sut_info")
+        self.sut_system_info_logger = logging.getLogger(LogName.SUT_SYSTEM_INFO.value)
 
         # Detect and initialize the appropriate package manager
         self._detect_package_manager()

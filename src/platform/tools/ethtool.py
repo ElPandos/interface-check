@@ -47,7 +47,6 @@ class EthtoolTool(Tool, ITool):
         for interface in self._interfaces:
             for command in self._AVAILABLE_COMMANDS:
                 commands_modified.append(self._generate_commands(interface, command))
-
         return commands_modified
 
     def execute(self) -> None:

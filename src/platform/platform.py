@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import contextlib
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime as dt, timedelta
 import logging
 from pathlib import Path
 import re
@@ -11,8 +11,9 @@ from typing import Any
 
 from src.core.json import Json
 from src.platform import Hardware, Health, Power, Software, Statistics
+from src.platform.enums.log import LogName
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(LogName.MAIN.value)
 
 # ---------------------------------------------------------------------------- #
 #                                  Interfaces                                  #
@@ -190,7 +191,7 @@ def dump_lists_to_file(
 
         # Check if file exists and back it up
         if full_path.exists():
-            timestamp = datetime.now(tz=datetime.UTC).strftime("%Y%m%d_%H%M%S")
+            timestamp = dt.now(tz=dt.UTC).strftime("%Y%m%d_%H%M%S")
             backup_path = full_path.with_suffix(f".{timestamp}")
             full_path.rename(backup_path)
             logger.info(f"Existing file renamed to backup: {backup_path}")
@@ -199,7 +200,7 @@ def dump_lists_to_file(
         data = {
             "x": list1,
             "y": list2,
-            "created_at": datetime.now(tz=datetime.UTC).isoformat(),
+            "created_at": dt.now(tz=dt.UTC).isoformat(),
         }
 
         # Write to JSON file with indentation for readability
@@ -274,7 +275,7 @@ class SystemHealth:
     temperature: float = 0.0
     network_status: dict[str, bool] = field(default_factory=dict)
     power_status: str = "unknown"
-    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
+    timestamp: dt = field(default_factory=lambda: dt.now(tz=UTC))
 
 
 @dataclass
@@ -534,13 +535,13 @@ class Platform:
 
     def get_health_history(self, hours: int = 24) -> list[SystemHealth]:
         """Get health metrics history."""
-        cutoff = datetime.now(UTC) - timedelta(hours=hours)
+        cutoff = dt.now(tz=UTC) - timedelta(hours=hours)
         return [h for h in self._health_log if h.timestamp > cutoff]
 
     def log_system_test(self, test_name: str, result: bool, details: str = "") -> None:
         """Log system test results."""
         log_entry = {
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": dt.now(tz=UTC).isoformat(),
             "test_name": test_name,
             "result": "PASS" if result else "FAIL",
             "details": details,

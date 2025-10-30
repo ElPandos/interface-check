@@ -36,6 +36,8 @@ class CommandInputType(Enum):
 
 
 class ToolType(Enum):
+    """Tool types."""
+
     DMESG = auto()
     ETHTOOL = auto()
     MLX = auto()

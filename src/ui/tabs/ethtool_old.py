@@ -2,7 +2,7 @@ import logging
 
 from nicegui import ui
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(LogName.MAIN.value)
 
 from src.core.connect import SshConnection
 from src.models.config import Config

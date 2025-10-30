@@ -1,6 +1,6 @@
 """Dmesg CLI tool implementation."""
 
-from datetime import datetime
+from datetime import datetime as dt
 from typing import Any, ClassVar
 
 from src.core.connect import SshConnection
@@ -70,9 +70,9 @@ class DmesgTool(Tool, ITool):
                         timestamp_str = line[1:end_bracket]
                         # Handle both human readable and epoch formats
                         if timestamp_str.count(" ") >= 2:  # Human readable
-                            timestamp = datetime.strptime(
+                            timestamp = dt.strptime(
                                 timestamp_str[:19], "%Y-%m-%d %H:%M:%S"
-                            ).replace(tzinfo=datetime.UTC)
+                            ).replace(tzinfo=dt.UTC)
                         message = line[end_bracket + 1 :].strip()
                     else:
                         message = line

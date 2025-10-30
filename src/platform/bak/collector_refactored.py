@@ -7,7 +7,7 @@ from src.core import CollectionManager, CommandCollector, Result, Sample
 from src.core.connection import Connection
 from src.tools.ethtool import EthtoolTool
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 class EthtoolCollector(CommandCollector):

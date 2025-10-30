@@ -4,10 +4,11 @@ from typing import Any
 from nicegui import ui
 import plotly.graph_objects as go
 
+from src.core.sample import PlotSampleData
+from src.core.worker import WorkManager
 from src.models.config import Config
-from src.platform.collector import PlotSampleData, WorkManager
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 class GraphView:
@@ -41,14 +42,14 @@ class GraphView:
             else:
                 self._fig.add_trace(
                     go.Scatter(
-                        x=[plot_sample.get_data_x()],
-                        y=[plot_sample.get_data_y()],
+                        x=[plot_sample.x()],
+                        y=[plot_sample.y()],
                         name=self._interf,
                     )
                 )
 
             if y_axis_label is None:
-                y_axis_label = plot_sample.get_label_y()
+                y_axis_label = plot_sample.y_label()
 
         worker.clear()
 

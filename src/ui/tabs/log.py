@@ -185,12 +185,12 @@ class LogContent:
     def _log(self, text: str, level: LogLevel) -> None:
         """Unified logging method."""
         if self._log_component:
-            timestamp = dt.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+            timestamp = dt.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
             formatted_text = f"{timestamp} [{level.name}] - {text}"
             self._log_component.push(formatted_text, classes=level.color)
 
     def _time(self) -> str:
-        return dt.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+        return dt.now(tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
 
     def _log_text(self, text: str, level: LogLevel) -> str:
         return f"{self._time()} [{level.name}] - {text}"
@@ -300,7 +300,7 @@ class LogContent:
                 ui.notify("No log content to save", color="warning")
                 return
 
-            timestamp = dt.now(UTC).strftime("%Y%m%d_%H%M%S")
+            timestamp = dt.now(tz=UTC).strftime("%Y%m%d_%H%M%S")
             filename = f"interface_check_log_{timestamp}.txt"
 
             ui.download(log_content.encode(), filename)

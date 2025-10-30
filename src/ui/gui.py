@@ -4,9 +4,10 @@ from typing import Any
 
 from nicegui import nicegui, ui
 
-from src.core.terminal import Cli
+from src.core.bak.terminal import Cli
 from src.models.config import Config
 from src.platform.bak.commands import Git
+from src.platform.enums.log import LogName
 from src.ui.handlers.host import HostHandler
 from src.ui.handlers.settings import settings
 from src.ui.tabs.agent import AgentPanel, AgentTab
@@ -22,7 +23,7 @@ from src.ui.tabs.system import SystemPanel, SystemTab
 from src.ui.tabs.toolbox import ToolboxPanel, ToolboxTab
 from src.ui.themes.style import apply_global_theme
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 class Gui:
