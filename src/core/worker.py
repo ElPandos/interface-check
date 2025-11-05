@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import UTC, datetime as dt
+from datetime import datetime as dt
 import logging
 from pathlib import Path
 import queue
@@ -49,14 +49,13 @@ class Worker(threading.Thread):
 
     def run(self) -> None:
         """Thread main logic (executed when start() is called)."""
-        self._begin = dt.now(tz=UTC)
+        self._begin = dt.now(tz=dt.now().astimezone().tzinfo)
 
-        reconnect = 1
+        reconnect = 0
         while not self._stop_event.is_set():
             try:
                 if reconnect > self._MAX_RECONNECT:
                     self._logger.info("Reconnect failed 10 times. Exiting thread...")
-                    reconnect = 0
                     break
 
                 sample = Sample(self._config, self._ssh_connection).collect(self._worker_command)
@@ -68,24 +67,27 @@ class Worker(threading.Thread):
                     sample.snapshot = None
 
                 self._collected_samples.put(sample)
+                reconnect = 0  # Reset on success
                 time.sleep(float(self._config.sut_scan_interval))
             except KeyboardInterrupt:
                 self._logger.info("User pressed 'Ctrl+c' - Exiting worker thread")
+                break
             except Exception:
                 self._logger.exception("Collection stopped unexpectedly")
+                reconnect += 1
                 try:
                     self._ssh_connection.connect()
                     if self._ssh_connection.is_connected():
                         self._logger.info("Reconnected to SSH session")
+                        reconnect = 0  # Reset on successful reconnect
                     else:
                         self._logger.exception(
                             f"Failed to reconnect to SSH session ({reconnect}/{self._MAX_RECONNECT})"
                         )
                 except Exception:
                     self._logger.exception("SSH reconnect failed")
-            reconnect += 1
 
-        self._end = dt.now(tz=UTC)
+        self._end = dt.now(tz=dt.now().astimezone().tzinfo)
 
     def close(self) -> None:
         self._stop_event.set()

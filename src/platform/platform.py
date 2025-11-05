@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import contextlib
 from dataclasses import dataclass, field
-from datetime import UTC, datetime as dt, timedelta
+from datetime import datetime as dt, timedelta
 import logging
 from pathlib import Path
 import re
@@ -275,7 +275,7 @@ class SystemHealth:
     temperature: float = 0.0
     network_status: dict[str, bool] = field(default_factory=dict)
     power_status: str = "unknown"
-    timestamp: dt = field(default_factory=lambda: dt.now(tz=UTC))
+    timestamp: dt = field(default_factory=lambda: dt.now(tz=dt.now().astimezone().tzinfo))
 
 
 @dataclass
@@ -535,13 +535,13 @@ class Platform:
 
     def get_health_history(self, hours: int = 24) -> list[SystemHealth]:
         """Get health metrics history."""
-        cutoff = dt.now(tz=UTC) - timedelta(hours=hours)
+        cutoff = dt.now(tz=dt.now().astimezone().tzinfo) - timedelta(hours=hours)
         return [h for h in self._health_log if h.timestamp > cutoff]
 
     def log_system_test(self, test_name: str, result: bool, details: str = "") -> None:
         """Log system test results."""
         log_entry = {
-            "timestamp": dt.now(tz=UTC).isoformat(),
+            "timestamp": dt.now(tz=dt.now().astimezone().tzinfo).isoformat(),
             "test_name": test_name,
             "result": "PASS" if result else "FAIL",
             "details": details,

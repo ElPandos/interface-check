@@ -1,4 +1,4 @@
-from datetime import UTC, datetime as dt
+from datetime import datetime as dt
 import logging
 from typing import Any
 
@@ -29,7 +29,7 @@ class Sample(Tool):
         return self._end
 
     def collect(self, worker_command: str) -> Any:
-        self._begin = dt.now(tz=UTC)
+        self._begin = dt.now(tz=dt.now().astimezone().tzinfo)
 
         result = self._execute(worker_command.command)
         if result.success:
@@ -37,7 +37,7 @@ class Sample(Tool):
         else:
             self.logger.exception("Command execution failed")
 
-        self._end = dt.now(tz=UTC)
+        self._end = dt.now(tz=dt.now().astimezone().tzinfo)
 
         return self
 

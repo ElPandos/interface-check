@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import UTC, datetime as dt, timedelta
+from datetime import datetime as dt, timedelta
 
 
 @dataclass(frozen=True)
@@ -15,7 +15,7 @@ class HealthMetric:
     threshold_min: float | None = None
     threshold_max: float | None = None
     status: str = "ok"  # ok, warning, critical
-    timestamp: dt = field(default_factory=lambda: dt.now(tz=UTC))
+    timestamp: dt = field(default_factory=lambda: dt.now(tz=dt.now().astimezone().tzinfo))
 
 
 @dataclass(frozen=True)
@@ -191,7 +191,7 @@ class Health:
         metrics = self.collect_metrics()
 
         snapshot = HealthSnapshot(
-            timestamp=dt.now(tz=UTC),
+            timestamp=dt.now(tz=dt.now().astimezone().tzinfo),
             cpu_usage=metrics.get("cpu", HealthMetric("cpu", 0.0)).value,
             memory_usage=metrics.get("memory", HealthMetric("memory", 0.0)).value,
             temperature=metrics.get("temperature", HealthMetric("temperature", 0.0)).value,
@@ -213,7 +213,7 @@ class Health:
 
     def get_history(self, hours: int = 24) -> list[HealthSnapshot]:
         """Get health history for specified hours."""
-        cutoff = dt.now(tz=UTC) - timedelta(hours=hours)
+        cutoff = dt.now(tz=dt.now().astimezone().tzinfo) - timedelta(hours=hours)
         return [h for h in self._history if h.timestamp > cutoff]
 
     def get_latest_snapshot(self) -> HealthSnapshot | None:

@@ -359,7 +359,11 @@ class MlxlinkDevice(ParsedDevice):
     def rx_power(self) -> ValueWithUnit | None:
         power_str = self._data.get("Rx Power Current [dBm]")
         if power_str:
-            return self._parse_value_with_range(power_str)
+            result = self._parse_value_with_range(power_str)
+            if result and result.value == -40.0:
+                self._logger.debug(f"rx_power is -40.0 - Raw string: '{power_str}'")
+                self._logger.debug(f"Full data dict: {self._data}")
+            return result
         return None
 
     @property
@@ -432,7 +436,10 @@ class MlxlinkDevice(ParsedDevice):
             # Extract unit from the key (e.g., "mV" from "Voltage [mV]")
             unit_match = re.search(r"\[([a-zA-Z]+)\]", value_str)
             unit = unit_match.group(1) if unit_match else ""
-            return ValueWithUnit(float(match.group(1)), unit, value_str)
+            parsed_value = float(match.group(1))
+            if parsed_value == -40.0:
+                self._logger.debug(f"Parsed -40.0 from value_str: '{value_str}', matched: '{match.group(1)}'")
+            return ValueWithUnit(parsed_value, unit, value_str)
         return None
 
     def _parse_scientific_value(self, value_str: str, unit: str) -> ValueWithUnit | None:
@@ -469,6 +476,8 @@ class MlxlinkParser(IParser):
             for line in self._raw_output.splitlines():
                 if ":" in line and not line.strip().endswith(":"):
                     key, value = line.split(":", 1)
+                    if value.strip() == "-40.0":
+                        a = ""
                     self._result[key.strip()] = value.strip()
 
     def result(self) -> MlxlinkDevice:

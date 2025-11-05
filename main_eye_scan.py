@@ -2,7 +2,7 @@
 """Optimized SLX eye scan automation."""
 
 from dataclasses import dataclass
-from datetime import UTC, datetime as dt
+from datetime import datetime as dt
 import json
 import logging
 from pathlib import Path
@@ -34,7 +34,7 @@ def signal_handler(_signum, _frame) -> None:
 signal.signal(signal.SIGINT, signal_handler)
 
 # Setup robust logging with separate loggers
-log_time_stamp = f"{dt.now(tz=UTC).strftime('%Y%m%d_%H%M%S')}"
+log_time_stamp = f"{dt.now(tz=dt.now().astimezone().tzinfo).strftime('%Y%m%d_%H%M%S')}"
 log_dir = Path(__file__).parent / "logs"
 log_dir.mkdir(exist_ok=True)
 

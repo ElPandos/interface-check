@@ -1,4 +1,4 @@
-from datetime import UTC, datetime as dt
+from datetime import datetime as dt
 from typing import Any
 
 from nicegui import ui
@@ -239,7 +239,7 @@ class ChatContent:
         if not self.chat_container:
             return
 
-        timestamp = dt.now(tz=UTC).strftime("%H:%M")
+        timestamp = dt.now(tz=dt.now().astimezone().tzinfo).strftime("%H:%M")
         message = {"role": role, "content": content, "timestamp": timestamp}
         self._chat_history.append(message)
 
@@ -286,7 +286,7 @@ class ChatContent:
 
         chat_data = {
             "model": self._current_model,
-            "timestamp": dt.now(tz=UTC).isoformat(),
+            "timestamp": dt.now(tz=dt.now().astimezone().tzinfo).isoformat(),
             "messages": self._chat_history,
         }
 
@@ -299,7 +299,7 @@ class ChatContent:
         connections = 0
         if self._host_handler and hasattr(self._host_handler, "_connect_route"):
             connections = len(getattr(self._host_handler, "_connect_route", []))
-        context = f"System Context:\n\n• Current host connections: {connections}\n\n• Model: {self._current_model}\n\n• Time: {dt.now(tz=UTC).strftime('%Y-%m-%d %H:%M:%S')}"
+        context = f"System Context:\n\n• Current host connections: {connections}\n\n• Model: {self._current_model}\n\n• Time: {dt.now(tz=dt.now().astimezone().tzinfo).strftime('%Y-%m-%d %H:%M:%S')}"
         self._add_message("system", context)
 
     def _quick_action(self, action_type: str) -> None:
