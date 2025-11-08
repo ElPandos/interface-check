@@ -53,9 +53,9 @@ class Tool:
             if cmd_result.success:
                 self._logger.debug(f"Succesfully executed command: {cmd}")
             else:
-                cmd_result = CmdResult.error(cmd, cmd_result.stderr)
-        except Exception as e:
-            cmd_result = CmdResult.error(cmd, e)
+                cmd_result = CmdResult.error(cmd, cmd_result.str_err)
+        except (OSError, TimeoutError) as e:
+            cmd_result = CmdResult.error(cmd, str(e))
 
         self._results[cmd] = cmd_result
 
@@ -93,12 +93,12 @@ class Tool:
                 self._logger.info(border)
                 self._logger.info(f"= '{cmd}' -> SUCCESS")
                 self._logger.info(border)
-                self._logger.info(f"\n\n{result.stdout}")
+                self._logger.info(f"\n\n{result.str_out}")
             else:
                 border = "".join(itertools.repeat("=", len(f"= {cmd}") + 2))
                 self._logger.warning(border)
                 self._logger.warning(f"= '{cmd}' -> FAILED")
-                self._logger.warning(f"= Reason: {result.stderr}")
+                self._logger.warning(f"= Reason: {result.str_err}")
                 self._logger.warning(border)
 
     def _save(self, path: Path) -> None:

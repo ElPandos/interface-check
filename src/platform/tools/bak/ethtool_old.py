@@ -82,7 +82,7 @@ class EthtoolTool(Tool):
     def test(self) -> dict[str, Any]:
         """Test ethtool command output."""
         result = self.execute_command(self.available_commands()[EthtoolCommand.MODULE.value])
-        return self._parse_module(result.stdout)
+        return self._parse_module(result.str_out)
 
     def _parse_info(self, output: str) -> EthtoolInfo:
         """Parse ethtool interface info."""

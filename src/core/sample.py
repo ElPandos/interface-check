@@ -3,7 +3,7 @@ import logging
 
 from src.core.connect import SshConnection
 from src.interfaces.component import ITime
-from src.interfaces.tool import Tool
+from src.core.tool import Tool
 from src.models.config import Config
 from src.platform.enums.log import LogName
 
@@ -22,12 +22,16 @@ class Sample(Tool, ITime):
     def snapshot(self) -> "Sample":
         return self._snapshot
 
+    @snapshot.setter
+    def snapshot(self, value: str) -> None:
+        self._snapshot = value
+
     def collect(self, worker_command: str) -> "Sample":
         self.start_timer()
 
         result = self._exec(worker_command.command)
         if result.success:
-            self._snapshot = result.stdout
+            self._snapshot = result.str_out
         else:
             self._logger.exception("Command execution failed")
 

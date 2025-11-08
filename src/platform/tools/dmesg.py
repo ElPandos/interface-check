@@ -1,11 +1,23 @@
 """Dmesg CLI tool implementation."""
 
+from dataclasses import dataclass
 from datetime import datetime as dt
 from typing import Any, ClassVar
 
 from src.core.connect import SshConnection
-from src.interfaces.tool import ITool, Tool
+from src.core.tool import Tool
+from src.interfaces.component import ITool
 from src.platform.enums.software import ToolType
+
+
+@dataclass(frozen=True)
+class DmesgEntry:
+    """Represents a single dmesg log entry."""
+
+    timestamp: dt | None
+    facility: str
+    level: str
+    message: str
 
 
 class DmesgTool(Tool, ITool):
@@ -14,8 +26,6 @@ class DmesgTool(Tool, ITool):
     # fmt: off
     _AVAILABLE_COMMANDS: ClassVar[list[list[Any]]] = [
         ["sudo", "dmesg", "-T", "|", "egrep", "-i", "'mlx|mellanox|sfp|qsfp|phy|eth|port'", "|", "tail", "-n", "100" ],
-        #["sudo", "dmesg", "|", "egrep", "-i", "'mlx|sfp|qsfp|phy"],
-        #["sudo", "dmesg", "|", "egrep", "-i", "'mlx|mellanox|sfp|qsfp|phy|port'"]
     ]
     # fmt: on
 
@@ -24,6 +34,7 @@ class DmesgTool(Tool, ITool):
 
         Args:
             ssh_connection: SSH connection for command execution
+            interfaces: List of network interfaces (unused for dmesg)
         """
         Tool.__init__(self, ssh_connection)
         self._interfaces = interfaces
@@ -51,8 +62,16 @@ class DmesgTool(Tool, ITool):
     def log(self) -> None:
         self._log()
 
-    def _parse(self, command_name: str, output: str) -> Any:
-        """Parse dmesg entries with timestamps."""
+    def _parse(self, _command_name: str, output: str) -> Any:
+        """Parse dmesg entries with timestamps.
+
+        Args:
+            _command_name: Command name (unused)
+            output: Raw dmesg output
+
+        Returns:
+            List of DmesgEntry objects
+        """
         entries = []
         lines = output.strip().split("\n")
 

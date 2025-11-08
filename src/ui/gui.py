@@ -116,7 +116,7 @@ class Gui:
             try:
                 proc = Cli().run(Git().patchset().syntax)
                 result = Cli().get_output(proc)
-                stdout = result.stdout.strip() if result.return_code == 0 else "unknown"
+                stdout = result.str_out.strip() if result.return_code == 0 else "unknown"
             except (subprocess.SubprocessError, OSError, ValueError):
                 stdout = "unknown"
             with ui.row().classes("w-full items-center"):

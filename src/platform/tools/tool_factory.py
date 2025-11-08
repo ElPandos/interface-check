@@ -3,7 +3,7 @@
 from typing import ClassVar
 
 from src.core.connect import SshConnection
-from src.interfaces.tool import ITool
+from src.interfaces.component import ITool
 from src.platform.enums.software import ToolType
 from src.platform.tools.dmesg import DmesgTool
 from src.platform.tools.ethtool import EthtoolTool
@@ -34,7 +34,7 @@ class ToolFactory:
         Args:
             tool_type: Type of the tool to create
             ssh_connection: SSH connection for command execution
-            interface: Optional interface name
+            interfaces: Optional list of network interfaces
 
         Returns:
             Tool instance

@@ -130,7 +130,7 @@ class Agent:
                 issues.append(f"Command failed: {result.command}")
                 continue
 
-            stdout_lower = result.stdout.lower()
+            stdout_lower = result.str_out.lower()
 
             if "ethtool" in result.command and "eth" in result.command:
                 if "link detected: no" in stdout_lower:
@@ -143,7 +143,7 @@ class Agent:
                     recommendations.append("Verify interface configuration")
 
             elif "cat /proc/net/dev" in result.command:
-                self._analyze_interface_stats(result.stdout, issues, recommendations)
+                self._analyze_interface_stats(result.str_out, issues, recommendations)
                 if issues and status == "healthy":
                     status = "warning"
 
@@ -164,7 +164,7 @@ class Agent:
                 continue
 
             if "ethtool -S" in result.command:
-                stats = self._parse_ethtool_stats(result.stdout)
+                stats = self._parse_ethtool_stats(result.str_out)
                 metrics["interface_stats"] = stats
 
                 # Check for high error rates
@@ -175,7 +175,7 @@ class Agent:
                         )
 
             elif "sar -n DEV" in result.command:
-                metrics["network_activity"] = self._parse_sar_output(result.stdout)
+                metrics["network_activity"] = self._parse_sar_output(result.str_out)
 
         return TaskAnalysis(
             summary="Performance Analysis", metrics=metrics, recommendations=recommendations
@@ -193,7 +193,7 @@ class Agent:
                 tests_failed += 1
                 continue
 
-            stdout_lower = result.stdout.lower()
+            stdout_lower = result.str_out.lower()
 
             if "ethtool -t" in result.command:
                 if "pass" in stdout_lower:
@@ -230,7 +230,7 @@ class Agent:
 
             if "ip addr show" in result.command:
                 configs_captured += 1
-                for line in result.stdout.split("\n"):
+                for line in result.str_out.split("\n"):
                     if ": " in line and "state" in line.lower():
                         interface = line.split(":")[1].strip().split("@")[0]
                         if interface not in interfaces_found:
@@ -238,7 +238,7 @@ class Agent:
 
             elif "ip route show" in result.command:
                 configs_captured += 1
-                routes_found = len([line for line in result.stdout.split("\n") if line.strip()])
+                routes_found = len([line for line in result.str_out.split("\n") if line.strip()])
 
         return TaskAnalysis(
             summary="Configuration Backup Analysis",

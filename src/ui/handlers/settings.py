@@ -108,8 +108,8 @@ class SettingsHandler:
         ):
             proc = Cli().run(Python().licenses().syntax)
             result = Cli().get_output(proc)
-            if result.stdout:
-                licenses = Json.parse_string(result.stdout)
+            if result.str_out:
+                licenses = Json.parse_string(result.str_out)
                 for pkg in licenses:
                     name = pkg.get("Name")
                     version = pkg.get("Version")

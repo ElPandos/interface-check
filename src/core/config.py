@@ -73,7 +73,7 @@ class Configure:
     def setup_logging(self, level: int = logging.INFO) -> None:
         """Configure rotating file and console logging."""
         formatter = logging.Formatter(
-            "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s():%(lineno)d]: %(message)s"
+            "[%(asctime)s] %(levelname)-8s [%(name)-30s.%(funcName)s():%(lineno)d]: %(message)s"
         )
 
         handlers = [

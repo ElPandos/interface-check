@@ -56,8 +56,12 @@ class ITool(ABC):
         """
 
     @abstractmethod
-    def get_available_commands(self) -> list[list[str]]:
-        """Get available commands for the tool."""
+    def available_commands(self) -> list[str]:
+        """Get available commands for the tool.
+
+        Returns:
+            List of command strings
+        """
 
     @abstractmethod
     def execute(self) -> None:
@@ -88,11 +92,11 @@ class IConnection(ABC):
         """Check if connection is active."""
 
     @abstractmethod
-    def execute_command(self, command: str, timeout: int | None = None) -> CmdResult:
+    def exec_cmd(self, cmd: str, timeout: int | None = None) -> CmdResult:
         """Execute command and return command result.
 
         Args:
-            command: Command to execute
+            cmd: Command to execute
             timeout: Optional timeout in seconds
 
         Returns:
@@ -100,10 +104,11 @@ class IConnection(ABC):
         """
 
 
-class ITime(ABC):
+class ITime:
     """Mixin for classes that track begin/end timestamps.
 
     Provides centralized time tracking with duration calculation.
+    Not an ABC since it provides concrete implementations.
     """
 
     def __init__(self):

@@ -79,7 +79,7 @@ class Hardware:
         if not result.success:
             return CpuInfo()
 
-        data = self._parse_key_value(result.stdout)
+        data = self._parse_key_value(result.str_out)
         cpu_info = CpuInfo(
             architecture=data.get("Architecture", "unknown"),
             cores=int(data.get("CPU(s)", "0")),
@@ -100,7 +100,7 @@ class Hardware:
         if not result.success:
             return MemoryInfo()
 
-        lines = result.stdout.strip().split("\n")
+        lines = result.str_out.strip().split("\n")
         if len(lines) < 2:
             return MemoryInfo()
 
@@ -131,7 +131,7 @@ class Hardware:
             return []
 
         storage_list = []
-        lines = result.stdout.strip().split("\n")[1:]  # Skip header
+        lines = result.str_out.strip().split("\n")[1:]  # Skip header
 
         for line in lines:
             parts = line.split()
@@ -169,7 +169,7 @@ class Hardware:
         if not result.success:
             return []
 
-        interface_names = result.stdout.strip().split()
+        interface_names = result.str_out.strip().split()
 
         for name in interface_names:
             if not name.strip():
@@ -182,7 +182,7 @@ class Hardware:
             if mac_result.success:
                 interface = interface.__class__(
                     name=interface.name,
-                    mac_address=mac_result.stdout.strip(),
+                    mac_address=mac_result.str_out.strip(),
                     ip_address=interface.ip_address,
                     state=interface.state,
                     speed=interface.speed,
@@ -196,7 +196,7 @@ class Hardware:
                     name=interface.name,
                     mac_address=interface.mac_address,
                     ip_address=interface.ip_address,
-                    state=state_result.stdout.strip(),
+                    state=state_result.str_out.strip(),
                     speed=interface.speed,
                     duplex=interface.duplex,
                 )
@@ -219,7 +219,7 @@ class Hardware:
             )
             if result.success:
                 try:
-                    temp = float(result.stdout.strip()) / 1000.0
+                    temp = float(result.str_out.strip()) / 1000.0
                     sensors[f"thermal_zone{i}"] = temp
                 except ValueError:
                     continue
@@ -229,7 +229,7 @@ class Hardware:
         # Try sensors command if available
         result = self._connection.execute_command("sensors")
         if result.success:
-            for line in result.stdout.split("\n"):
+            for line in result.str_out.split("\n"):
                 if "°C" in line and ":" in line:
                     parts = line.split(":")
                     if len(parts) >= 2:

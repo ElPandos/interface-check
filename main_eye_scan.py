@@ -51,8 +51,8 @@ log_level = logging.INFO
 #
 ###########################
 
-# Log formatter
-log_format_string = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+# Log formatter with aligned log levels and logger names
+log_format_string = "%(asctime)s - %(name)-30s - %(levelname)-8s - %(message)s"
 
 # Configure root logger
 logging.basicConfig(
@@ -223,11 +223,10 @@ class SlxEyeScanner:
                 self.logger.debug(f"Command result: {result}")
 
             self.logger.info("SLX connection established successfully")
+            return True  # noqa: TRY300
         except Exception:
             self.logger.exception("Connection failed")
             return False
-        else:
-            return True
 
     def get_port_id(self, interface: str) -> str | None:
         """Extract port ID from cmsh output."""
@@ -250,10 +249,9 @@ class SlxEyeScanner:
                 self.logger.info(f"Found port ID {port_id} for interface {interface}")
                 return port_id
             self.logger.warning(f"No port ID found for interface {interface}")
+            return None  # noqa: TRY300
         except Exception:
             self.logger.exception(f"Failed to get port ID for {interface}")
-            return None
-        else:
             return None
 
     def get_interface_name(self, port_id: str) -> str | None:
@@ -276,10 +274,9 @@ class SlxEyeScanner:
                 self.logger.info(f"Found interface name {interface_name} for port {port_id}")
                 return interface_name
             self.logger.warning(f"No interface name found for port {port_id}")
+            return None  # noqa: TRY300
         except Exception:
             self.logger.exception(f"Failed to get interface name for port {port_id}")
-            return None
-        else:
             return None
 
     def enable_interface(self, interface_name: str) -> None:
@@ -349,6 +346,7 @@ class SlxEyeScanner:
 
     def scan_interfaces(self, interfaces: list[str]) -> bool:
         """Complete eye scan workflow for interfaces."""
+        self.logger.debug(f"scan_interfaces called with: {interfaces}")
         if not interfaces:
             self.logger.warning("No interfaces provided for scanning")
             return True
@@ -357,6 +355,7 @@ class SlxEyeScanner:
         success_count = 0
 
         for interface in interfaces:
+            self.logger.debug(f"Processing interface: {interface}")
             try:
                 # Check cache first
                 if interface in self._interface_cache:
@@ -455,17 +454,23 @@ class SutSystemScanner:
                 sut_system_info_logger.debug(f"Testing connection with command: {cmd}")
                 result = self._ssh_connection.exec_cmd(cmd)
                 if result.rcode == 0:
-                    sut_system_info_logger.debug(f"Command '{cmd}' result: {result.out_str}")
+                    sut_system_info_logger.debug(f"Command '{cmd}' result: {result.str_out}")
                 else:
-                    sut_system_info_logger.warning(f"Command '{cmd}' failed: {result.err_str}")
+                    sut_system_info_logger.warning(f"Command '{cmd}' failed: {result.str_err}")
 
-            self._software_manager = SoftwareManager(self._ssh_connection)
+            # Initialize software manager
+            try:
+                self._software_manager = SoftwareManager(self._ssh_connection)
+                sut_system_info_logger.debug("Software manager initialized")
+            except Exception:
+                sut_system_info_logger.exception("Failed to initialize software manager")
+                self._software_manager = None
+
             sut_system_info_logger.info("SUT connection established successfully")
+            return True
         except Exception:
             sut_system_info_logger.exception("SUT connection failed")
             return False
-        else:
-            return True
 
     def install_required_software(self) -> bool:
         """Install required software packages."""
@@ -479,11 +484,10 @@ class SutSystemScanner:
                 self._config.sut_required_software_packages, self._config.sut_sudo_pass
             )
             sut_system_info_logger.info(f"Software installation completed: {result}")
+            return result  # noqa: TRY300
         except Exception:
             sut_system_info_logger.exception("Failed to install required software")
             return False
-        else:
-            return result
 
     def log_required_software_versions(self) -> bool:
         """Log versions of required software packages."""
@@ -495,11 +499,10 @@ class SutSystemScanner:
             self._software_manager.log_required_package_versions(
                 self._config.sut_required_software_packages
             )
+            return True  # noqa: TRY300
         except Exception:
             sut_system_info_logger.exception("Failed to log software versions")
             return False
-        else:
-            return True
 
     def log_system_info(self) -> None:
         """Log system information."""
@@ -541,12 +544,10 @@ class SutSystemScanner:
                 self._worker_manager.add(
                     Worker(worker_command_2, self._config, self._ssh_connection)
                 )
-
+            return True  # noqa: TRY300
         except Exception:
             sut_value_scanner_logger.exception("Failed to start scanner")
             return False
-        else:
-            return True
 
     @property
     def worker_manager(self) -> WorkManager:
@@ -577,22 +578,6 @@ def main():  # noqa: PLR0912, PLR0915
             return
 
         main_logger.info(f"Starting system information scan. Logs saved to: {sut_system_info_log}")
-
-        # ---------------------------------------------------------------------------- #
-        #                           Install required software                          #
-        # ---------------------------------------------------------------------------- #
-
-        # if not sut_system_scanner.install_required_software():
-        #     main_logger.warning("Software installation failed, continuing anyway")
-
-        # if not sut_system_scanner.log_required_software_versions():
-        #     main_logger.warning("Failed to log software versions")
-
-        # ---------------------------------------------------------------------------- #
-        #                                Log system info                               #
-        # ---------------------------------------------------------------------------- #
-
-        # sut_system_scanner.log_system_info()
 
         # ---------------------------------------------------------------------------- #
         #                          Start temp scanning thread                          #
@@ -771,7 +756,7 @@ def main():  # noqa: PLR0912, PLR0915
 
         sut_system_scanner.disconnect()
 
-    main_logger.info(f"Total eye scans completed: {slx_eye_scanner.scans_collected}")
+    main_logger.info(f"Total eye scans completed: {slx_eye_scanner.scans_collected()}")
     main_logger.info("Logs saved to:")
     main_logger.info(f"Main: {main_log}")
     main_logger.info(f"SUT system info: {sut_system_info_log}")

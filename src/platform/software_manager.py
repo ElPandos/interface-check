@@ -289,7 +289,7 @@ class YumManager(IPackageManager):
             self.logger.error("Failed to retrieve package list from rpm")
             return []
 
-        packages = self._parse_version(result.stdout)
+        packages = self._parse_version(result.str_out)
         self.logger.info(f"Found {len(packages)} installed packages")
         return packages
 

@@ -68,11 +68,11 @@ class NetworkStatCollector(StatCollector):
 
         if rx_result.success:
             with contextlib.suppress(ValueError):
-                rx_bytes = int(rx_result.stdout.strip())
+                rx_bytes = int(rx_result.str_out.strip())
 
         if tx_result.success:
             with contextlib.suppress(ValueError):
-                tx_bytes = int(tx_result.stdout.strip())
+                tx_bytes = int(tx_result.str_out.strip())
 
         total_bytes = rx_bytes + tx_bytes
 
@@ -102,7 +102,7 @@ class CpuStatCollector(StatCollector):
         )
         if result.success:
             try:
-                cpu_usage = float(result.stdout.strip())
+                cpu_usage = float(result.str_out.strip())
                 return StatPoint(
                     timestamp=datetime.now(timezone.utc),
                     value=cpu_usage,
@@ -131,7 +131,7 @@ class MemoryStatCollector(StatCollector):
         result = self._connection.execute_command("free | grep Mem | awk '{print ($3/$2) * 100.0}'")
         if result.success:
             try:
-                mem_usage = float(result.stdout.strip())
+                mem_usage = float(result.str_out.strip())
                 return StatPoint(
                     timestamp=datetime.now(timezone.utc),
                     value=mem_usage,

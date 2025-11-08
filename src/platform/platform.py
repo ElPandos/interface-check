@@ -88,11 +88,11 @@ def run_command(command: list[str], *, fail_ok: bool = False) -> str:
             logger.warning(f"Command failed but will continue: {' '.join(command)}")
         else:
             raise RuntimeError(
-                f"Command failed: {' '.join(command)}\n{result.stdout}\n{result.stderr}"
+                f"Command failed: {' '.join(command)}\n{result.str_out}\n{result.str_err}"
             )
     else:
-        logger.info(result.stdout)
-    return result.stdout
+        logger.info(result.str_out)
+    return result.str_out
 
 
 # ---------------------------------------------------------------------------- #
@@ -322,13 +322,13 @@ class Platform:
         if self._connection:
             result = self._connection.execute_command("lscpu")
             if result.success:
-                info["cpu"] = self._parse_key_value(result.stdout)
+                info["cpu"] = self._parse_key_value(result.str_out)
 
         # Memory info
         if self._connection:
             result = self._connection.execute_command("free -h")
             if result.success:
-                info["memory"] = result.stdout
+                info["memory"] = result.str_out
 
         # Network interfaces
         info["interfaces"] = Interfaces().list
@@ -352,8 +352,8 @@ class Platform:
         if result.success:
             try:
                 if sensor == "cpu":
-                    return float(result.stdout.strip()) / 1000.0
-                return float(result.stdout.strip())
+                    return float(result.str_out.strip()) / 1000.0
+                return float(result.str_out.strip())
             except ValueError:
                 pass
 
@@ -367,11 +367,11 @@ class Platform:
         # Check battery status
         result = self._connection.execute_command("cat /sys/class/power_supply/BAT*/status")
         if result.success:
-            return result.stdout.strip().lower()
+            return result.str_out.strip().lower()
 
         # Check AC adapter
         result = self._connection.execute_command("cat /sys/class/power_supply/A*/online")
-        if result.success and "1" in result.stdout:
+        if result.success and "1" in result.str_out:
             return "plugged"
 
         return "unknown"
@@ -398,14 +398,14 @@ class Platform:
             result = self._connection.execute_command(f"which {name}")
             if result.success:
                 info.installed = True
-                info.path = result.stdout.strip()
+                info.path = result.str_out.strip()
 
                 # Try to get version
                 for version_cmd in [f"{name} --version", f"{name} -V", f"{name} version"]:
                     ver_result = self._connection.execute_command(version_cmd)
                     if ver_result.success:
                         info.version = (
-                            ver_result.stdout.split()[0] if ver_result.stdout else "unknown"
+                            ver_result.str_out.split()[0] if ver_result.str_out else "unknown"
                         )
                         break
 
@@ -458,7 +458,7 @@ class Platform:
             for cmd in commands:
                 result = self._connection.execute_command(cmd)
                 if result.success:
-                    for line in result.stdout.split("\n"):
+                    for line in result.str_out.split("\n"):
                         if line.strip():
                             parts = line.split()
                             if len(parts) >= 2:
@@ -483,7 +483,7 @@ class Platform:
                 result = self._connection.execute_command(
                     f"cat /sys/class/net/{interface}/operstate"
                 )
-                status[interface] = result.success and "up" in result.stdout.lower()
+                status[interface] = result.success and "up" in result.str_out.lower()
             else:
                 status[interface] = False
 
@@ -495,7 +495,7 @@ class Platform:
             return False
 
         result = self._connection.execute_command(f"ping -c {count} {target}")
-        return result.success and "0% packet loss" in result.stdout
+        return result.success and "0% packet loss" in result.str_out
 
     # Health Monitoring
     def collect_health_metrics(self) -> SystemHealth:
@@ -507,7 +507,7 @@ class Platform:
             result = self._connection.execute_command("top -bn1 | grep 'Cpu(s)' | awk '{print $2}'")
             if result.success:
                 with contextlib.suppress(ValueError):
-                    health.cpu_usage = float(result.stdout.strip().replace("%us,", ""))
+                    health.cpu_usage = float(result.str_out.strip().replace("%us,", ""))
 
             # Memory usage
             result = self._connection.execute_command(
@@ -515,7 +515,7 @@ class Platform:
             )
             if result.success:
                 with contextlib.suppress(ValueError):
-                    health.memory_usage = float(result.stdout.strip())
+                    health.memory_usage = float(result.str_out.strip())
 
             # Disk usage
             result = self._connection.execute_command(
@@ -523,7 +523,7 @@ class Platform:
             )
             if result.success:
                 with contextlib.suppress(ValueError):
-                    health.disk_usage = float(result.stdout.strip())
+                    health.disk_usage = float(result.str_out.strip())
 
         # Temperature and network status
         health.temperature = self.get_temperature()

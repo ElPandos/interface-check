@@ -60,7 +60,7 @@ class CpuMonitor(HealthMonitor):
         )
         if result.success:
             try:
-                usage = float(result.stdout.strip())
+                usage = float(result.str_out.strip())
                 status = "ok"
                 if usage > 90:
                     status = "critical"
@@ -93,7 +93,7 @@ class MemoryMonitor(HealthMonitor):
         result = self._connection.execute_command("free | grep Mem | awk '{print ($3/$2) * 100.0}'")
         if result.success:
             try:
-                usage = float(result.stdout.strip())
+                usage = float(result.str_out.strip())
                 status = "ok"
                 if usage > 95:
                     status = "critical"
@@ -127,7 +127,7 @@ class TemperatureMonitor(HealthMonitor):
         result = self._connection.execute_command(f"cat {self._sensor_path}")
         if result.success:
             try:
-                temp = float(result.stdout.strip()) / 1000.0
+                temp = float(result.str_out.strip()) / 1000.0
                 status = "ok"
                 if temp > 85:
                     status = "critical"
@@ -258,7 +258,7 @@ class Health:
         )
         if result.success:
             try:
-                return float(result.stdout.strip())
+                return float(result.str_out.strip())
             except ValueError:
                 pass
         return 0.0
@@ -273,7 +273,7 @@ class Health:
         )
         if result.success:
             try:
-                return int(result.stdout.strip())
+                return int(result.str_out.strip())
             except ValueError:
                 pass
         return 0

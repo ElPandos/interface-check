@@ -2,7 +2,8 @@ from typing import Any, ClassVar
 
 from src.core.connect import SshConnection
 from src.interfaces.connection import CmdResult
-from src.interfaces.tool import ITool, Tool
+from src.core.tool import Tool
+from src.interfaces.component import ITool
 from src.platform.enums.software import CommandInputType, ToolType
 
 

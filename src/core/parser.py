@@ -95,7 +95,7 @@ class EyeScanParser(IParser):
         return matrix, voltages, phase_offsets
 
     def log(self) -> None:
-        return ""
+        """Log parsed eye scan data."""
 
 
 # ---------------------------------------------------------------------------- #
@@ -577,7 +577,7 @@ class LinkFlapParser(IParser):
                 state = match.group("state").capitalize()
                 timestamp = match.group("timestamp") or "[unknown]"
 
-                event = LinkEvent(timestamp=timestamp, state=state)
+                event = LinkEvent(timestamp=timestamp, state=state, interface=iface)
                 events_by_iface.setdefault(iface, []).append(event)
 
         # Create LinkFlapDevice objects
