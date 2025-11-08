@@ -48,11 +48,12 @@ class EyeScanParser(IParser):
 
     def __init__(self, raw_output: str):
         IParser.__init__(self, LogName.SLX_EYE_SCANNER.value)
+
         self._raw_output = raw_output
         self._rows: list[dict[str, str]] = self._parse_rows()
 
     def name(self) -> str:
-        return "eye"
+        return "eye_scan"
 
     def _parse_rows(self) -> list[dict[str, str]]:
         """Extract voltage/pattern rows from CLI output."""
@@ -144,11 +145,10 @@ class MstStatusVersionParser(IParser):
 
         self._raw_output = raw_output
         self._devices: list[MstVersionDevice] = []
-
         self._parse()
 
     def name(self) -> str:
-        return "mst version"
+        return "mst_version"
 
     def _parse(self) -> None:
         lines = self._raw_output.splitlines()
@@ -289,7 +289,7 @@ class EthtoolModuleParser(IParser):
         self._parse()
 
     def name(self) -> str:
-        return "ethtool -m"
+        return "ethtool_module"
 
     def _parse(self) -> None:
         """Parse key-value pairs from ethtool -m output."""
@@ -438,7 +438,9 @@ class MlxlinkDevice(ParsedDevice):
             unit = unit_match.group(1) if unit_match else ""
             parsed_value = float(match.group(1))
             if parsed_value == -40.0:
-                self._logger.debug(f"Parsed -40.0 from value_str: '{value_str}', matched: '{match.group(1)}'")
+                self._logger.debug(
+                    f"Parsed -40.0 from value_str: '{value_str}', matched: '{match.group(1)}'"
+                )
             return ValueWithUnit(parsed_value, unit, value_str)
         return None
 
@@ -456,7 +458,7 @@ class MlxlinkDevice(ParsedDevice):
 
 class MlxlinkParser(IParser):
     """Parser for command output.
-    CoOmmand: `mlxlink -d <device> -e -m -c`
+    Command: `mlxlink -d <device> -e -m -c`
     """
 
     def __init__(self, raw_output: str):
@@ -494,3 +496,101 @@ class MlxlinkParser(IParser):
             self._logger.info(f"Temperature: {device.temperature.value} {device.temperature.unit}")
         if device.voltage:
             self._logger.info(f"Voltage: {device.voltage.value} {device.voltage.unit}")
+
+
+# ---------------------------------------------------------------------------- #
+#                           Dmesg - Link flap farser                           #
+# ---------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class LinkEvent:
+    """Represents a single link state change event."""
+
+    timestamp: str
+    state: str  # "Up" or "Down"
+    interface: str
+
+
+class LinkFlapDevice(ParsedDevice):
+    """Represents link flap statistics for a single network interface."""
+
+    def __init__(self, interface: str, events: list[LinkEvent]):
+        ParsedDevice.__init__(self, LogName.MAIN.value)
+
+        self._interface = interface
+        self._events = events
+
+    @property
+    def ups(self) -> int:
+        """Count of link up events."""
+        return sum(1 for e in self._events if e.state == "Up")
+
+    @property
+    def downs(self) -> int:
+        """Count of link down events."""
+        return sum(1 for e in self._events if e.state == "Down")
+
+    @property
+    def flap_count(self) -> int:
+        """Total number of state changes."""
+        return len(self._events)
+
+    def log(self) -> None:
+        self._logger.info(
+            f"LinkFlapDevice(interface={self._interface!r}, "
+            f"ups={self.ups}, downs={self.downs}, "
+            f"total_events={self.flap_count})"
+        )
+
+
+class LinkFlapParser(IParser):
+    """
+    Parser for dmesg output to detect network link flaps.
+    Extracts interface up/down events from kernel logs.
+    """
+
+    _link_event_pattern: ClassVar[re.Pattern] = re.compile(
+        r"(?P<timestamp>\[\s*\d+\.\d+\])?\s*(?P<iface>[a-zA-Z0-9\-_]+):?\s+Link is (?P<state>Up|Down)",
+        re.IGNORECASE,
+    )
+
+    def __init__(self, raw_output: str):
+        IParser.__init__(self, LogName.MAIN.value)
+
+        self._raw_output = raw_output
+        self._devices: dict[str, LinkFlapDevice] = {}
+        self._parse()
+
+    def name(self) -> str:
+        return "link_flap"
+
+    def _parse(self) -> None:
+        """Parse dmesg output and extract link events per interface."""
+        events_by_iface: dict[str, list[LinkEvent]] = {}
+
+        for line in self._raw_output.splitlines():
+            match = self._link_event_pattern.search(line)
+            if match:
+                iface = match.group("iface")
+                state = match.group("state").capitalize()
+                timestamp = match.group("timestamp") or "[unknown]"
+
+                event = LinkEvent(timestamp=timestamp, state=state)
+                events_by_iface.setdefault(iface, []).append(event)
+
+        # Create LinkFlapDevice objects
+        for iface, events in events_by_iface.items():
+            self._devices[iface] = LinkFlapDevice(iface, events)
+
+    def result(self) -> dict[str, LinkFlapDevice]:
+        """Returns dictionary of interface name to LinkFlapDevice."""
+        return self._devices
+
+    def get_device(self, interface: str) -> LinkFlapDevice | None:
+        """Get link flap data for a specific interface."""
+        return self._devices.get(interface)
+
+    def log(self) -> None:
+        for device in self._devices.values():
+            device.log()

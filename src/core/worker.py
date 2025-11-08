@@ -70,7 +70,7 @@ class Worker(threading.Thread):
                 reconnect = 0  # Reset on success
                 time.sleep(float(self._config.sut_scan_interval))
             except KeyboardInterrupt:
-                self._logger.info("User pressed 'Ctrl+c' - Exiting worker thread")
+                self._logger.info(f"User pressed 'Ctrl+c' - Exiting worker thread: {self.name}")
                 break
             except Exception:
                 self._logger.exception("Collection stopped unexpectedly")
@@ -143,11 +143,12 @@ class Worker(threading.Thread):
         self._collect_all_samples()
         self._log_extracted_size()
 
-    def first_sample(self) -> Sample:
+    def first_sample(self) -> Sample | None:
         if not self._extracted_samples:
             self._collect_sample()
-        self._log_extracted_size()
-        return self._extracted_samples[0]
+            self._log_extracted_size()
+            return self._extracted_samples[0]
+        return None
 
     def _collect_sample(self) -> None:
         # Will lock main thread until first sample is received
@@ -168,7 +169,7 @@ class Worker(threading.Thread):
         ]
 
     def group_by_type(self) -> dict:
-        """Group samples by their concrete class name."""
+        """Group samples by their class name."""
         groups = defaultdict(list)
         for s in self.collected_samples.get():
             groups[type(s).__name__].append(s)

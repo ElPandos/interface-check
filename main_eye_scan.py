@@ -400,6 +400,10 @@ class SlxEyeScanner:
         if self._ssh_connection:
             self._ssh_connection.disconnect()
 
+    def scans_collected(self) -> int:
+        """Return number of scans collected."""
+        return len(self._results)
+
 
 @dataclass
 class TempResult:
@@ -539,7 +543,7 @@ class SutSystemScanner:
                 )
 
         except Exception:
-            sut_value_scanner_logger.exception("Failed to start scanning")
+            sut_value_scanner_logger.exception("Failed to start scanner")
             return False
         else:
             return True
@@ -666,6 +670,7 @@ def main():  # noqa: PLR0912, PLR0915
 
             # Title row
             headers = [
+                "timestamp",
                 "temperature",
                 "voltage",
                 "bias_current",
@@ -677,6 +682,7 @@ def main():  # noqa: PLR0912, PLR0915
                 "raw_physical_errors_per_lane",
                 "raw_physical_ber",
                 "m_temp [NIC]",
+                "link_status",
             ]
             headers_str = ",".join(headers)
             matrix_str.append(headers_str)
@@ -686,53 +692,76 @@ def main():  # noqa: PLR0912, PLR0915
                 row = []
                 for worker_idx, samples in enumerate(all_samples):
                     sample = samples[i]
-                    if worker_idx == 0:  # First worker - MlxlinkDevice attributes
-                        row.extend(
-                            [
-                                str(sample.snapshot.temperature.value)
-                                if hasattr(sample.snapshot, "temperature")
-                                and sample.snapshot.temperature is not None
-                                else "",
-                                str(sample.snapshot.voltage.value)
-                                if hasattr(sample.snapshot, "voltage")
-                                and sample.snapshot.voltage is not None
-                                else "",
-                                str(sample.snapshot.bias_current.value)
-                                if hasattr(sample.snapshot, "bias_current")
-                                and sample.snapshot.bias_current is not None
-                                else "",
-                                str(sample.snapshot.rx_power.value)
-                                if hasattr(sample.snapshot, "rx_power")
-                                and sample.snapshot.rx_power is not None
-                                else "",
-                                str(sample.snapshot.tx_power.value)
-                                if hasattr(sample.snapshot, "tx_power")
-                                and sample.snapshot.tx_power is not None
-                                else "",
-                                str(sample.snapshot.time_since_last_clear.value)
-                                if hasattr(sample.snapshot, "time_since_last_clear")
-                                and sample.snapshot.time_since_last_clear is not None
-                                else "",
-                                str(sample.snapshot.effective_physical_errors.value)
-                                if hasattr(sample.snapshot, "effective_physical_errors")
-                                and sample.snapshot.effective_physical_errors is not None
-                                else "",
-                                str(sample.snapshot.effective_physical_ber.value)
-                                if hasattr(sample.snapshot, "effective_physical_ber")
-                                and sample.snapshot.effective_physical_ber is not None
-                                else "",
-                                str(sample.snapshot.raw_physical_errors_per_lane.value)
-                                if hasattr(sample.snapshot, "raw_physical_errors_per_lane")
-                                and sample.snapshot.raw_physical_errors_per_lane is not None
-                                else "",
-                                str(sample.snapshot.raw_physical_ber.value)
-                                if hasattr(sample.snapshot, "raw_physical_ber")
-                                and sample.snapshot.raw_physical_ber is not None
-                                else "",
-                            ]
-                        )
-                    else:  # Second worker - m_temp [NIC]
-                        row.append(str(sample.snapshot) if hasattr(sample, "snapshot") else "")
+                    match worker_idx:
+                        case 0:  # First worker - mlxlink [SUT]
+                            row.extend(
+                                [
+                                    str(sample.snapshot.begin.value)
+                                    if hasattr(sample.snapshot, "begin")
+                                    and sample.snapshot.begin is not None
+                                    else "",
+                                    str(sample.snapshot.temperature.value)
+                                    if hasattr(sample.snapshot, "temperature")
+                                    and sample.snapshot.temperature is not None
+                                    else "",
+                                    str(sample.snapshot.voltage.value)
+                                    if hasattr(sample.snapshot, "voltage")
+                                    and sample.snapshot.voltage is not None
+                                    else "",
+                                    str(sample.snapshot.bias_current.value)
+                                    if hasattr(sample.snapshot, "bias_current")
+                                    and sample.snapshot.bias_current is not None
+                                    else "",
+                                    str(sample.snapshot.rx_power.value)
+                                    if hasattr(sample.snapshot, "rx_power")
+                                    and sample.snapshot.rx_power is not None
+                                    else "",
+                                    str(sample.snapshot.tx_power.value)
+                                    if hasattr(sample.snapshot, "tx_power")
+                                    and sample.snapshot.tx_power is not None
+                                    else "",
+                                    str(sample.snapshot.time_since_last_clear.value)
+                                    if hasattr(sample.snapshot, "time_since_last_clear")
+                                    and sample.snapshot.time_since_last_clear is not None
+                                    else "",
+                                    str(sample.snapshot.effective_physical_errors.value)
+                                    if hasattr(sample.snapshot, "effective_physical_errors")
+                                    and sample.snapshot.effective_physical_errors is not None
+                                    else "",
+                                    str(sample.snapshot.effective_physical_ber.value)
+                                    if hasattr(sample.snapshot, "effective_physical_ber")
+                                    and sample.snapshot.effective_physical_ber is not None
+                                    else "",
+                                    str(sample.snapshot.raw_physical_errors_per_lane.value)
+                                    if hasattr(sample.snapshot, "raw_physical_errors_per_lane")
+                                    and sample.snapshot.raw_physical_errors_per_lane is not None
+                                    else "",
+                                    str(sample.snapshot.raw_physical_ber.value)
+                                    if hasattr(sample.snapshot, "raw_physical_ber")
+                                    and sample.snapshot.raw_physical_ber is not None
+                                    else "",
+                                ]
+                            )
+                            break
+                        case 1:  # Second worker - m_temp [NIC]
+                            row.append(str(sample.snapshot) if hasattr(sample, "snapshot") else "")
+                            break
+                        case 2:  # Third worker - link_status
+                            row.extend(
+                                [
+                                    str(sample.snapshot.link_status.value)
+                                    if hasattr(sample.snapshot, "link_status")
+                                    and sample.snapshot.link_status is not None
+                                    else "",
+                                    str(sample.snapshot.begin.value)
+                                    if hasattr(sample.snapshot, "begin")
+                                    and sample.snapshot.begin is not None
+                                    else "",
+                                ]
+                            )
+                        case _:
+                            pass
+
                 matrix_str.append(",".join(row))
 
             sut_value_scanner_logger.info("\n%s\n", "\n".join(matrix_str))
@@ -742,14 +771,12 @@ def main():  # noqa: PLR0912, PLR0915
 
         sut_system_scanner.disconnect()
 
-    main_logger.info(
-        f"Programs stopped. Total eye scans completed: {len(slx_eye_scanner._results)}"  # noqa: SLF001
-    )
+    main_logger.info(f"Total eye scans completed: {slx_eye_scanner.scans_collected}")
     main_logger.info("Logs saved to:")
-    main_logger.info(f"  Main: {main_log}")
-    main_logger.info(f"  SUT system info: {sut_system_info_log}")
-    main_logger.info(f"  SUT value scan: {sut_value_scanner_log}")
-    main_logger.info(f"  SLX eye xcan: {slx_eye_scanner_log}")
+    main_logger.info(f"Main: {main_log}")
+    main_logger.info(f"SUT system info: {sut_system_info_log}")
+    main_logger.info(f"SUT value scan: {sut_value_scanner_log}")
+    main_logger.info(f"SLX eye xcan: {slx_eye_scanner_log}")
 
     return
 
