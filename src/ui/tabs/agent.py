@@ -1,5 +1,4 @@
 import asyncio
-from datetime import datetime as dt
 from typing import Any
 
 from nicegui import ui
@@ -310,7 +309,7 @@ class AgentContent:
             "commands": commands,
             "description": description,
             "status": "queued",
-            "created": dt.now(tz=dt.now().astimezone().tzinfo).strftime("%m/%d/%Y %H:%M:%S"),
+            "created": datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S"),
             "type": task_type,
             **kwargs,
         }
@@ -501,7 +500,7 @@ class AgentContent:
                     ui.label(f"{status_icon} {task['name']}").classes(
                         f"font-bold text-{status_color}-700"
                     )
-                    ui.label(dt.now(tz=dt.now().astimezone().tzinfo).strftime("%H:%M:%S")).classes(
+                    ui.label(datetime.now(timezone.utc).strftime("%H:%M:%S")).classes(
                         "text-xs text-gray-500"
                     )
 
@@ -558,7 +557,7 @@ class AgentContent:
         with self._results_container, ui.card().classes("w-full p-3 border-l-4 border-red-500"):
             with ui.row().classes("w-full items-center justify-between"):
                 ui.label(f"❌ {task['name']}").classes("font-bold text-red-700")
-                ui.label(dt.now(tz=dt.now().astimezone().tzinfo).strftime("%H:%M:%S")).classes(
+                ui.label(datetime.now(timezone.utc).strftime("%H:%M:%S")).classes(
                     "text-xs text-gray-500"
                 )
 
@@ -633,7 +632,7 @@ class AgentContent:
             "commands": recommendation["commands"],
             "description": recommendation["description"],
             "status": "queued",
-            "created": dt.now(tz=dt.now().astimezone().tzinfo).strftime("%m/%d/%Y %H:%M:%S"),
+            "created": datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S"),
             "type": "recommended",
             "priority": recommendation["priority"],
         }

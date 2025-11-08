@@ -1,0 +1,30 @@
+from enum import Enum
+
+
+class LogMsg(Enum):
+    """Log messages."""
+
+    EXEC_CMD_FAIL = "Can not execute command: "
+    STORE_FAIL = "Failed to store results to: "
+    PRE_HOST_CON = "Already connected to host: "
+    POST_HOST_DISCON = "Already disconnected from host: "
+    CON_HOST_FAIL = "Failed to establish connection to host: "
+    CON_JUMP_FAIL = "Failed to establish connection to jump host: "
+    CON_HOST_SUCCESS = "Successfully connected to host: "
+    CON_JUMP_SUCCESS = "Successfully connected to jump host: "
+    CON_TARGET_SUCCESS = "Successfully connected to target: "
+    DISCON_HOST = "Disconnecting from host: "
+    DISCON_HOST_SUCCESS = "Disconnected from host: "
+    CON_TIMEOUT = "Connection timeout on host: "
+    CON_AUTH_FAIL = "Authentication failed for host: "
+    CON_PROTOCOL_FAIL = "Protocol error on host: "
+    CON_TRANSPORT_INACTIVE = "Connection established but transport is not active"
+    ALIVE_THREAD_FAIL = "Keepalive thread encountered an error"
+    ALIVE_THREAD_STOP = "Keepalive thread did not stop gracefully"
+    ALIVE_NO_ACTIVE = "Keepalive thread did not find any active connections"
+    SHELL_NOT_CONNECTED = "Cannot open shell: not connected"
+    SHELL_ALREADY_OPEN = "Shell already open"
+    SHELL_OPEN_SUCCESS = "Shell opened and configured"
+    SHELL_CMD_NO_SHELL = "Cannot execute shell command: shell not opened"
+    SHELL_CMD_NO_CON = "Cannot execute shell command: connection lost"
+    CMD_CON = "No active connection available"

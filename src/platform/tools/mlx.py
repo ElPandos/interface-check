@@ -1,7 +1,7 @@
 from typing import Any, ClassVar
 
 from src.core.connect import SshConnection
-from src.interfaces.connection import CommandResult
+from src.interfaces.connection import CmdResult
 from src.interfaces.tool import ITool, Tool
 from src.platform.enums.software import CommandInputType, ToolType
 
@@ -40,13 +40,13 @@ class MlxTool(Tool, ITool):
         commands_modified = []
         for interface in self._interfaces:
             for command in self._AVAILABLE_COMMANDS:
-                commands_modified.append(self._generate_commands(interface, command))
+                commands_modified.append(self._gen_cmds(interface, command))
 
         return commands_modified
 
     def execute(self) -> None:
         for command in self.available_commands():
-            self._execute(command)
+            self._exec(command)
 
     def log(self) -> None:
         self._log()
@@ -80,9 +80,9 @@ class MlxTool(Tool, ITool):
                         target = get_pci_id_command(interface)
 
                     final_command = f"{' '.join(args)} {target}"
-                    result = self._execute(final_command)
+                    result = self._exec(final_command)
                     if result.success:
-                        response[interface] = result.stdout.strip()
+                        response[interface] = result._stdout.strip()
                     else:
-                        response[interface] = CommandResult.error(result.stderr, result.return_code)
+                        response[interface] = CmdResult.error(result._stderr, result._rcode)
         return response

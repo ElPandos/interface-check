@@ -1,9 +1,7 @@
 """Configuration interface for abstracting config management."""
 
 from abc import ABC, abstractmethod
-from typing import Any, TypeVar
-
-T = TypeVar("T")
+from typing import Any
 
 
 class IConfigurationProvider(ABC):
@@ -19,15 +17,15 @@ class IConfigurationProvider(ABC):
 
     @abstractmethod
     def save(self) -> None:
-        """Persist configuration changes."""
+        """Save configuration state."""
 
     @abstractmethod
     def reload(self) -> None:
-        """Reload configuration from source."""
+        """Reload configuration state from source."""
 
     @abstractmethod
     def get_section(self, section: str) -> dict[str, Any]:
-        """Get entire configuration section."""
+        """Get configuration section."""
 
 
 class IConfigurationFactory(ABC):

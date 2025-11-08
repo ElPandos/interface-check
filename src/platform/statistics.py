@@ -53,7 +53,7 @@ class NetworkStatCollector(StatCollector):
 
     def collect(self) -> StatPoint:
         if not self._connection:
-            return StatPoint(dt.now(tz=dt.now().astimezone().tzinfo), 0.0)
+            return StatPoint(datetime.now(timezone.utc), 0.0)
 
         # Get RX/TX bytes
         rx_result = self._connection.execute_command(
@@ -77,7 +77,7 @@ class NetworkStatCollector(StatCollector):
         total_bytes = rx_bytes + tx_bytes
 
         return StatPoint(
-            timestamp=dt.now(tz=dt.now().astimezone().tzinfo),
+            timestamp=datetime.now(timezone.utc),
             value=float(total_bytes),
             metadata={"interface": self._interface, "rx_bytes": rx_bytes, "tx_bytes": tx_bytes},
         )
@@ -95,7 +95,7 @@ class CpuStatCollector(StatCollector):
 
     def collect(self) -> StatPoint:
         if not self._connection:
-            return StatPoint(dt.now(tz=dt.now().astimezone().tzinfo), 0.0)
+            return StatPoint(datetime.now(timezone.utc), 0.0)
 
         result = self._connection.execute_command(
             "grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$3+$4+$5)} END {print usage}'"
@@ -104,14 +104,14 @@ class CpuStatCollector(StatCollector):
             try:
                 cpu_usage = float(result.stdout.strip())
                 return StatPoint(
-                    timestamp=dt.now(tz=dt.now().astimezone().tzinfo),
+                    timestamp=datetime.now(timezone.utc),
                     value=cpu_usage,
                     metadata={"unit": "percent"},
                 )
             except ValueError:
                 pass
 
-        return StatPoint(dt.now(tz=dt.now().astimezone().tzinfo), 0.0)
+        return StatPoint(datetime.now(timezone.utc), 0.0)
 
     @property
     def name(self) -> str:
@@ -126,21 +126,21 @@ class MemoryStatCollector(StatCollector):
 
     def collect(self) -> StatPoint:
         if not self._connection:
-            return StatPoint(dt.now(tz=dt.now().astimezone().tzinfo), 0.0)
+            return StatPoint(datetime.now(timezone.utc), 0.0)
 
         result = self._connection.execute_command("free | grep Mem | awk '{print ($3/$2) * 100.0}'")
         if result.success:
             try:
                 mem_usage = float(result.stdout.strip())
                 return StatPoint(
-                    timestamp=dt.now(tz=dt.now().astimezone().tzinfo),
+                    timestamp=datetime.now(timezone.utc),
                     value=mem_usage,
                     metadata={"unit": "percent"},
                 )
             except ValueError:
                 pass
 
-        return StatPoint(dt.now(tz=dt.now().astimezone().tzinfo), 0.0)
+        return StatPoint(datetime.now(timezone.utc), 0.0)
 
     @property
     def name(self) -> str:
@@ -187,7 +187,7 @@ class Statistics:
             except Exception:
                 # Create error point
                 results[name] = StatPoint(
-                    timestamp=dt.now(tz=dt.now().astimezone().tzinfo),
+                    timestamp=datetime.now(timezone.utc),
                     value=0.0,
                     metadata={"error": True},
                 )
@@ -199,7 +199,7 @@ class Statistics:
         if collector_name not in self._data:
             return []
 
-        cutoff = dt.now(tz=dt.now().astimezone().tzinfo) - timedelta(hours=hours)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         return [p for p in self._data[collector_name] if p.timestamp > cutoff]
 
     def get_summary(self, collector_name: str, hours: int = 24) -> StatSummary | None:
@@ -292,7 +292,7 @@ class Statistics:
             else None,
             "trend": trend,
             "anomalies": len(anomalies),
-            "export_timestamp": dt.now(tz=dt.now().astimezone().tzinfo).isoformat(),
+            "export_timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     def clear_data(self, collector_name: str | None = None) -> None:

@@ -1,67 +1,70 @@
 """Connection interface for abstracting SSH and other remote connections."""
 
-from abc import ABC, abstractmethod
 
-
-class CommandResult:
+class CmdResult:
     """Result of a command execution."""
 
     def __init__(
         self,
-        command: str = "",
+        cmd: str = "",
         stdout: str = "",
         stderr: str = "",
-        return_code: int = 0,
-        execution_time: float = 0.0,
+        rcode: int = 0,
+        exec_time: float = 0.0,
     ):
-        self.command = command
-        self.stdout = stdout
-        self.stderr = stderr
-        self.return_code = return_code
-        self.execution_time = execution_time
+        self._cmd = cmd
+        self._stdout = stdout
+        self._stderr = stderr
+        self._rcode = rcode
+        self._exec_time = exec_time
+
+    @property
+    def cmd(self) -> str:
+        """Cmd data stripped."""
+        return self._cmd.strip()
+
+    @property
+    def str_out(self) -> str:
+        """Stdout data stripped."""
+        return self._stdout.strip()
+
+    @property
+    def str_err(self) -> str:
+        """Stderr data stripped."""
+        return self._stderr.strip()
+
+    @property
+    def rcode(self) -> int:
+        """Return code."""
+        return self._rcode
+
+    @property
+    def time(self) -> int:
+        """Return execution time."""
+        return self._exec_time
 
     @property
     def success(self) -> bool:
-        """Indicates whether the command executed successfully."""
-        return self.return_code == 0 and not self.stderr.strip()
+        """Indicates whether the executed command was successful or not."""
+        return self._rcode == 0 and not self.str_err
 
     @staticmethod
-    def error(command: str, message: str, return_code: int = -1) -> "CommandResult":
+    def error(cmd: str, stderr: str, rcode: int = -1) -> "CmdResult":
         """
-        Create a default error CommandResult for failed or skipped executions.
+        Create a default error CmdResult objs for failed or skipped executions.
 
         Args:
-            command: The command that failed.
-            message: Description or error message.
-            return_code: Optional custom error code (default: -1).
+            cmd: The command that failed.
+            stderr: Description or error message.
+            rcode: Optional custom error code (default: -1).
 
         Returns:
-            CommandResult instance representing a failed command.
+            CmdResult instance representing a failed command.
         """
-        return CommandResult(
-            command=command,
+        return CmdResult(
+            cmd=cmd,
             stdout="",
-            stderr=message,
-            return_code=return_code,
-            execution_time=0.0,
+            stderr=stderr,
+            rcode=rcode,
+            exec_time=0.0,
         )
-
-
-class IConnection(ABC):
-    """Abstract interface for remote connections."""
-
-    @abstractmethod
-    def connect(self) -> bool:
-        """Establish connection. Returns True if successful."""
-
-    @abstractmethod
-    def disconnect(self) -> None:
-        """Close connection and cleanup resources."""
-
-    @abstractmethod
-    def is_connected(self) -> bool:
-        """Check if connection is active."""
-
-    @abstractmethod
-    def execute_command(self, command: str, timeout: int | None = None) -> CommandResult:
-        """Execute command and return result."""

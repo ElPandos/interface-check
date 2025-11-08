@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from datetime import datetime as dt
 import logging
 from typing import Any
 
@@ -73,7 +72,7 @@ class Agent:
             return {
                 "status": "failed",
                 "error": "SSH connection not available",
-                "timestamp": dt.now(tz=dt.now().astimezone().tzinfo).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         task_id = task.get("id", "unknown")
@@ -102,7 +101,7 @@ class Agent:
                 for r in results
             ],
             "analysis": analysis.__dict__,
-            "timestamp": dt.now(tz=dt.now().astimezone().tzinfo).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     def _analyze_results(self, task: dict[str, Any], results: list[TaskResult]) -> TaskAnalysis:

@@ -3,7 +3,7 @@ from datetime import datetime as dt
 import logging
 from pathlib import Path
 import queue
-import threading
+from threading import Event, Thread
 import time
 from typing import Any
 
@@ -12,6 +12,7 @@ from pympler import asizeof
 from src.core.connect import SshConnection
 from src.core.json import Json
 from src.core.sample import Sample
+from src.interfaces.component import ITime
 from src.models.config import Config
 from src.platform.enums.log import LogName
 
@@ -21,9 +22,7 @@ class WorkerCommand:
     parser: Any = None
 
 
-class Worker(threading.Thread):
-    _MAX_RECONNECT = 10
-
+class Worker(Thread, ITime):
     def __init__(
         self,
         worker_command: WorkerCommand,
@@ -31,93 +30,79 @@ class Worker(threading.Thread):
         ssh_connection: SshConnection,
         name: str = "Worker",
     ) -> None:
-        super().__init__(name=name, daemon=True)  # daemon=True means it won’t block program exit
+        Thread.__init__(self, name=name, daemon=True)  # daemon=True, no block app exit
+        ITime.__init__(self)
 
-        self._begin: dt = None
-        self._end: dt = None
+        self.MAX_RECONNECT = 10
 
         self._worker_command = worker_command
-        self._stop_event = threading.Event()
+        self._config = config
+        self._ssh_connection = ssh_connection
+
+        self._stop_event = Event()
 
         self._collected_samples: queue.Queue = queue.Queue()  # Thread safe queue
         self._extracted_samples: list[Sample] = []
 
-        self._config = config
-        self._ssh_connection = ssh_connection
-
         self._logger = logging.getLogger(LogName.MAIN.value)
 
     def run(self) -> None:
-        """Thread main logic (executed when start() is called)."""
-        self._begin = dt.now(tz=dt.now().astimezone().tzinfo)
+        """Main thread logic. Executed when start() is called."""
+        self.start_timer()
 
         reconnect = 0
         while not self._stop_event.is_set():
             try:
-                if reconnect > self._MAX_RECONNECT:
-                    self._logger.info("Reconnect failed 10 times. Exiting thread...")
+                if reconnect > self.MAX_RECONNECT:
+                    self._logger.info(
+                        f"Reconnect failed {self.MAX_RECONNECT} times. Exiting worker thread: {self.name}"
+                    )
                     break
 
                 sample = Sample(self._config, self._ssh_connection).collect(self._worker_command)
+
                 if self._worker_command.parser is not None:
-                    sample.snapshot = self._worker_command.parser(sample.snapshot).result()
+                    sample.snapshot = self._worker_command.parser(sample.snapshot).get_result()
                 elif sample.snapshot is not None:
                     sample.snapshot = sample.snapshot.strip()
                 else:
-                    sample.snapshot = None
+                    sample.snapshot = ""
 
                 self._collected_samples.put(sample)
+
                 reconnect = 0  # Reset on success
                 time.sleep(float(self._config.sut_scan_interval))
             except KeyboardInterrupt:
-                self._logger.info(f"User pressed 'Ctrl+c' - Exiting worker thread: {self.name}")
+                self._logger.info(f"User pressed 'ctrl+c' - Exiting worker thread: {self.name}")
                 break
             except Exception:
-                self._logger.exception("Collection stopped unexpectedly")
+                self._logger.exception("Worker thread stopped unexpectedly")
                 reconnect += 1
                 try:
-                    self._ssh_connection.connect()
-                    if self._ssh_connection.is_connected():
-                        self._logger.info("Reconnected to SSH session")
+                    if self._ssh_connection.connect():
+                        self._logger.info("Reconnect was established succesfully")
                         reconnect = 0  # Reset on successful reconnect
                     else:
                         self._logger.exception(
-                            f"Failed to reconnect to SSH session ({reconnect}/{self._MAX_RECONNECT})"
+                            f"Failed to reconnect to host ({reconnect}/{self.MAX_RECONNECT})"
                         )
                 except Exception:
-                    self._logger.exception("SSH reconnect failed")
+                    self._logger.exception("Failed to reconnect to host")
 
-        self._end = dt.now(tz=dt.now().astimezone().tzinfo)
+        self.stop_timer()
 
     def close(self) -> None:
         self._stop_event.set()
-        self._logger.debug("Stop event set")
+        self._logger.debug("Stop event is set")
 
     def close_and_wait(self) -> None:
-        self._stop_event.set()
+        self.close()
         while self.is_alive():
             time.sleep(0.1)
 
-    def is_closed(self) -> bool:
-        """Return True if stop signal is active."""
-        return self._stop_event.is_set()
-
-    @property
-    def begin(self) -> dt:
-        return self._begin
-
-    @property
-    def end(self) -> dt:
-        return self._end
-
-    @property
-    def duration(self) -> str:
-        if not self._begin:
-            return "Begin time not available"
-        if not self._end:
-            return "End time not available"
-        duration = self._end - self._begin
-        return str(duration)
+    # def is_closed(self) -> bool:
+    #     """Return True if stop signal is active."""
+    #     return self._stop_event.is_set()
 
     @property
     def command(self) -> str:

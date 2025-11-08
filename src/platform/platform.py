@@ -275,7 +275,7 @@ class SystemHealth:
     temperature: float = 0.0
     network_status: dict[str, bool] = field(default_factory=dict)
     power_status: str = "unknown"
-    timestamp: dt = field(default_factory=lambda: dt.now(tz=dt.now().astimezone().tzinfo))
+    timestamp: dt = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -535,13 +535,13 @@ class Platform:
 
     def get_health_history(self, hours: int = 24) -> list[SystemHealth]:
         """Get health metrics history."""
-        cutoff = dt.now(tz=dt.now().astimezone().tzinfo) - timedelta(hours=hours)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         return [h for h in self._health_log if h.timestamp > cutoff]
 
     def log_system_test(self, test_name: str, result: bool, details: str = "") -> None:
         """Log system test results."""
         log_entry = {
-            "timestamp": dt.now(tz=dt.now().astimezone().tzinfo).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "test_name": test_name,
             "result": "PASS" if result else "FAIL",
             "details": details,

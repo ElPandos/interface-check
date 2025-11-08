@@ -1,6 +1,5 @@
 """Tool interface for CLI-based network diagnostic tools."""
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import itertools
 import logging
@@ -9,118 +8,96 @@ from typing import Any
 
 from src.core import json
 from src.core.connect import SshConnection
-from src.interfaces.connection import CommandResult
+from src.core.enums.messages import LogMsg
+from src.interfaces.connection import CmdResult
 from src.platform.enums.log import LogName
-from src.platform.enums.software import CommandInputType, ToolType
+from src.platform.enums.software import CommandInputType
 from src.platform.tools import helper
 
 
 @dataclass(frozen=True)
 class ToolResult:
-    """Result of a tool execution."""
+    """Tool result of a command execution."""
 
-    def __init__(self, command: str, data: Any, error: str, execution_time: float):
-        self.command = command
-        self.data = data
-        self.error = error
-        self.execution_time = execution_time
+    def __init__(self, cmd: str, data: Any, error: str, exec_time: float):
+        self._cmd = cmd
+        self._data = data
+        self._error = error
+        self._exec_time = exec_time
 
     @property
     def success(self) -> bool:
-        """Indicates whether the command executed successfully."""
-        return self.error.strip() == ""
-
-
-class ITool(ABC):
-    """Abstract interface for diagnostic tools."""
-
-    @property
-    @abstractmethod
-    def type(self) -> ToolType:
-        """Tool name identifier."""
-
-    @abstractmethod
-    def available_commands(self) -> list[list[str]]:
-        """Get available commands for this tool."""
-
-    @abstractmethod
-    def execute(self) -> None:
-        """Execute all commands for tool."""
-
-    @abstractmethod
-    def log(self) -> None:
-        """Log all commands results for tool."""
-
-    @abstractmethod
-    def _parse(self, command: str, output: str) -> dict[str, str]:
-        """Parse tool output into structured data."""
-
-    @abstractmethod
-    def _summarize(self) -> dict[str, Any]:
-        """Summarize tool results."""
+        """Indicates whether the tool was executed successfully."""
+        return not self._error.strip()
 
 
 class Tool:
     def __init__(self, ssh_connection: SshConnection):
         self._ssh_connection = ssh_connection
-        self._results: dict[str, CommandResult] = {}
+        self._results: dict[str, CmdResult] = {}
 
         self._logger = logging.getLogger(LogName.MAIN.value)
 
-    def _execute(self, command: str) -> CommandResult | None:
-        """Execute a specific command and return result.
+    def _exec(self, cmd: str) -> CmdResult:
+        """Execute a specific command and return the result.
 
         Args:
-            command: CLI command to execute
+            cmd: CLI command to execute
         """
-        result = None
+        cmd_result = None
         if not self._ssh_connection.is_connected():
-            message = f"Cannot execute command '{command}': No SSH connection"
-            self._logger.error(message)
-            result = CommandResult.error(command, message)
-            self._results[command] = result
-            return result
+            return self._ssh_connection.get_cr_msg_connection(cmd, LogMsg.EXEC_CMD_FAIL)
 
         try:
-            result = self._ssh_connection.execute_command(command)
-            if result.success:
-                self._logger.debug(f"Succesfully executed command: {command}")
+            cmd_result = self._ssh_connection.exec_cmd(cmd)
+            if cmd_result.success:
+                self._logger.debug(f"Succesfully executed command: {cmd}")
             else:
-                result = CommandResult.error(command, result.stderr)
+                cmd_result = CmdResult.error(cmd, cmd_result.stderr)
         except Exception as e:
-            result = CommandResult.error(command, e)
+            cmd_result = CmdResult.error(cmd, e)
 
-        self._results[command] = result
+        self._results[cmd] = cmd_result
 
-        return result
+        return cmd_result
 
-    def _generate_commands(self, interface: str, command: list[Any]) -> str:
-        command_modified = []
-        for part in command:
+    def _gen_cmds(self, interf: str, cmd: list[Any]) -> str:
+        """Generate command string by replacing placeholders with actual values.
+
+        Args:
+            interf: Network interface name
+            cmd: Command template with placeholders
+
+        Returns:
+            Formatted command string
+        """
+        cmd_mod = []
+        for part in cmd:
             match part:
                 case CommandInputType.INTERFACE:
-                    command_modified.append(interface)
+                    cmd_mod.append(interf)
                 case CommandInputType.MST_PCICONF:
-                    command_modified.append(helper.get_mst_device(self._ssh_connection, interface))
+                    cmd_mod.append(helper.get_mst_device(self._ssh_connection, interf))
                 case CommandInputType.PCI_ID:
-                    command_modified.append(helper.get_pci_id(self._ssh_connection, interface))
+                    cmd_mod.append(helper.get_pci_id(self._ssh_connection, interf))
                 case _:
-                    command_modified.append(part)
+                    cmd_mod.append(part)
 
-        return " ".join(command_modified)
+        return " ".join(cmd_mod)
 
     def _log(self) -> None:
-        for command, result in self._results.items():
+        """Log all command execution results with formatted output."""
+        for cmd, result in self._results.items():
             if result.success:
-                border = "".join(itertools.repeat("=", len(f"= {command}") + 2))
+                border = "".join(itertools.repeat("=", len(f"= {cmd}") + 2))
                 self._logger.info(border)
-                self._logger.info(f"= {command}")
+                self._logger.info(f"= '{cmd}' -> SUCCESS")
                 self._logger.info(border)
                 self._logger.info(f"\n\n{result.stdout}")
             else:
-                border = "".join(itertools.repeat("=", len(f"= {command} -> FAILED") + 2))
+                border = "".join(itertools.repeat("=", len(f"= {cmd}") + 2))
                 self._logger.warning(border)
-                self._logger.warning(f"= {command} -> FAILED")
+                self._logger.warning(f"= '{cmd}' -> FAILED")
                 self._logger.warning(f"= Reason: {result.stderr}")
                 self._logger.warning(border)
 
@@ -130,13 +107,21 @@ class Tool:
         Args:
             path: Path to output file
         """
-        with open(path, "w") as f:
-            json.dump(self._summarize(), f, indent=2)
+        try:
+            with path.open("w") as f:
+                json.dump(self._summarize(), f, indent=2)
+        except Exception:
+            self._logger.exception("%s%s", LogMsg.STORE_FAIL.value, path)
 
-    def _check_response(
-        self, interface: str, response: dict[str, Any], result: CommandResult
-    ) -> None:
-        if result.success:
-            response[interface] = result.stdout.strip()
+    def _chk_resp(self, interf: str, resp: dict[str, Any], cr: CmdResult) -> None:
+        """Check command result and update response dictionary.
+
+        Args:
+            interf: Network interface name
+            resp: Response dictionary to update
+            cr: Command result to check
+        """
+        if cr.success:
+            resp[interf] = cr.str_out
         else:
-            response[interface] = CommandResult.error(result.stderr, result.return_code)
+            resp[interf] = CmdResult.error(cr.cmd, cr.str_err, cr.rcode)

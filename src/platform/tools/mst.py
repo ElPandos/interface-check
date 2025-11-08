@@ -1,7 +1,7 @@
 from typing import Any, ClassVar
 
 from src.core.connect import SshConnection
-from src.interfaces.connection import CommandResult
+from src.interfaces.connection import CmdResult
 from src.interfaces.tool import ITool, Tool
 from src.platform.enums.software import CommandInputType, ToolType
 
@@ -46,7 +46,7 @@ class MstTool(Tool, ITool):
 
     def execute(self) -> None:
         for command in self.available_commands():
-            self._execute(command)
+            self._exec(command)
 
     def log(self) -> None:
         self._log()
@@ -78,11 +78,11 @@ class MstTool(Tool, ITool):
                 if cmd_type != CommandInputType.NOT_USED:
                     continue
                 final_command = f"{' '.join(args)} {target}"
-                result = self._execute(final_command)
+                result = self._exec(final_command)
                 if result.success:
-                    response[CommandInputType.NOT_USED.value] = result.stdout.strip()
+                    response[CommandInputType.NOT_USED.value] = result._stdout.strip()
                 else:
-                    response[CommandInputType.NOT_USED.value] = CommandResult.error(
-                        result.stderr, result.return_code
+                    response[CommandInputType.NOT_USED.value] = CmdResult.error(
+                        result._stderr, result._rcode
                     )
         return response

@@ -50,12 +50,12 @@ class EyeScanParser(IParser):
         IParser.__init__(self, LogName.SLX_EYE_SCANNER.value)
 
         self._raw_output = raw_output
-        self._rows: list[dict[str, str]] = self._parse_rows()
+        self._rows: list[dict[str, str]] = self._parse()
 
     def name(self) -> str:
         return "eye_scan"
 
-    def _parse_rows(self) -> list[dict[str, str]]:
+    def _parse(self) -> list[dict[str, str]]:
         """Extract voltage/pattern rows from CLI output."""
         rows = []
         for line in self._raw_output.splitlines():
@@ -70,7 +70,7 @@ class EyeScanParser(IParser):
                 )
         return rows
 
-    def result(self) -> tuple[np.ndarray, list[int], list[int]]:
+    def get_result(self) -> tuple[np.ndarray, list[int], list[int]]:
         """
         Convert parsed rows into a numeric 2D matrix for plotting.
 
@@ -81,6 +81,7 @@ class EyeScanParser(IParser):
         """
         voltages = [row["voltage"] for row in self._rows]
         patterns = [row["pattern"] for row in self._rows]
+
         max_len = max(len(p) for p in patterns)
 
         # Convert pattern characters → numeric grid
@@ -93,7 +94,7 @@ class EyeScanParser(IParser):
 
         return matrix, voltages, phase_offsets
 
-    def log(self) -> str:
+    def log(self) -> None:
         return ""
 
 
@@ -186,7 +187,7 @@ class MstStatusVersionParser(IParser):
 
             self._devices.append(MstVersionDevice(device_type, mst, pci, rdma, net, numa))
 
-    def result(self) -> list[MstVersionDevice]:
+    def get_result(self) -> list[MstVersionDevice]:
         return self._devices
 
     def get_mst_by_pci(self, pci_id: str) -> str | None:
@@ -298,13 +299,13 @@ class EthtoolModuleParser(IParser):
                 key, value = line.split(":", 1)
                 self._result[key.strip()] = value.strip()
 
-    def result(self) -> EthtoolModuleDevice:
+    def get_result(self) -> EthtoolModuleDevice:
         """Return parsed module device."""
         return EthtoolModuleDevice(self._result)
 
     def log(self) -> None:
         """Log parsed data."""
-        device = self.result()
+        device = self.get_result()
         self._logger.info(f"Vendor: {device.vendor_name}")
         self._logger.info(f"Part Number: {device.vendor_pn}")
         self._logger.info(f"Serial Number: {device.vendor_sn}")
@@ -482,13 +483,13 @@ class MlxlinkParser(IParser):
                         a = ""
                     self._result[key.strip()] = value.strip()
 
-    def result(self) -> MlxlinkDevice:
+    def get_result(self) -> MlxlinkDevice:
         """Return parsed mlxlink device."""
         return MlxlinkDevice(self._result)
 
     def log(self) -> None:
         """Log parsed data."""
-        device = self.result()
+        device = self.get_result()
         self._logger.info(f"State: {device.state}")
         self._logger.info(f"Speed: {device.speed}")
         self._logger.info(f"Vendor: {device.vendor_name}")
@@ -583,7 +584,7 @@ class LinkFlapParser(IParser):
         for iface, events in events_by_iface.items():
             self._devices[iface] = LinkFlapDevice(iface, events)
 
-    def result(self) -> dict[str, LinkFlapDevice]:
+    def get_result(self) -> dict[str, LinkFlapDevice]:
         """Returns dictionary of interface name to LinkFlapDevice."""
         return self._devices
 

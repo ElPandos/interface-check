@@ -22,7 +22,7 @@ import re
 from typing import ClassVar
 
 from src.core.connect import SshConnection
-from src.interfaces.connection import CommandResult
+from src.interfaces.connection import CmdResult
 from src.interfaces.software import IPackageManager, Package
 from src.platform.enums.log import LogName
 from src.platform.enums.software import PackageManagerType
@@ -84,12 +84,12 @@ class AptManager(IPackageManager):
 
         # Use echo to pipe password to sudo for non-interactive installation
         cmd = f"echo '{sudo_pass}' | sudo -S apt-get install -y {package}"
-        result = self._ssh_connection.execute_command(cmd)
+        result = self._ssh_connection.exec_cmd(cmd)
 
         if result.success:
             self.logger.info(f"Successfully installed package '{package}'")
         else:
-            self.logger.error(f"Failed to install package '{package}': {result.stderr}")
+            self.logger.error(f"Failed to install package '{package}': {result._stderr}")
 
         return result.success
 
@@ -113,7 +113,7 @@ class AptManager(IPackageManager):
         self.logger.info(f"Removing package '{package}' using APT")
 
         # Execute apt-get remove with -y flag for non-interactive removal
-        result = self._ssh_connection.execute_command(f"apt-get remove -y {package}")
+        result = self._ssh_connection.exec_cmd(f"apt-get remove -y {package}")
         success = hasattr(result, "success") and result.success
 
         if success:
@@ -136,9 +136,9 @@ class AptManager(IPackageManager):
         self.logger.debug("Retrieving list of installed packages using dpkg")
 
         # Use dpkg -l to list all installed packages
-        result = self._ssh_connection.execute_command(f"dpkg -l {package}")
+        result = self._ssh_connection.exec_cmd(f"dpkg -l {package}")
         if result.success:
-            return self._parse_version(result.stdout)
+            return self._parse_version(result._stdout)
 
         self.logger.error("Failed to retrieve package list from dpkg")
         return None
@@ -176,7 +176,7 @@ class AptManager(IPackageManager):
         self.logger.debug("Checking APT availability using 'which apt-get'")
 
         # Check if apt-get command exists in PATH
-        result = self._ssh_connection.execute_command("which apt-get")
+        result = self._ssh_connection.exec_cmd("which apt-get")
 
         if result.success:
             self.logger.info("APT package manager is available")
@@ -226,11 +226,11 @@ class YumManager(IPackageManager):
 
         # Use echo to pipe password to sudo for non-interactive installation
         cmd = f"echo '{sudo_pass}' | sudo -S yum install -y {package}"
-        result = self._ssh_connection.execute_command(cmd)
+        result = self._ssh_connection.exec_cmd(cmd)
         if result.success:
             self.logger.info(f"Successfully installed package '{package}'")
         else:
-            self.logger.error(f"Failed to install package '{package}': {result.stderr}")
+            self.logger.error(f"Failed to install package '{package}': {result._stderr}")
 
         return result.success
 
@@ -254,7 +254,7 @@ class YumManager(IPackageManager):
         self.logger.info(f"Removing package '{package}' using YUM")
 
         # Execute yum remove with -y flag for non-interactive removal
-        result = self._ssh_connection.execute_command(f"yum remove -y {package}")
+        result = self._ssh_connection.exec_cmd(f"yum remove -y {package}")
         success = hasattr(result, "success") and result.success
 
         if success:
@@ -282,7 +282,7 @@ class YumManager(IPackageManager):
 
         # Use rpm -qa with custom format to get package info
         # Format: NAME VERSION SIZE (one per line)
-        result = self._ssh_connection.execute_command(
+        result = self._ssh_connection.exec_cmd(
             "rpm -qa --queryformat '%{NAME} %{VERSION} %{SIZE}\\n'"
         )
         if not (hasattr(result, "success") and result.success):
@@ -340,7 +340,7 @@ class YumManager(IPackageManager):
         self.logger.debug("Checking YUM availability using 'which yum'")
 
         # Check if yum command exists in PATH
-        result = self._ssh_connection.execute_command("which yum")
+        result = self._ssh_connection.exec_cmd("which yum")
         if result.success:
             self.logger.info("YUM package manager is available")
         else:
@@ -449,7 +449,7 @@ class SoftwareManager:
             return False
         return True
 
-    def _execute_command(self, command: str) -> CommandResult:
+    def _execute_command(self, command: str) -> CmdResult:
         """Execute command safely with error handling and logging.
 
         Args:
@@ -464,13 +464,13 @@ class SoftwareManager:
 
         try:
             self.logger.debug(f"Executing command: {command}")
-            result = self._ssh_connection.execute_command(command)
+            result = self._ssh_connection.exec_cmd(command)
             if result.success:
                 self.logger.debug(f"Command executed successfully: {command}")
             else:
                 self.logger.warning(f"Command failed: {command}")
 
-            return result.success, result.stdout.strip()
+            return result.success, result._stdout.strip()
         except Exception:
             self.logger.exception(f"Exception executing command: {command}")
             return False, ""

@@ -46,7 +46,7 @@ class DmesgTool(Tool, ITool):
 
     def execute(self) -> None:
         for command in self.available_commands():
-            self._execute(command)
+            self._exec(command)
 
     def log(self) -> None:
         self._log()

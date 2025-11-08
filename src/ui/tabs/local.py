@@ -174,7 +174,7 @@ class LocalContent:
         processes = list(psutil.process_iter(["name", "cpu_percent", "memory_percent", "status"]))
 
         data = {
-            "timestamp": dt.now(tz=dt.now().astimezone().tzinfo).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "system_info": self._get_system_info(),
             "performance": self._get_performance_data(),
             "network": dict(psutil.net_io_counters()._asdict()),
@@ -188,8 +188,7 @@ class LocalContent:
             "uptime": {
                 "boot_time": psutil.boot_time(),
                 "uptime_seconds": (
-                    dt.now(tz=dt.now().astimezone().tzinfo)
-                    - dt.fromtimestamp(psutil.boot_time(), tz=UTC)
+                    datetime.now(timezone.utc) - dt.fromtimestamp(psutil.boot_time(), tz=UTC)
                 ).total_seconds(),
             },
         }
@@ -630,7 +629,7 @@ class LocalContent:
                 self._expansions["uptime"] = exp12
                 with exp12:
                     boot_time = dt.fromtimestamp(psutil.boot_time(), tz=UTC)
-                    uptime = dt.now(tz=dt.now().astimezone().tzinfo) - boot_time
+                    uptime = datetime.now(timezone.utc) - boot_time
                     uptime_data = [
                         {"Event": "System Boot", "Time": boot_time.strftime("%Y-%m-%d %H:%M:%S")},
                         {
@@ -639,9 +638,7 @@ class LocalContent:
                         },
                         {
                             "Event": "Current Time",
-                            "Time": dt.now(tz=dt.now().astimezone().tzinfo).strftime(
-                                "%Y-%m-%d %H:%M:%S"
-                            ),
+                            "Time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                         },
                     ]
                     self._create_table(

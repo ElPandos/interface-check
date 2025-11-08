@@ -2,7 +2,7 @@
 """Optimized SLX eye scan automation."""
 
 from dataclasses import dataclass
-from datetime import datetime as dt
+from datetime import UTC, datetime as dt
 import json
 import logging
 from pathlib import Path
@@ -34,7 +34,7 @@ def signal_handler(_signum, _frame) -> None:
 signal.signal(signal.SIGINT, signal_handler)
 
 # Setup robust logging with separate loggers
-log_time_stamp = f"{dt.now(tz=dt.now().astimezone().tzinfo).strftime('%Y%m%d_%H%M%S')}"
+log_time_stamp = f"{dt.now(UTC).strftime('%Y%m%d_%H%M%S')}"
 log_dir = Path(__file__).parent / "logs"
 log_dir.mkdir(exist_ok=True)
 
@@ -268,7 +268,7 @@ class SlxEyeScanner:
             ps_result = self._ssh_connection.execute_shell_command("ps")
             self.logger.debug(f"fbr-CLI ps result: {ps_result}")
 
-            pattern = rf"(\w+)\(\s*{re.escape(port_id)}\)"
+            pattern = rf"(\w+)\(\s*{re.escape(port_id)}escape(port_id)\)"
             match = re.search(pattern, ps_result)
 
             if match:
@@ -453,11 +453,11 @@ class SutSystemScanner:
 
             for cmd in test_commands:
                 sut_system_info_logger.debug(f"Testing connection with command: {cmd}")
-                result = self._ssh_connection.execute_command(cmd)
-                if result.return_code == 0:
-                    sut_system_info_logger.debug(f"Command '{cmd}' result: {result.stdout.strip()}")
+                result = self._ssh_connection.exec_cmd(cmd)
+                if result.rcode == 0:
+                    sut_system_info_logger.debug(f"Command '{cmd}' result: {result.out_str}")
                 else:
-                    sut_system_info_logger.warning(f"Command '{cmd}' failed: {result.stderr}")
+                    sut_system_info_logger.warning(f"Command '{cmd}' failed: {result.err_str}")
 
             self._software_manager = SoftwareManager(self._ssh_connection)
             sut_system_info_logger.info("SUT connection established successfully")

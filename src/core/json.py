@@ -34,7 +34,7 @@ class Json:
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
         if create_backup and file_path.exists():
-            timestamp = dt.now(tz=dt.now().astimezone().tzinfo).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             file_path.rename(file_path.with_suffix(f".{timestamp}.bak"))
 
         with file_path.open("w", encoding="utf-8") as f:
@@ -76,7 +76,7 @@ class Json:
     ) -> None:
         try:
             json_data = cls.dump_to_string(data)
-            timestamp = dt.now(tz=dt.now().astimezone().tzinfo).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             filename = f"{filename_prefix}_{timestamp}.json"
 
             ui.download(json_data.encode("utf-8"), filename)
@@ -87,7 +87,7 @@ class Json:
     @classmethod
     def backup_and_save(cls, data: Any, file_path: Path, *, max_backups: int = 5) -> None:
         if file_path.exists():
-            timestamp = dt.now(tz=dt.now().astimezone().tzinfo).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             file_path.rename(file_path.with_suffix(f".{timestamp}.bak"))
             cls._cleanup_backups(file_path, max_backups)
         cls.save(data, file_path)
