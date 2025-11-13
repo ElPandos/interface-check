@@ -36,7 +36,7 @@ class SlxPanel(BasePanel, MultiScreen):
         self,
         build: bool = False,
         cfg: Config = None,
-        ssh_connection: SshConnection = None,
+        ssh: SshConnection = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
@@ -44,7 +44,7 @@ class SlxPanel(BasePanel, MultiScreen):
         MultiScreen.__init__(self)
 
         self._cfg = cfg
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._host_handler = host_handler
         self._icon = icon
         self._slx_screens: dict[int, Any] = {}
@@ -91,15 +91,15 @@ class SlxPanel(BasePanel, MultiScreen):
 class SlxContent:
     def __init__(
         self,
-        ssh_connection: SshConnection | None = None,
+        ssh: SshConnection | None = None,
         host_handler: Any = None,
         cfg: Config | None = None,
         parent_panel: SlxPanel | None = None,
         screen_num: int = 1,
     ) -> None:
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._host_handler = host_handler
-        self._cfg = config
+        self._cfg = cfg
         self._parent_panel = parent_panel
         self._screen_num = screen_num
         self._selected_route: int | None = None

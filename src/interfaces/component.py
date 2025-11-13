@@ -5,7 +5,7 @@ from datetime import UTC, datetime as dt
 import logging
 from typing import TYPE_CHECKING, Any
 
-from src.interfaces.connection import CmdResult
+from src.core.result import CmdResult
 
 if TYPE_CHECKING:
     from src.platform.enums.software import ToolType

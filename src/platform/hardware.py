@@ -68,13 +68,13 @@ class HardwareProbe(ABC):
 class Hardware:
     """Independent hardware management class."""
 
-    def __init__(self, ssh_connection: SshConnection = None):
+    def __init__(self, ssh: SshConnection = None):
         """Initialize hardware manager.
 
         Args:
-            ssh_connection: SSH connection for remote operations
+            ssh: SSH connection for remote operations
         """
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._probes: dict[str, HardwareProbe] = {}
         self._cache: dict[str, Any] = {}
 
@@ -87,10 +87,10 @@ class Hardware:
         if "cpu" in self._cache:
             return self._cache["cpu"]
 
-        if not self._ssh_connection:
+        if not self._ssh:
             return CpuInfo()
 
-        result = self._ssh_connection.execute_command("lscpu")
+        result = self._ssh.execute_command("lscpu")
         if not result.success:
             return CpuInfo()
 
@@ -112,10 +112,10 @@ class Hardware:
         Returns:
             Memory information
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             return MemoryInfo()
 
-        result = self._ssh_connection.execute_command("free -b")
+        result = self._ssh.execute_command("free -b")
         if not result.success:
             return MemoryInfo()
 
@@ -146,10 +146,10 @@ class Hardware:
         Returns:
             List of storage information
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             return []
 
-        result = self._ssh_connection.execute_command("df -B1")
+        result = self._ssh.execute_command("df -B1")
         if not result.success:
             return []
 
@@ -186,13 +186,13 @@ class Hardware:
         Returns:
             List of network interfaces
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             return []
 
         interfaces = []
 
         # Get interface list
-        result = self._ssh_connection.execute_command("ls /sys/class/net/")
+        result = self._ssh.execute_command("ls /sys/class/net/")
         if not result.success:
             return []
 
@@ -205,7 +205,7 @@ class Hardware:
             interface = NetworkInterface(name=name)
 
             # Get MAC address
-            mac_result = self._ssh_connection.execute_command(f"cat /sys/class/net/{name}/address")
+            mac_result = self._ssh.execute_command(f"cat /sys/class/net/{name}/address")
             if mac_result.success:
                 interface = interface.__class__(
                     name=interface.name,
@@ -217,9 +217,7 @@ class Hardware:
                 )
 
             # Get state
-            state_result = self._ssh_connection.execute_command(
-                f"cat /sys/class/net/{name}/operstate"
-            )
+            state_result = self._ssh.execute_command(f"cat /sys/class/net/{name}/operstate")
             if state_result.success:
                 interface = interface.__class__(
                     name=interface.name,
@@ -242,14 +240,12 @@ class Hardware:
         """
         sensors = {}
 
-        if not self._ssh_connection:
+        if not self._ssh:
             return sensors
 
         # CPU thermal zones
         for i in range(10):  # Check up to 10 thermal zones
-            result = self._ssh_connection.execute_command(
-                f"cat /sys/class/thermal/thermal_zone{i}/temp"
-            )
+            result = self._ssh.execute_command(f"cat /sys/class/thermal/thermal_zone{i}/temp")
             if result.success:
                 try:
                     temp = float(result.str_out.strip()) / 1000.0
@@ -260,7 +256,7 @@ class Hardware:
                 break
 
         # Try sensors command if available
-        result = self._ssh_connection.execute_command("sensors")
+        result = self._ssh.execute_command("sensors")
         if result.success:
             for line in result.str_out.split("\n"):
                 if "°C" in line and ":" in line:

@@ -36,13 +36,13 @@ class EthtoolPanel(BasePanel):
         *,
         build: bool = False,
         cfg: Config = None,
-        ssh_connection: SshConnection = None,
+        ssh: SshConnection = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
         super().__init__(NAME, LABEL, EthtoolTab.ICON_NAME)
-        self._cfg = config
-        self._ssh_connection = ssh_connection
+        self._cfg = cfg
+        self._ssh = ssh
         self._host_handler = host_handler
         self._icon = icon
         self._work_manager = WorkManager()
@@ -143,20 +143,20 @@ class EthtoolPanel(BasePanel):
         self._scan_interfaces()
 
     def _scan_interfaces(self):
-        if not self._ssh_connection:
+        if not self._ssh:
             logger.warning("No SSH connection object")
             return
 
-        if not self._ssh_connection.is_connected():
+        if not self._ssh.is_connected():
             logger.warning("No SSH connection established")
             return
 
-        _, err = self._ssh_connection.exec_command(System().install_psutil().syntax)
+        _, err = self._ssh.exec_command(System().install_psutil().syntax)
         if err:
             logger.warning("Failed to install python library: psutil")
             return
 
-        out, err = self._ssh_connection.exec_command(Common().get_interfaces().syntax)
+        out, err = self._ssh.exec_command(Common().get_interfaces().syntax)
         if err:
             logger.warning("Failed to collect host interface names")
             return
@@ -182,7 +182,7 @@ class EthtoolPanel(BasePanel):
     def _activate_workers(self, options: list) -> None:
         for interf in options.value:
             self._work_manager.add(
-                Worker(Ethtool().module_info(interf), interf, self._cfg, self._ssh_connection)
+                Worker(Ethtool().module_info(interf), interf, self._cfg, self._ssh)
             )
             self._build_source(interf)
 

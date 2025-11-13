@@ -31,15 +31,15 @@ class ChatPanel(BasePanel, MultiScreen):
         *,
         build: bool = False,
         cfg: Config | None = None,
-        ssh_connection: SshConnection | None = None,
+        ssh: SshConnection | None = None,
         host_handler: Any = None,
         icon: ui.icon | None = None,
     ) -> None:
         BasePanel.__init__(self, NAME, LABEL, ChatTab.ICON_NAME)
         MultiScreen.__init__(self)
 
-        self._cfg = config
-        self._ssh_connection = ssh_connection
+        self._cfg = cfg
+        self._ssh = ssh
         self._host_handler = host_handler
         self._icon = icon
         self._chat_screens: dict[int, Any] = {}
@@ -85,7 +85,7 @@ class ChatContent:
         self._current_model: str = "GPT-4"
         self._chat_history: list[dict[str, str]] = []
         self._host_handler = host_handler
-        self._cfg = config
+        self._cfg = cfg
         self._parent_panel = parent_panel
         self._screen_num = screen_num
         self._selected_route: int | None = None

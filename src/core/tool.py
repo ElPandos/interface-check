@@ -8,8 +8,8 @@ from typing import Any
 
 from src.core import json
 from src.core.connect import SshConnection
+from src.core.result import CmdResult
 from src.core.enums.messages import LogMsg
-from src.interfaces.connection import CmdResult
 from src.platform.enums.log import LogName
 from src.platform.enums.software import CmdInputType
 from src.platform.tools import helper
@@ -57,18 +57,18 @@ class Tool:
     logging results, and managing command execution state.
 
     Attributes:
-        _ssh_connection: SSH connection for command execution
+        _ssh: SSH connection for command execution
         _results: Dictionary mapping commands to their results
         _logger: Logger instance for this tool
     """
 
-    def __init__(self, ssh_connection: SshConnection):
+    def __init__(self, ssh: SshConnection):
         """Initialize tool with SSH connection.
 
         Args:
-            ssh_connection: Active SSH connection for command execution
+            ssh: Active SSH connection for command execution
         """
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._results: dict[str, CmdResult] = {}
 
         self._logger = logging.getLogger(LogName.CORE_MAIN.value)
@@ -83,11 +83,11 @@ class Tool:
             Command result
         """
         cmd_result = None
-        if not self._ssh_connection.is_connected():
-            return self._ssh_connection.get_cr_msg_connection(cmd, LogMsg.EXEC_CMD_FAIL)
+        if not self._ssh.is_connected():
+            return self._ssh.get_cr_msg_connection(cmd, LogMsg.EXEC_CMD_FAIL)
 
         try:
-            cmd_result = self._ssh_connection.exec_cmd(cmd)
+            cmd_result = self._ssh.exec_cmd(cmd)
             if cmd_result.success:
                 self._logger.debug(f"Succesfully executed command: {cmd}")
             else:
@@ -115,9 +115,9 @@ class Tool:
                 case CmdInputType.INTERFACE:
                     cmd_mod.append(interface)
                 case CmdInputType.MST_PCICONF:
-                    cmd_mod.append(helper.get_mst_device(self._ssh_connection, interface))
+                    cmd_mod.append(helper.get_mst_device(self._ssh, interface))
                 case CmdInputType.PCI_ID:
-                    cmd_mod.append(helper.get_pci_id(self._ssh_connection, interface))
+                    cmd_mod.append(helper.get_pci_id(self._ssh, interface))
                 case _:
                     cmd_mod.append(part)
 

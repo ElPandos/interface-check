@@ -42,13 +42,13 @@ class TaskAnalysis:
 class Agent:
     """Intelligent network diagnostics agent for automated tasks and network analysis."""
 
-    def __init__(self, ssh_connection: SshConnection) -> None:
+    def __init__(self, ssh: SshConnection) -> None:
         """Initialize agent with SSH connection.
 
         Args:
-            ssh_connection: SSH connection instance
+            ssh: SSH connection instance
         """
-        self._ssh = ssh_connection
+        self._ssh = ssh
         self._running = False
 
     def is_running(self) -> bool:

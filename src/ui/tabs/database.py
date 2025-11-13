@@ -30,15 +30,15 @@ class DatabasePanel(BasePanel, MultiScreen):
         self,
         build: bool = False,
         cfg: Config = None,
-        ssh_connection: SshConnection = None,
+        ssh: SshConnection = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
         BasePanel.__init__(self, NAME, LABEL, DatabaseTab.ICON_NAME)
         MultiScreen.__init__(self)
 
-        self._cfg = config
-        self._ssh_connection = ssh_connection
+        self._cfg = cfg
+        self._ssh = ssh
         self._host_handler = host_handler
         self._icon = icon
         self._database_screens: dict[int, Any] = {}
@@ -76,15 +76,15 @@ class DatabasePanel(BasePanel, MultiScreen):
 class DatabaseContent:
     def __init__(
         self,
-        ssh_connection: SshConnection | None = None,
+        ssh: SshConnection | None = None,
         host_handler: Any = None,
         cfg: Config | None = None,
         parent_panel: DatabasePanel | None = None,
         screen_num: int = 1,
     ) -> None:
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._host_handler = host_handler
-        self._cfg = config
+        self._cfg = cfg
         self._parent_panel = parent_panel
         self._screen_num = screen_num
         self._selected_route: int | None = None

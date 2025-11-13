@@ -9,8 +9,8 @@ from typing import Any, ClassVar
 import paramiko
 
 from src.core.enums.messages import LogMsg
+from src.core.result import CmdResult
 from src.interfaces.component import IConnection
-from src.interfaces.connection import CmdResult
 from src.models.config import Host, Route
 from src.platform.enums.log import LogName
 
@@ -715,3 +715,18 @@ class SshConnection(IConnection):
                 self._shell = None
         else:
             self._logger.debug("Shell already closed or not has not been opened")
+
+    def clear_shell(self) -> None:
+        """Clear shell buffer."""
+        if not self._shell:
+            self._logger.error("Shell not opened")
+            return
+
+        try:
+            self._logger.debug("Clearing shell buffer")
+            while self._shell.recv_ready():
+                self._shell.recv(65536)
+                time.sleep(0.1)
+            self._logger.debug("Buffer cleared")
+        except Exception:
+            self._logger.exception("Error clearing shell buffer")

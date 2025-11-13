@@ -21,7 +21,7 @@ class HostHandler:
         Args:
             cfg: Application configuration
         """
-        self._cfg = config
+        self._cfg = cfg
         self._current_host_index: int | None = None
         self._connection_callbacks: list[Callable[[SshConnection | None], None]] = []
         self._host_selectors: list[ui.select] = []

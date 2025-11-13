@@ -90,7 +90,7 @@ class HostPanel(BasePanel, SingleScreen):
     ):
         BasePanel.__init__(self, NAME, LABEL, HostTab.ICON_NAME)
         SingleScreen.__init__(self)
-        self._cfg = config
+        self._cfg = cfg
         self._host_handler = host_handler
         if build:
             self.build()

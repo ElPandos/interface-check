@@ -13,11 +13,11 @@ class Sample(Tool, ITime):
 
     Args:
         cfg: Application configuration
-        ssh_connection: SSH connection for command execution
+        ssh: SSH connection for command execution
     """
 
-    def __init__(self, cfg: Config, ssh_connection: SshConnection) -> None:
-        Tool.__init__(self, ssh_connection)
+    def __init__(self, cfg: Config, ssh: SshConnection) -> None:
+        Tool.__init__(self, ssh)
         ITime.__init__(self)
 
         self._snapshot: str = ""

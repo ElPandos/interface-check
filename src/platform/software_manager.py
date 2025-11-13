@@ -49,19 +49,19 @@ class AptManager(IPackageManager):
     commands to interact with the package system.
 
     Attributes:
-        _ssh_connection: SSH connection for executing remote commands
+        ssh: SSH connection for executing remote commands
         logger: Logger instance for operation tracking
     """
 
-    def __init__(self, ssh_connection: SshConnection):
+    def __init__(self, ssh: SshConnection):
         """Initialize APT manager with SSH connection.
 
         Args:
-            ssh_connection: Active SSH connection to target system
+            ssh: Active SSH connection to target system
         """
         IPackageManager.__init__(self)
 
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
 
         self._logger = logging.getLogger(LogName.SUT_SYSTEM_INFO.value)
         self._logger.debug("Initialized APT package manager")
@@ -75,14 +75,14 @@ class AptManager(IPackageManager):
         Returns:
             bool: True if installation successful, False otherwise
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.error("No SSH connection available for package installation")
             return False
 
         self._logger.info(f"Installing package '{package}' using APT")
 
         # Use echo to pipe password to sudo for non-interactive installation
-        result = self._ssh_connection.exec_cmd(f"apt install -y {package}")
+        result = self._ssh.exec_cmd(f"apt install -y {package}")
 
         if result.success:
             self._logger.info(f"Successfully installed package '{package}'")
@@ -100,7 +100,7 @@ class AptManager(IPackageManager):
         Returns:
             bool: True if removal successful, False otherwise
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.error("No SSH connection available for package removal")
             return False
 
@@ -111,7 +111,7 @@ class AptManager(IPackageManager):
         self._logger.info(f"Removing package '{package}' using APT")
 
         # Execute apt-get remove with -y flag for non-interactive removal
-        result = self._ssh_connection.exec_cmd(f"apt-get remove -y {package}")
+        result = self._ssh.exec_cmd(f"apt-get remove -y {package}")
 
         if result.success:
             self._logger.info(f"Successfully removed package '{package}'")
@@ -129,14 +129,14 @@ class AptManager(IPackageManager):
         Returns:
             Package: Package information or None if not found
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.error("No SSH connection available for package listing")
             return None
 
         self._logger.debug("Retrieving list of installed packages using dpkg")
 
         # Use dpkg -l to list all installed packages
-        result = self._ssh_connection.exec_cmd(f"dpkg -l {package}")
+        result = self._ssh.exec_cmd(f"dpkg -l {package}")
 
         if result.success:
             return self._parse_version(result.stdout)
@@ -170,17 +170,17 @@ class AptManager(IPackageManager):
         Returns:
             bool: True if apt-get command is available, False otherwise
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.debug("No SSH connection available for APT availability check")
             return False
 
         self._logger.debug("Checking APT availability using 'which apt-get'")
 
         # Check if apt-get command exists in PATH
-        result = self._ssh_connection.exec_cmd("which apt-get")
+        result = self._ssh.exec_cmd("which apt-get")
 
         if result.success:
-            self._logger.info("APT package manager is available")
+            self._logger.info("Detected APT package manager (Debian/Ubuntu system)")
         else:
             self._logger.debug("APT package manager is not available")
 
@@ -195,19 +195,19 @@ class YumManager(IPackageManager):
     to interact with the package system.
 
     Attributes:
-        _ssh_connection: SSH connection for executing remote commands
+        ssh: SSH connection for executing remote commands
         logger: Logger instance for operation tracking
     """
 
-    def __init__(self, ssh_connection: SshConnection):
+    def __init__(self, ssh: SshConnection):
         """Initialize YUM manager with SSH connection.
 
         Args:
-            ssh_connection: Active SSH connection to target system
+            ssh: Active SSH connection to target system
         """
         IPackageManager.__init__(self)
 
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
 
         self._logger = logging.getLogger(LogName.SUT_SYSTEM_INFO.value)
         self._logger.debug("Initialized YUM package manager")
@@ -221,14 +221,14 @@ class YumManager(IPackageManager):
         Returns:
             bool: True if installation successful, False otherwise
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.error("No SSH connection available for package installation")
             return False
 
         self._logger.info(f"Installing package '{package}' using YUM")
 
         # Use echo to pipe password to sudo for non-interactive installation
-        result = self._ssh_connection.exec_cmd(f"yum install -y {package}")
+        result = self._ssh.exec_cmd(f"yum install -y {package}")
 
         if result.success:
             self._logger.info(f"Successfully installed package '{package}'")
@@ -246,7 +246,7 @@ class YumManager(IPackageManager):
         Returns:
             bool: True if removal successful, False otherwise
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.error("No SSH connection available for package removal")
             return False
 
@@ -257,7 +257,7 @@ class YumManager(IPackageManager):
         self._logger.info(f"Removing package '{package}' using YUM")
 
         # Execute yum remove with -y flag for non-interactive removal
-        result = self._ssh_connection.exec_cmd(f"yum remove -y {package}")
+        result = self._ssh.exec_cmd(f"yum remove -y {package}")
 
         if result.success:
             self._logger.info(f"Successfully removed package '{package}'")
@@ -278,7 +278,7 @@ class YumManager(IPackageManager):
         self._logger.error("Not implemented yet")
         return None
 
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.error("No SSH connection available for package listing")
             return []
 
@@ -286,9 +286,7 @@ class YumManager(IPackageManager):
 
         # Use rpm -qa with custom format to get package info
         # Format: NAME VERSION SIZE (one per line)
-        result = self._ssh_connection.exec_cmd(
-            "rpm -qa --queryformat '%{NAME} %{VERSION} %{SIZE}\\n'"
-        )
+        result = self._ssh.exec_cmd("rpm -qa --queryformat '%{NAME} %{VERSION} %{SIZE}\\n'")
         if not (hasattr(result, "success") and result.success):
             self._logger.error("Failed to retrieve package list from rpm")
             return []
@@ -337,14 +335,14 @@ class YumManager(IPackageManager):
         Returns:
             bool: True if yum command is available, False otherwise
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.debug("No SSH connection available for YUM availability check")
             return False
 
         self._logger.debug("Checking YUM availability using 'which yum'")
 
         # Check if yum command exists in PATH
-        result = self._ssh_connection.exec_cmd("which yum")
+        result = self._ssh.exec_cmd("which yum")
 
         if result.success:
             self._logger.info("YUM package manager is available")
@@ -371,7 +369,7 @@ class SoftwareManager:
 
     Attributes:
         VERSION_PATTERNS: Regex patterns for version extraction
-        _ssh_connection: SSH connection for remote operations
+        ssh: SSH connection for remote operations
         _cache: Cache for package information
         _package_manager: Detected package manager instance
         logger: Logger instance for operation tracking
@@ -385,13 +383,13 @@ class SoftwareManager:
         r"(\d+\.\d+)",  # Matches 1.2 (major.minor)
     ]
 
-    def __init__(self, ssh_connection: SshConnection):
+    def __init__(self, ssh: SshConnection):
         """Initialize software manager with SSH connection and detect package manager.
 
         Args:
-            ssh_connection: Active SSH connection to target system
+            ssh: Active SSH connection to target system
         """
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._cache: dict[str, Package] = {}  # Cache for package information
         self._package_manager: IPackageManager | None = None
 
@@ -409,7 +407,7 @@ class SoftwareManager:
         on the target system by checking for APT first, then YUM.
         The first available package manager is selected and initialized.
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.error("No SSH connection available for package manager detection")
             return
 
@@ -418,10 +416,10 @@ class SoftwareManager:
         try:
             # Try APT first (Debian/Ubuntu systems)
             self._logger.debug("Checking for APT package manager")
-            apt_manager = AptManager(self._ssh_connection)
+            apt_manager = AptManager(self._ssh)
             if apt_manager.is_available():
                 self._package_manager = apt_manager
-                self._logger.info("Detected APT package manager (Debian/Ubuntu system)")
+                self._logger.info("")
                 return
         except Exception as e:
             self._logger.warning(f"Error checking APT availability: {e}")
@@ -429,7 +427,7 @@ class SoftwareManager:
         try:
             # Try YUM (RedHat/CentOS systems)
             self._logger.debug("Checking for YUM package manager")
-            yum_manager = YumManager(self._ssh_connection)
+            yum_manager = YumManager(self._ssh)
             if yum_manager.is_available():
                 self._package_manager = yum_manager
                 self._logger.info("Detected YUM package manager (RedHat/CentOS system)")
@@ -446,7 +444,7 @@ class SoftwareManager:
         Returns:
             bool: True if SSH connection exists, False otherwise
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.debug("SSH connection is not available")
             return False
         return True
@@ -466,7 +464,7 @@ class SoftwareManager:
 
         try:
             self._logger.debug(f"Executing command: {cmd}")
-            result = self._ssh_connection.exec_cmd(cmd)
+            result = self._ssh.exec_cmd(cmd)
             if result.success:
                 self._logger.debug(f"Command executed successfully: {cmd}")
             else:

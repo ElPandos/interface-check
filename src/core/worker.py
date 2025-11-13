@@ -56,7 +56,7 @@ class Worker(Thread, ITime):
         self,
         worker_config: WorkerConfig,
         cfg: Config,
-        ssh_connection: SshConnection,
+        ssh: SshConnection,
         name: str = "Worker",
     ) -> None:
         """Initialize worker thread.
@@ -64,7 +64,7 @@ class Worker(Thread, ITime):
         Args:
             worker_command: Command configuration to execute
             config: Application configuration
-            ssh_connection: SSH connection for command execution
+            ssh: SSH connection for command execution
             name: Thread name for identification
         """
         Thread.__init__(self, name=name, daemon=True)  # daemon=True prevents blocking app exit
@@ -74,7 +74,7 @@ class Worker(Thread, ITime):
 
         self._worker_config = worker_config
         self._cfg = cfg
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
 
         self._stop_event = Event()  # Signal for graceful shutdown
 
@@ -108,7 +108,7 @@ class Worker(Thread, ITime):
                     break
 
                 # Collect sample by executing command
-                sample = Sample(self._cfg, self._ssh_connection).collect(self._worker_config)
+                sample = Sample(self._cfg, self._ssh).collect(self._worker_config)
 
                 # Parse output if parser provided
                 if self._worker_config.parser is not None:
@@ -151,7 +151,7 @@ class Worker(Thread, ITime):
 
                 # Attempt reconnection
                 try:
-                    if self._ssh_connection.connect():
+                    if self._ssh.connect():
                         self._logger.info("Reconnect was established successfully")
                         reconnect = 0  # Reset on successful reconnect
                     else:

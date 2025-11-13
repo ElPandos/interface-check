@@ -58,13 +58,13 @@ class HealthMonitor(ABC):
 class CpuMonitor(HealthMonitor):
     """CPU usage monitor."""
 
-    def __init__(self, ssh_connection: SshConnection):
+    def __init__(self, ssh: SshConnection):
         """Initialize CPU monitor.
 
         Args:
-            ssh_connection: SSH connection
+            ssh: SSH connection
         """
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
 
     def collect(self) -> HealthMetric:
         """Collect CPU metric.
@@ -72,10 +72,10 @@ class CpuMonitor(HealthMonitor):
         Returns:
             CPU health metric
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             return HealthMetric("cpu_usage", 0.0, "%")
 
-        result = self._ssh_connection.execute_command(
+        result = self._ssh.execute_command(
             "top -bn1 | grep 'Cpu(s)' | awk '{print $2}' | sed 's/%us,//'"
         )
         if result.success:
@@ -108,13 +108,13 @@ class CpuMonitor(HealthMonitor):
 class MemoryMonitor(HealthMonitor):
     """Memory usage monitor."""
 
-    def __init__(self, ssh_connection: SshConnection):
+    def __init__(self, ssh: SshConnection):
         """Initialize memory monitor.
 
         Args:
-            ssh_connection: SSH connection
+            ssh: SSH connection
         """
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
 
     def collect(self) -> HealthMetric:
         """Collect memory metric.
@@ -122,12 +122,10 @@ class MemoryMonitor(HealthMonitor):
         Returns:
             Memory health metric
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             return HealthMetric("memory_usage", 0.0, "%")
 
-        result = self._ssh_connection.execute_command(
-            "free | grep Mem | awk '{print ($3/$2) * 100.0}'"
-        )
+        result = self._ssh.execute_command("free | grep Mem | awk '{print ($3/$2) * 100.0}'")
         if result.success:
             try:
                 usage = float(result.str_out.strip())
@@ -155,16 +153,16 @@ class TemperatureMonitor(HealthMonitor):
 
     def __init__(
         self,
-        ssh_connection: SshConnection,
+        ssh: SshConnection,
         sensor_path: str = "/sys/class/thermal/thermal_zone0/temp",
     ):
         """Initialize temperature monitor.
 
         Args:
-            ssh_connection: SSH connection
+            ssh: SSH connection
             sensor_path: Path to temperature sensor
         """
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._sensor_path = sensor_path
 
     def collect(self) -> HealthMetric:
@@ -173,10 +171,10 @@ class TemperatureMonitor(HealthMonitor):
         Returns:
             Temperature health metric
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             return HealthMetric("temperature", 0.0, "°C")
 
-        result = self._ssh_connection.execute_command(f"cat {self._sensor_path}")
+        result = self._ssh.execute_command(f"cat {self._sensor_path}")
         if result.success:
             try:
                 temp = float(result.str_out.strip()) / 1000.0
@@ -202,13 +200,13 @@ class TemperatureMonitor(HealthMonitor):
 class Health:
     """Independent health monitoring class."""
 
-    def __init__(self, ssh_connection: SshConnection = None):
+    def __init__(self, ssh: SshConnection = None):
         """Initialize health monitor.
 
         Args:
-            ssh_connection: SSH connection
+            ssh: SSH connection
         """
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._monitors: dict[str, HealthMonitor] = {}
         self._history: list[HealthSnapshot] = []
         self._max_history = 1000
@@ -216,12 +214,12 @@ class Health:
 
     def _setup_default_monitors(self):
         """Setup default health monitors."""
-        if not self._ssh_connection:
+        if not self._ssh:
             return
 
-        self._monitors["cpu"] = CpuMonitor(self._ssh_connection)
-        self._monitors["memory"] = MemoryMonitor(self._ssh_connection)
-        self._monitors["temperature"] = TemperatureMonitor(self._ssh_connection)
+        self._monitors["cpu"] = CpuMonitor(self._ssh)
+        self._monitors["memory"] = MemoryMonitor(self._ssh)
+        self._monitors["temperature"] = TemperatureMonitor(self._ssh)
 
     def add_monitor(self, monitor: HealthMonitor) -> None:
         """Add custom health monitor.
@@ -346,10 +344,10 @@ class Health:
 
     def _get_load_average(self) -> float:
         """Get system load average."""
-        if not self._ssh_connection:
+        if not self._ssh:
             return 0.0
 
-        result = self._ssh_connection.execute_command(
+        result = self._ssh.execute_command(
             "uptime | awk -F'load average:' '{print $2}' | awk '{print $1}' | sed 's/,//'"
         )
         if result.success:
@@ -361,10 +359,10 @@ class Health:
 
     def _get_network_errors(self) -> int:
         """Get network error count."""
-        if not self._ssh_connection:
+        if not self._ssh:
             return 0
 
-        result = self._ssh_connection.execute_command(
+        result = self._ssh.execute_command(
             "cat /proc/net/dev | awk 'NR>2 {sum+=$4+$12} END {print sum}'"
         )
         if result.success:

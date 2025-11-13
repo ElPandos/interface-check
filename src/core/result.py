@@ -1,4 +1,4 @@
-"""Connection interface for abstracting SSH and other remote connections."""
+"""Command execution result data structure."""
 
 
 class CmdResult:

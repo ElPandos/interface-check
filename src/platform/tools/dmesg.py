@@ -41,14 +41,14 @@ class DmesgTool(Tool, ITool):
     ]
     # fmt: on
 
-    def __init__(self, ssh_connection: SshConnection, interfaces: list[str]):
+    def __init__(self, ssh: SshConnection, interfaces: list[str]):
         """Initialize tool with SSH connection.
 
         Args:
-            ssh_connection: SSH connection for command execution
+            ssh: SSH connection for command execution
             interfaces: List of network interfaces (unused for dmesg)
         """
-        Tool.__init__(self, ssh_connection)
+        Tool.__init__(self, ssh)
         self._interfaces = interfaces
 
     @property

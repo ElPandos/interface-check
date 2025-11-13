@@ -2,9 +2,9 @@ import logging
 from typing import Any, ClassVar
 
 from src.core.connect import SshConnection
+from src.core.result import CmdResult
 from src.core.tool import Tool
 from src.interfaces.component import ITool
-from src.interfaces.connection import CmdResult
 from src.platform.enums.software import CmdInputType, ToolType
 
 
@@ -22,14 +22,14 @@ class MlxTool(Tool, ITool):
     ]
     # fmt: on
 
-    def __init__(self, ssh_connection: SshConnection, interfaces: list[str]):
+    def __init__(self, ssh: SshConnection, interfaces: list[str]):
         """Initialize tool with SSH connection and interfaces.
 
         Args:
-            ssh_connection: SSH connection for command execution
+            ssh: SSH connection for command execution
             interfaces: List of network interface names
         """
-        Tool.__init__(self, ssh_connection)
+        Tool.__init__(self, ssh)
         self._interfaces = interfaces
 
     @property

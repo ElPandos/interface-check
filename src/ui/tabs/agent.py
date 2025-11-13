@@ -29,15 +29,15 @@ class AgentPanel(BasePanel, MultiScreen):
         *,
         build: bool = False,
         cfg: Config = None,
-        ssh_connection: SshConnection = None,
+        ssh: SshConnection = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
         BasePanel.__init__(self, NAME, LABEL, AgentTab.ICON_NAME)
         MultiScreen.__init__(self, AgentTab.ICON_NAME)
 
-        self._cfg = config
-        self._ssh_connection = ssh_connection
+        self._cfg = cfg
+        self._ssh = ssh
         self._host_handler = host_handler
         self._icon = icon
         self._agent_screens: dict[int, Any] = {}
@@ -78,21 +78,21 @@ class AgentPanel(BasePanel, MultiScreen):
 class AgentContent:
     def __init__(
         self,
-        ssh_connection: SshConnection | None = None,
+        ssh: SshConnection | None = None,
         host_handler: Any = None,
         cfg: Config | None = None,
         parent_panel: AgentPanel | None = None,
         screen_num: int = 1,
     ) -> None:
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._host_handler = host_handler
-        self._cfg = config
+        self._cfg = cfg
         self._parent_panel = parent_panel
         self._screen_num = screen_num
         self._selected_route: int | None = None
         self._tasks: list[dict[str, Any]] = []
         self._running_tasks: set[str] = set()
-        self._agent = Agent(ssh_connection) if ssh_connection else None
+        self._agent = Agent(ssh) if ssh else None
         self._route_selector: ui.select | None = None
 
         # UI components
@@ -457,7 +457,7 @@ class AgentContent:
 
     def _run_task(self, task: dict[str, Any]):
         """Execute a task."""
-        if not self._agent or not self._ssh_connection or not self._ssh_connection.is_connected():
+        if not self._agent or not self._ssh or not self._ssh.is_connected():
             ui.notify("SSH connection required", color="negative")
             return
 

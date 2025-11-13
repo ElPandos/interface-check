@@ -39,7 +39,7 @@ class SettingsHandler:
         Args:
             cfg: Application configuration
         """
-        self._cfg = config
+        self._cfg = cfg
         for o in self._cfg.settings.options:
             match o.type:
                 case Options.SWITCH.value:

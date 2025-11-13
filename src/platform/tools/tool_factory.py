@@ -31,13 +31,13 @@ class ToolFactory:
 
     @classmethod
     def create_tool(
-        cls, tool_type: ToolType, ssh_connection: SshConnection, interfaces: list[str] | None = None
+        cls, tool_type: ToolType, ssh: SshConnection, interfaces: list[str] | None = None
     ) -> ITool:
         """Create a tool instance.
 
         Args:
             tool_type: Type of the tool to create
-            ssh_connection: SSH connection for command execution
+            ssh: SSH connection for command execution
             interfaces: Optional list of network interfaces
 
         Returns:
@@ -51,7 +51,7 @@ class ToolFactory:
             raise ValueError(f"Unknown tool '{tool_type}'. Available: {available}")
 
         tool_class = cls._TOOLS[tool_type]
-        return tool_class(ssh_connection, interfaces)
+        return tool_class(ssh, interfaces)
 
     @classmethod
     def get_available_tools(cls) -> list[ToolType]:

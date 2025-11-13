@@ -87,7 +87,7 @@ slx_eye_log = log_dir / f"{log_time_stamp}_slx_eye.log"  # SLX eye scan
 
 ###########################
 #
-log_level = logging.DEBUG
+log_level = logging.INFO
 #
 ###########################
 
@@ -278,7 +278,7 @@ class SlxEyeScanner:
         self._cfg = cfg
         self._results: list[EyeScanResult] = []
         self._interface_cache: dict[str, tuple[str, str]] = {}
-        self._ssh_connection: SshConnection | None = None
+        self._ssh: SshConnection | None = None
 
         self._logger = logger
 
@@ -294,7 +294,7 @@ class SlxEyeScanner:
         """
         log_cmd = cmd_description if cmd_description else cmd
         self._logger.debug(f"{EyeScanLogMsg.CMD_EXECUTING.value}: '{log_cmd}'")
-        result = self._ssh_connection.exec_shell_command(cmd)
+        result = self._ssh.exec_shell_command(cmd)
         self._logger.debug(f"{EyeScanLogMsg.CMD_RESULT.value}:\n{result}")
         return result
 
@@ -310,14 +310,14 @@ class SlxEyeScanner:
         try:
             self._logger.info(f"Connecting to SLX host: {self._cfg.slx_host}")
             self._logger.debug(f"Using jump host: {self._cfg.jump_host}")
-            self._ssh_connection = _create_ssh_connection(self._cfg, "slx")
+            self._ssh = _create_ssh_connection(self._cfg, "slx")
 
-            if not self._ssh_connection.connect():
+            if not self._ssh.connect():
                 self._logger.error(EyeScanLogMsg.SSH_CONN_FAILED.value)
                 return False
             self._logger.debug("SSH connection established")
 
-            if not self._ssh_connection.open_shell():
+            if not self._ssh.open_shell():
                 self._logger.error(EyeScanLogMsg.SHELL_OPEN_FAILED.value)
                 return False
             self._logger.debug("Shell opened successfully")
@@ -354,7 +354,7 @@ class SlxEyeScanner:
         Returns:
             str | None: Port ID string if found, None otherwise
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.error(EyeScanLogMsg.SSH_NO_CONN.value)
             return None
 
@@ -392,13 +392,13 @@ class SlxEyeScanner:
         else:
             self._logger.info(EyeScanLogMsg.FBR_ENTERING.value)
         self._logger.debug(f"{EyeScanLogMsg.CMD_EXECUTING.value}: 'fbr-CLI'")
-        self._ssh_connection.exec_shell_command("fbr-CLI")
+        self._ssh.exec_shell_command("fbr-CLI")
         time.sleep(0.5)  # Allow prompt to stabilize
 
         # Read and log the fbr-CLI welcome message from buffer
-        welcome_msg = self._ssh_connection.exec_shell_command("")
+        welcome_msg = self._ssh.exec_shell_command("")
         self._logger.debug(f"{EyeScanLogMsg.CMD_RESULT.value}:\n{welcome_msg}")
-        self._logger.debug("Entered fbr-CLI successfully")
+        self._logger.info("Entered fbr-CLI successfully")
 
     def _exit_fbr_cli(self) -> None:
         """Exit fbr-CLI back to Linux shell using Ctrl+C.
@@ -425,7 +425,7 @@ class SlxEyeScanner:
         Example:
             ps output: "xe1(10)" -> returns 'xe1'
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.error(EyeScanLogMsg.SSH_NO_CONN.value)
             return None
 
@@ -484,7 +484,7 @@ class SlxEyeScanner:
         Args:
             cmd: Port toggle command (e.g., 'port xe1 enable=true')
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.error(f"{EyeScanLogMsg.SSH_NO_CONN.value} for toggle")
             return
 
@@ -516,7 +516,7 @@ class SlxEyeScanner:
             interface: Interface name (e.g., 'xe1')
             port_id: Port identifier for logging
         """
-        if not self._ssh_connection:
+        if not self._ssh:
             self._logger.error(f"{EyeScanLogMsg.SSH_NO_CONN.value} for eye scan")
             return
 
@@ -533,23 +533,22 @@ class SlxEyeScanner:
             # Enter fbr-CLI for eye scan
             self._enter_fbr_cli("for eye scan")
 
-            # Run eye scan
-            cmd = f"phy diag {interface} eyescan"
-            self._logger.debug(f"{EyeScanLogMsg.CMD_EXECUTING.value} eye scan: '{cmd}'")
+            # Clear buffer before eye scan
+            self._logger.info("Clearing buffer before eye scan")
+            self._ssh.clear_shell()
+            self._logger.info("Buffer cleared")
 
-            # Send command and wait
-            self._ssh_connection.exec_shell_command(cmd + "\n", until_prompt=False)
-            self._logger.debug(
-                f"{EyeScanLogMsg.EYE_SCAN_WAITING.value}: {self._cfg.slx_port_eyescan_wait} seconds..."
-            )
+            # Send eye scan command
+            cmd = f"phy diag {interface} eyescan"
+            self._logger.info(f"{EyeScanLogMsg.CMD_EXECUTING.value} eye scan: '{cmd}'")
+            self._ssh.exec_shell_command(cmd + "\n", until_prompt=False)
+
+            # Wait for eye scan to complete
+            self._logger.info(f"Waiting {self._cfg.slx_port_eyescan_wait}s for eye scan")
             time.sleep(self._cfg.slx_port_eyescan_wait)
 
             # Get results
-            self._logger.debug("Retrieving eye scan results")
-            result = self._ssh_connection.exec_shell_command("\n")
-            self._logger.debug(
-                f"{EyeScanLogMsg.CMD_RESULT.value}: Eye scan output length: {len(result)} characters"
-            )
+            result = self._ssh.exec_shell_command("\n")
 
             self._results.append(EyeScanResult(interface, port_id, result))
             self._logger.info(
@@ -651,8 +650,8 @@ class SlxEyeScanner:
 
     def disconnect(self) -> None:
         """Clean up connection."""
-        if self._ssh_connection:
-            self._ssh_connection.disconnect()
+        if self._ssh:
+            self._ssh.disconnect()
 
     def scans_collected(self) -> int:
         """Return number of scans collected.
@@ -685,7 +684,7 @@ class SutSystemScanner:
             logger: Logger instance for this scanner
         """
         self._cfg = cfg
-        self._ssh_connection: SshConnection | None = None
+        self._ssh: SshConnection | None = None
         self._software_manager: SoftwareManager | None = None
         self._worker_manager = WorkManager()
 
@@ -702,7 +701,7 @@ class SutSystemScanner:
             tuple[str, int]: Tuple of (stdout, return_code)
         """
         logger.debug(f"{EyeScanLogMsg.CMD_EXECUTING.value}: '{cmd}'")
-        result = self._ssh_connection.exec_cmd(cmd)
+        result = self._ssh.exec_cmd(cmd)
         logger.debug(f"{EyeScanLogMsg.CMD_RESULT.value}:\n{result.stdout}")
         return result.stdout, result.rcode
 
@@ -718,9 +717,9 @@ class SutSystemScanner:
         try:
             self._logger.info(f"Connecting to host: {self._cfg.sut_host}")
             self._logger.debug(f"Using jump host: {self._cfg.jump_host}")
-            self._ssh_connection = _create_ssh_connection(self._cfg, "sut")
+            self._ssh = _create_ssh_connection(self._cfg, "sut")
 
-            if not self._ssh_connection.connect():
+            if not self._ssh.connect():
                 self._logger.error(EyeScanLogMsg.SSH_CONN_FAILED.value)
                 return False
             self._logger.debug("SSH connection established")
@@ -735,13 +734,13 @@ class SutSystemScanner:
             for cmd in test_commands:
                 stdout, rcode = self._exec_with_logging(cmd, self._logger)  # noqa: RUF059
                 if rcode != 0:
-                    result = self._ssh_connection.exec_cmd(cmd)
+                    result = self._ssh.exec_cmd(cmd)
                     self._logger.warning(f"Command '{cmd}' failed (rc={rcode}): {result.stderr}")
 
             # Initialize software manager
             try:
                 self._logger.debug("Initializing software manager")
-                self._software_manager = SoftwareManager(self._ssh_connection)
+                self._software_manager = SoftwareManager(self._ssh)
                 self._logger.debug(EyeScanLogMsg.SW_MGR_INIT.value)
             except Exception:
                 self._logger.exception(EyeScanLogMsg.SW_MGR_INIT_FAILED.value)
@@ -813,7 +812,7 @@ class SutSystemScanner:
                 self._logger.debug(f"Executing tool: {tool_type}")
                 tool = ToolFactory.create_tool(
                     tool_type=tool_type,
-                    ssh_connection=self._ssh_connection,
+                    ssh=self._ssh,
                     interfaces=self._cfg.sut_scan_interfaces,
                 )
                 tool.execute()
@@ -842,7 +841,7 @@ class SutSystemScanner:
 
             for interface in cfg.sut_scan_interfaces:
                 self._logger.debug(f"Setting up workers for interface: '{interface}'")
-                pci_id = helper.get_pci_id(self._ssh_connection, interface)
+                pci_id = helper.get_pci_id(self._ssh, interface)
                 self._logger.debug(f"PCI ID for '{interface}': '{pci_id}'")
 
                 self._create_mlxlink_worker(pci_id)
@@ -876,13 +875,13 @@ class SutSystemScanner:
         ]
 
         worker_command = WorkerConfig()
-        worker_command.command = f"sudo mlxlink -d {pci_id} -e -m -c"
+        worker_command.command = f"mlxlink -d {pci_id} -e -m -c"
         worker_command.parser = MlxlinkParser
         worker_command.logger = sut_mxlink_logger
         worker_command.attrs = mlxlink_attrs
         worker_command.mem_logger = memory_logger
         self._logger.debug(f"Worker command: '{worker_command.command}'")
-        self._worker_manager.add(Worker(worker_command, self._cfg, self._ssh_connection))
+        self._worker_manager.add(Worker(worker_command, self._cfg, self._ssh))
 
     def _create_mtemp_worker(self, pci_id: str) -> None:
         """Create temperature worker for NIC temperature.
@@ -891,12 +890,12 @@ class SutSystemScanner:
             pci_id: PCI device ID
         """
         worker_command = WorkerConfig()
-        worker_command.command = f"sudo mget_temp -d {pci_id}"
+        worker_command.command = f"mget_temp -d {pci_id}"
         worker_command.parser = None
         worker_command.logger = sut_mtemp_logger
         worker_command.mem_logger = memory_logger
         self._logger.debug(f"Worker command: '{worker_command.command}'")
-        self._worker_manager.add(Worker(worker_command, self._cfg, self._ssh_connection))
+        self._worker_manager.add(Worker(worker_command, self._cfg, self._ssh))
 
     def _create_dmesg_worker(self, interface: str) -> None:
         """Create dmesg worker for link status monitoring.
@@ -905,12 +904,12 @@ class SutSystemScanner:
             interface: Network interface name
         """
         worker_command = WorkerConfig()
-        worker_command.command = f'sudo dmesg -T | grep -i "{interface}.*link" | tail -100'
+        worker_command.command = f'dmesg -T | grep -i "{interface}.*link" | tail -100'
         worker_command.parser = DmesgFlapParser
         worker_command.logger = sut_link_status_logger
         worker_command.mem_logger = memory_logger
         self._logger.debug(f"Worker command: '{worker_command.command}'")
-        self._worker_manager.add(Worker(worker_command, self._cfg, self._ssh_connection))
+        self._worker_manager.add(Worker(worker_command, self._cfg, self._ssh))
 
     @property
     def worker_manager(self) -> WorkManager:
@@ -923,8 +922,8 @@ class SutSystemScanner:
 
     def disconnect(self) -> None:
         """Clean up connection."""
-        if self._ssh_connection:
-            self._ssh_connection.disconnect()
+        if self._ssh:
+            self._ssh.disconnect()
 
 
 def _create_ssh_connection(cfg: Config, host_type: str) -> SshConnection:
@@ -1001,20 +1000,20 @@ def main():  # noqa: PLR0912, PLR0915
         #                           Install required software                          #
         # ---------------------------------------------------------------------------- #
 
-        if not sut_system_scanner.install_required_software():
-            _logger.warning("Failed to install required software, continuing anyway")
+        # if not sut_system_scanner.install_required_software():
+        #    _logger.warning("Failed to install required software, continuing anyway")
 
-        if not sut_system_scanner.log_required_software_versions():
-            _logger.warning("Failed to log installed software versions")
+        # if not sut_system_scanner.log_required_software_versions():
+        #    _logger.warning("Failed to log installed software versions")
 
         # ---------------------------------------------------------------------------- #
         #                            Log system information                            #
         # ---------------------------------------------------------------------------- #
 
-        _logger.info(f"Start system information scan. Logs saved to: {sut_system_info_log}")
+        # _logger.info(f"Start system information scan. Logs saved to: {sut_system_info_log}")
 
-        if not sut_system_scanner.log_system_info(sut_system_info_logger):
-            _logger.warning("Failed to log system information")
+        # if not sut_system_scanner.log_system_info(sut_system_info_logger):
+        #    _logger.warning("Failed to log system information")
 
         # ---------------------------------------------------------------------------- #
         #                         Start system scanning threads                        #

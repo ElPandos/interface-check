@@ -34,13 +34,13 @@ class LocalPanel(BasePanel):
         self,
         build: bool = False,
         cfg: Config = None,
-        ssh_connection: SshConnection = None,
+        ssh: SshConnection = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
         super().__init__(NAME, LABEL, "dashboard")
-        self._cfg = config
-        self._ssh_connection = ssh_connection
+        self._cfg = cfg
+        self._ssh = ssh
         self._host_handler = host_handler
         self._icon = icon
         self._local_content: LocalContent | None = None
@@ -50,22 +50,20 @@ class LocalPanel(BasePanel):
     def build(self):
         with ui.tab_panel(self.name).classes("w-full h-screen"):
             if not self._local_content:
-                self._local_content = LocalContent(
-                    self._ssh_connection, self._host_handler, self._cfg
-                )
+                self._local_content = LocalContent(self._ssh, self._host_handler, self._cfg)
             self._local_content.build()
 
 
 class LocalContent:
     def __init__(
         self,
-        ssh_connection: SshConnection | None = None,
+        ssh: SshConnection | None = None,
         host_handler=None,
         cfg: Config | None = None,
     ) -> None:
-        self._ssh_connection = ssh_connection
+        self._ssh = ssh
         self._host_handler = host_handler
-        self._cfg = config
+        self._cfg = cfg
         self._expansion_states = {}
         self._auto_refresh = False
         self._refresh_timer = None
