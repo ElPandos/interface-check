@@ -11,7 +11,11 @@ class IComponent(ABC):
     @property
     @abstractmethod
     def name(self) -> str:
-        """Component name identifier."""
+        """Component name identifier.
+
+        Returns:
+            Component name
+        """
 
     @abstractmethod
     def build(self) -> None:
@@ -28,12 +32,20 @@ class ITab(IComponent):
     @property
     @abstractmethod
     def label(self) -> str:
-        """Tab display label."""
+        """Tab display label.
+
+        Returns:
+            Tab label
+        """
 
     @property
     @abstractmethod
     def icon(self) -> str:
-        """Tab icon identifier."""
+        """Tab icon identifier.
+
+        Returns:
+            Icon name
+        """
 
 
 class IPanel(IComponent):
@@ -49,15 +61,30 @@ class IEventBus(ABC):
 
     @abstractmethod
     def subscribe(self, event_type: str, handler: Callable[[Any], None]) -> None:
-        """Subscribe to event type."""
+        """Subscribe to event type.
+
+        Args:
+            event_type: Event type identifier
+            handler: Event handler function
+        """
 
     @abstractmethod
     def unsubscribe(self, event_type: str, handler: Callable[[Any], None]) -> None:
-        """Unsubscribe from event type."""
+        """Unsubscribe from event type.
+
+        Args:
+            event_type: Event type identifier
+            handler: Event handler function
+        """
 
     @abstractmethod
     def publish(self, event_type: str, data: Any = None) -> None:
-        """Publish event to subscribers."""
+        """Publish event to subscribers.
+
+        Args:
+            event_type: Event type identifier
+            data: Event data
+        """
 
     @abstractmethod
     def clear(self) -> None:

@@ -1,24 +1,29 @@
+import logging
 from typing import Any, ClassVar
 
 from src.core.connect import SshConnection
-from src.interfaces.connection import CmdResult
 from src.core.tool import Tool
 from src.interfaces.component import ITool
-from src.platform.enums.software import CommandInputType, ToolType
+from src.interfaces.connection import CmdResult
+from src.platform.enums.software import CmdInputType, ToolType
 
 
 class SystemTool(Tool, ITool):
-    """System class for CLI diagnostic tools."""
+    """System diagnostic tool for general system information.
+
+    Provides access to system commands for querying network interfaces,
+    PCI devices, hardware information, and OS details.
+    """
 
     # fmt: off
     _AVAILABLE_COMMANDS: ClassVar[list[list[Any]]] = [
-        ["sudo", "ip", "-br", "link"],
-        ["sudo", "lspci", "-v", "-s", CommandInputType.PCI_ID],
-        ["sudo", "lshw", "-C", "network"],
-        ["sudo", "lsmod"],
-        ["sudo", "lsb_release", "-a"],
+        ["ip", "-br", "link"],
+        ["lspci", "-v", "-s", CmdInputType.PCI_ID],
+        ["lshw", "-C", "network"],
+        ["lsmod"],
+        ["lsb_release", "-a"],
     ]
-    # fmt: off
+    # fmt: on
 
     def __init__(self, ssh_connection: SshConnection, interfaces: list[str]):
         """Initialize tool with SSH connection and interfaces.
@@ -28,18 +33,23 @@ class SystemTool(Tool, ITool):
             interfaces: List of network interface names
         """
         Tool.__init__(self, ssh_connection)
+
         self._interfaces = interfaces
 
     @property
     def type(self) -> ToolType:
-        """Name of the CLI tool."""
+        """Get the tool type identifier.
+
+        Returns:
+            ToolType: ToolType.SYSTEM constant
+        """
         return ToolType.SYSTEM
 
-    def available_commands(self) -> list[str]:
+    def available_cmds(self) -> list[str]:
         """Get available commands for this tool.
 
         Returns:
-            List of CLI commands
+            list[str]: List of command dictionaries with interface mappings
         """
         commands_modified = []
         for interface in self._interfaces:
@@ -49,21 +59,30 @@ class SystemTool(Tool, ITool):
         return commands_modified
 
     def execute(self) -> None:
-        for command in self.available_commands():
+        """Execute all available system commands.
+
+        Runs each command from available_cmds() and stores results.
+        """
+        for command in self.available_cmds():
             self._exec(command)
 
-    def log(self) -> None:
-        self._log()
+    def log(self, logger: logging.Logger) -> None:
+        """Log all command results.
 
-    def _parse(self, command: str, output: str) -> dict[str, str]:
+        Args:
+            logger: Logger instance for output
+        """
+        self._log(logger)
+
+    def _parse(self, cmd: str, output: str) -> dict[str, str]:
         """Parse raw command output into structured data.
 
         Args:
-            command: Name of the executed command
+            cmd: Executed command string
             output: Raw stdout from command execution
 
         Returns:
-            ToolResult with parsed data
+            dict[str, str]: Dictionary with raw_output key containing unparsed output
         """
         return {"raw_output": output}
 
@@ -71,22 +90,22 @@ class SystemTool(Tool, ITool):
         """Execute all commands and return parsed results.
 
         Returns:
-            Dict mapping command names to parsed data
+            dict[str, Any]: Dictionary mapping command types to results or error objects
         """
-        available_commands = self.available_commands()
+        available_commands = self.available_cmds()
 
         response = {}
-        for command_config in available_commands:
-            for cmd_type, args in command_config.items():
+        for command_cfg in available_commands:
+            for cmd_type, args in command_cfg.items():
                 target = ""
-                if cmd_type != CommandInputType.NOT_USED:
+                if cmd_type != CmdInputType.NOT_USED:
                     continue
                 final_command = f"{' '.join(args)} {target}"
                 result = self._exec(final_command)
                 if result.success:
-                    response[CommandInputType.NOT_USED.value] = result._stdout.strip()
+                    response[CmdInputType.NOT_USED.value] = result.stdout
                 else:
-                    response[CommandInputType.NOT_USED.value] = CmdResult.error(
-                        result._stderr, result._rcode
+                    response[CmdInputType.NOT_USED.value] = CmdResult.error(
+                        result.stderr, result.rcode
                     )
         return response

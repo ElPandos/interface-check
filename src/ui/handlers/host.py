@@ -15,8 +15,13 @@ logger = logging.getLogger(LogName.MAIN.value)
 class HostHandler:
     """Manages SSH connections and host selection across all tabs."""
 
-    def __init__(self, config: Config) -> None:
-        self._config = config
+    def __init__(self, cfg: Config) -> None:
+        """Initialize host handler.
+
+        Args:
+            cfg: Application configuration
+        """
+        self._cfg = config
         self._current_host_index: int | None = None
         self._connection_callbacks: list[Callable[[SshConnection | None], None]] = []
         self._host_selectors: list[ui.select] = []
@@ -24,50 +29,81 @@ class HostHandler:
 
     @property
     def current_connection(self) -> SshConnection | None:
-        """Get current SSH connection."""
+        """Get current SSH connection.
+
+        Returns:
+            Current connection or None
+        """
         return getattr(self, "_current_connection", None)
 
     @property
     def current_host_index(self) -> int | None:
-        """Get current host index."""
+        """Get current host index.
+
+        Returns:
+            Host index or None
+        """
         return self._current_host_index
 
     @property
     def is_connected(self) -> bool:
-        """Check if currently connected."""
+        """Check if currently connected.
+
+        Returns:
+            True if connected
+        """
         return self._current_connection is not None and self._current_connection.is_connected()
 
     def register_connection_callback(
         self, callback: Callable[[SshConnection | None], None]
     ) -> None:
-        """Register callback for connection changes."""
+        """Register callback for connection changes.
+
+        Args:
+            callback: Callback function
+        """
         self._connection_callbacks.append(callback)
 
     def register_host_selector(self, selector: ui.select) -> None:
-        """Register host selector for synchronization."""
+        """Register host selector for synchronization.
+
+        Args:
+            selector: Host selector component
+        """
         self._host_selectors.append(selector)
 
     def get_host_options(self) -> list[dict[str, Any]]:
-        """Get host options for selectors."""
-        if not self._config.networks.hosts:
+        """Get host options for selectors.
+
+        Returns:
+            List of host options
+        """
+        if not self._cfg.networks.hosts:
             return [{"label": "No hosts configured", "value": None}]
 
         return [
             {"label": f"{host.ip} ({host.username})", "value": i}
-            for i, host in enumerate(self._config.networks.hosts)
+            for i, host in enumerate(self._cfg.networks.hosts)
         ]
 
     def connect_to_host(self, host_index: int | None) -> bool:
-        """Connect to specified host."""
+        """Connect to specified host.
+
+        Args:
+            host_index: Host index or None
+
+        Returns:
+            True if successful
+        """
         if host_index is None:
             self.disconnect()
             return True
 
-        if not (0 <= host_index < len(self._config.networks.hosts)):
+        if not (0 <= host_index < len(self._cfg.networks.hosts)):
             logger.error("Invalid host index: %s", host_index)
             return False
 
-        host = self._config.networks.hosts[host_index]
+        host = self._cfg.networks.hosts[host_index]
 
         try:
             # Disconnect existing connection
@@ -129,7 +165,14 @@ class HostHandler:
     def create_host_selector(
         self, on_change: Callable[[int | None], None] | None = None
     ) -> ui.select:
-        """Create a synchronized host selector."""
+        """Create a synchronized host selector.
+
+        Args:
+            on_change: Optional change callback
+
+        Returns:
+            Host selector component
+        """
         selector = ui.select(
             options=self.get_host_options(),
             value=self._current_host_index,
@@ -160,19 +203,26 @@ class HostHandler:
                 selector.options = options
 
     def connect_to_route(self, route_index: int) -> bool:
-        """Connect to a specific route."""
-        if not self._config.networks.routes:
+        """Connect to a specific route.
+
+        Args:
+            route_index: Route index
+
+        Returns:
+            True if successful
+        """
+        if not self._cfg.networks.routes:
             logger.error("No routes configured")
             ui.notify("No routes configured", color="negative")
             return False
 
         # Implement this after the configstate is refreshed, buggy
-        # if route_index < 0 or route_index >= len(self._config.networks.routes):
-        #     logger.error("Invalid route index: %s (max: %s)", route_index + 1, len(self._config.networks.routes))
+        # if route_index < 0 or route_index >= len(self._cfg.networks.routes):
+        #     logger.error("Invalid route index: %s (max: %s)", route_index + 1, len(self._cfg.networks.routes))
         #     ui.notify(f"Invalid route index: {route_index}", color="negative")
         #     return False
 
-        route = self._config.networks.routes[route_index]
+        route = self._cfg.networks.routes[route_index]
 
         try:
             connection = SshConnection.from_route(route)
@@ -190,7 +240,11 @@ class HostHandler:
             return False
 
     def disconnect_from_route(self, route_index: int) -> None:
-        """Disconnect from a specific route."""
+        """Disconnect from a specific route.
+
+        Args:
+            route_index: Route index
+        """
         if route_index in self._route_connections:
             try:
                 self._route_connections[route_index].disconnect()
@@ -201,20 +255,38 @@ class HostHandler:
                 logger.exception("Error disconnecting from route")
 
     def is_route_connected(self, route_index: int) -> bool:
-        """Check if a route is connected."""
+        """Check if a route is connected.
+
+        Args:
+            route_index: Route index
+
+        Returns:
+            True if connected
+        """
         connection = self._route_connections.get(route_index)
         return connection is not None and connection.is_connected()
 
     def get_route_connection(self, route_index: int) -> SshConnection | None:
-        """Get connection for a specific route."""
+        """Get connection for a specific route.
+
+        Args:
+            route_index: Route index
+
+        Returns:
+            SSH connection or None
+        """
         return self._route_connections.get(route_index)
 
     def get_connected_routes(self) -> list[dict[str, Any]]:
-        """Get list of connected routes for multiscreen selectors."""
+        """Get list of connected routes for multiscreen selectors.
+
+        Returns:
+            List of connected route options
+        """
         connected_routes = []
         for route_index, connection in self._route_connections.items():
             if connection.is_connected():
-                route = self._config.networks.routes[route_index]
+                route = self._cfg.networks.routes[route_index]
                 connected_routes.append(
                     {"label": f"Route {route_index + 1}: {route.summary}", "value": route_index}
                 )

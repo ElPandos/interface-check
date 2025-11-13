@@ -1,4 +1,5 @@
 import asyncio
+from datetime import UTC, datetime as dt
 from typing import Any
 
 from nicegui import ui
@@ -27,7 +28,7 @@ class AgentPanel(BasePanel, MultiScreen):
         self,
         *,
         build: bool = False,
-        config: Config = None,
+        cfg: Config = None,
         ssh_connection: SshConnection = None,
         host_handler=None,
         icon: ui.icon = None,
@@ -35,7 +36,7 @@ class AgentPanel(BasePanel, MultiScreen):
         BasePanel.__init__(self, NAME, LABEL, AgentTab.ICON_NAME)
         MultiScreen.__init__(self, AgentTab.ICON_NAME)
 
-        self._config = config
+        self._cfg = config
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
         self._icon = icon
@@ -62,7 +63,7 @@ class AgentPanel(BasePanel, MultiScreen):
 
                 if screen_num not in self._agent_screens:
                     self._agent_screens[screen_num] = AgentContent(
-                        None, self._host_handler, self._config, self, screen_num
+                        None, self._host_handler, self._cfg, self, screen_num
                     )
 
                 # Route selector in header
@@ -79,13 +80,13 @@ class AgentContent:
         self,
         ssh_connection: SshConnection | None = None,
         host_handler: Any = None,
-        config: Config | None = None,
+        cfg: Config | None = None,
         parent_panel: AgentPanel | None = None,
         screen_num: int = 1,
     ) -> None:
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
-        self._config = config
+        self._cfg = config
         self._parent_panel = parent_panel
         self._screen_num = screen_num
         self._selected_route: int | None = None
@@ -106,7 +107,7 @@ class AgentContent:
         self._buttons: dict[str, ui.button] = {}
 
         # Task configurations cache
-        self._task_configs = {
+        self._task_cfgs = {
             "health_check": {
                 "name": "Interface Health Check",
                 "commands": ["ethtool eth0", "ip link show", "cat /proc/net/dev"],
@@ -309,7 +310,7 @@ class AgentContent:
             "commands": commands,
             "description": description,
             "status": "queued",
-            "created": datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S"),
+            "created": dt.now(UTC).strftime("%m/%d/%Y %H:%M:%S"),
             "type": task_type,
             **kwargs,
         }
@@ -350,7 +351,7 @@ class AgentContent:
 
     def _add_task(self, screen_num: int, task_type: str):
         """Add a predefined task to the queue."""
-        config = self._task_configs.get(task_type)
+        config = self._task_cfgs.get(task_type)
         if not config:
             return
 
@@ -500,9 +501,7 @@ class AgentContent:
                     ui.label(f"{status_icon} {task['name']}").classes(
                         f"font-bold text-{status_color}-700"
                     )
-                    ui.label(datetime.now(timezone.utc).strftime("%H:%M:%S")).classes(
-                        "text-xs text-gray-500"
-                    )
+                    ui.label(dt.now(UTC).strftime("%H:%M:%S")).classes("text-xs text-gray-500")
 
                 # Show analysis if available
                 if "analysis" in result:
@@ -557,9 +556,7 @@ class AgentContent:
         with self._results_container, ui.card().classes("w-full p-3 border-l-4 border-red-500"):
             with ui.row().classes("w-full items-center justify-between"):
                 ui.label(f"❌ {task['name']}").classes("font-bold text-red-700")
-                ui.label(datetime.now(timezone.utc).strftime("%H:%M:%S")).classes(
-                    "text-xs text-gray-500"
-                )
+                ui.label(dt.now(UTC).strftime("%H:%M:%S")).classes("text-xs text-gray-500")
 
             ui.label(f"Task failed: {error}").classes("text-sm text-red-600")
 
@@ -632,7 +629,7 @@ class AgentContent:
             "commands": recommendation["commands"],
             "description": recommendation["description"],
             "status": "queued",
-            "created": datetime.now(timezone.utc).strftime("%m/%d/%Y %H:%M:%S"),
+            "created": dt.now(UTC).strftime("%m/%d/%Y %H:%M:%S"),
             "type": "recommended",
             "priority": recommendation["priority"],
         }

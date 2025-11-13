@@ -12,6 +12,15 @@ class CmdResult:
         rcode: int = 0,
         exec_time: float = 0.0,
     ):
+        """Initialize command result.
+
+        Args:
+            cmd: Command that was executed
+            stdout: Standard output
+            stderr: Standard error
+            rcode: Return code
+            exec_time: Execution time in seconds
+        """
         self._cmd = cmd
         self._stdout = stdout
         self._stderr = stderr
@@ -20,46 +29,69 @@ class CmdResult:
 
     @property
     def cmd(self) -> str:
-        """Cmd data stripped."""
+        """Cmd data stripped.
+
+        Returns:
+            Command string
+        """
         return self._cmd.strip()
 
     @property
-    def str_out(self) -> str:
-        """Stdout data stripped."""
+    def stdout(self) -> str:
+        """Stdout data stripped.
+
+        Returns:
+            Standard output
+        """
         return self._stdout.strip()
 
     @property
-    def str_err(self) -> str:
-        """Stderr data stripped."""
+    def stderr(self) -> str:
+        """Stderr data stripped.
+
+        Returns:
+            Standard error
+        """
         return self._stderr.strip()
 
     @property
     def rcode(self) -> int:
-        """Return code."""
+        """Return code.
+
+        Returns:
+            Return code
+        """
         return self._rcode
 
     @property
     def time(self) -> int:
-        """Return execution time."""
+        """Return execution time.
+
+        Returns:
+            Execution time
+        """
         return self._exec_time
 
     @property
     def success(self) -> bool:
-        """Indicates whether the executed command was successful or not."""
-        return self._rcode == 0 and not self.str_err
+        """Indicates whether the executed command was successful or not.
+
+        Returns:
+            True if successful
+        """
+        return self._rcode == 0
 
     @staticmethod
     def error(cmd: str, stderr: str, rcode: int = -1) -> "CmdResult":
-        """
-        Create a default error CmdResult objs for failed or skipped executions.
+        """Create error CmdResult for failed executions.
 
         Args:
-            cmd: The command that failed.
-            stderr: Description or error message.
-            rcode: Optional custom error code (default: -1).
+            cmd: Command that failed
+            stderr: Error message
+            rcode: Error code
 
         Returns:
-            CmdResult instance representing a failed command.
+            CmdResult instance
         """
         return CmdResult(
             cmd=cmd,

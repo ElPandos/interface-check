@@ -22,7 +22,6 @@ import re
 from typing import ClassVar
 
 from src.core.connect import SshConnection
-from src.interfaces.connection import CmdResult
 from src.interfaces.software import IPackageManager, Package
 from src.platform.enums.log import LogName
 from src.platform.enums.software import PackageManagerType
@@ -60,36 +59,35 @@ class AptManager(IPackageManager):
         Args:
             ssh_connection: Active SSH connection to target system
         """
-        super().__init__()
+        IPackageManager.__init__(self)
+
         self._ssh_connection = ssh_connection
 
-        self.logger = logging.getLogger(LogName.MAIN.value)
-        self.logger.debug("Initialized APT package manager")
+        self._logger = logging.getLogger(LogName.SUT_SYSTEM_INFO.value)
+        self._logger.debug("Initialized APT package manager")
 
-    def install(self, package: str, sudo_pass: str) -> bool:
+    def install(self, package: str) -> bool:
         """Install a package using apt-get.
 
         Args:
             package: Name of package to install
-            sudo_pass: Sudo password for authentication
 
         Returns:
             bool: True if installation successful, False otherwise
         """
         if not self._ssh_connection:
-            self.logger.error("No SSH connection available for package installation")
+            self._logger.error("No SSH connection available for package installation")
             return False
 
-        self.logger.info(f"Installing package '{package}' using APT")
+        self._logger.info(f"Installing package '{package}' using APT")
 
         # Use echo to pipe password to sudo for non-interactive installation
-        cmd = f"echo '{sudo_pass}' | sudo -S apt-get install -y {package}"
-        result = self._ssh_connection.exec_cmd(cmd)
+        result = self._ssh_connection.exec_cmd(f"apt install -y {package}")
 
         if result.success:
-            self.logger.info(f"Successfully installed package '{package}'")
+            self._logger.info(f"Successfully installed package '{package}'")
         else:
-            self.logger.error(f"Failed to install package '{package}': {result._stderr}")
+            self._logger.error(f"Failed to install package '{package}': {result.stderr}")
 
         return result.success
 
@@ -103,63 +101,66 @@ class AptManager(IPackageManager):
             bool: True if removal successful, False otherwise
         """
         if not self._ssh_connection:
-            self.logger.error("No SSH connection available for package removal")
+            self._logger.error("No SSH connection available for package removal")
             return False
 
         if not package:
-            self.logger.warning("No package name provided for removal")
+            self._logger.warning("No package name provided for removal")
             return False
 
-        self.logger.info(f"Removing package '{package}' using APT")
+        self._logger.info(f"Removing package '{package}' using APT")
 
         # Execute apt-get remove with -y flag for non-interactive removal
         result = self._ssh_connection.exec_cmd(f"apt-get remove -y {package}")
-        success = hasattr(result, "success") and result.success
 
-        if success:
-            self.logger.info(f"Successfully removed package '{package}'")
+        if result.success:
+            self._logger.info(f"Successfully removed package '{package}'")
         else:
-            self.logger.error(f"Failed to remove package '{package}'")
+            self._logger.error(f"Failed to remove package '{package}'")
 
-        return success
+        return result.success
 
     def get_package_info(self, package: str) -> Package | None:
-        """List all installed packages using dpkg.
+        """Get package information using dpkg.
+
+        Args:
+            package: Name of package to query
 
         Returns:
-            list[Package]: List of installed packages with metadata
+            Package: Package information or None if not found
         """
         if not self._ssh_connection:
-            self.logger.error("No SSH connection available for package listing")
+            self._logger.error("No SSH connection available for package listing")
             return None
 
-        self.logger.debug("Retrieving list of installed packages using dpkg")
+        self._logger.debug("Retrieving list of installed packages using dpkg")
 
         # Use dpkg -l to list all installed packages
         result = self._ssh_connection.exec_cmd(f"dpkg -l {package}")
-        if result.success:
-            return self._parse_version(result._stdout)
 
-        self.logger.error("Failed to retrieve package list from dpkg")
+        if result.success:
+            return self._parse_version(result.stdout)
+
+        self._logger.error("Failed to retrieve package list from dpkg")
         return None
 
-    def _parse_version(self, output: str) -> list[Package]:
-        """Parse dpkg -l output into Package object.
+    def _parse_version(self, output: str) -> str:
+        """Parse dpkg -l output to extract version string.
 
         Args:
             output: Raw output from dpkg -l command
 
         Returns:
-            list[Package]: Parsed package information
+            str: Extracted version string or empty string if not found
         """
         output = output.encode().decode("unicode_escape")  # turns "\n" into real newlines
         match = re.search(r"^[a-z]{2}\s+\S+\s+(\S+)", output, re.MULTILINE)
         version = ""
         if match:
             version = match.group(1)
-            self.logger.debug(f"Successfully parsed version: {version}")
+            self._logger.debug(f"Successfully parsed version: {version}")
         else:
-            self.logger.error("Failed to parse verssion")
+            self._logger.error("Failed to parse version")
 
         return version
 
@@ -170,18 +171,18 @@ class AptManager(IPackageManager):
             bool: True if apt-get command is available, False otherwise
         """
         if not self._ssh_connection:
-            self.logger.debug("No SSH connection available for APT availability check")
+            self._logger.debug("No SSH connection available for APT availability check")
             return False
 
-        self.logger.debug("Checking APT availability using 'which apt-get'")
+        self._logger.debug("Checking APT availability using 'which apt-get'")
 
         # Check if apt-get command exists in PATH
         result = self._ssh_connection.exec_cmd("which apt-get")
 
         if result.success:
-            self.logger.info("APT package manager is available")
+            self._logger.info("APT package manager is available")
         else:
-            self.logger.debug("APT package manager is not available")
+            self._logger.debug("APT package manager is not available")
 
         return result.success
 
@@ -204,33 +205,35 @@ class YumManager(IPackageManager):
         Args:
             ssh_connection: Active SSH connection to target system
         """
-        self._ssh_connection = ssh_connection
-        self.logger = logging.getLogger(LogName.MAIN.value)
-        self.logger.debug("Initialized YUM package manager")
+        IPackageManager.__init__(self)
 
-    def install(self, package: str, sudo_pass: str) -> bool:
+        self._ssh_connection = ssh_connection
+
+        self._logger = logging.getLogger(LogName.SUT_SYSTEM_INFO.value)
+        self._logger.debug("Initialized YUM package manager")
+
+    def install(self, package: str) -> bool:
         """Install a package using yum.
 
         Args:
             package: Name of package to install
-            sudo_pass: Sudo password for authentication
 
         Returns:
             bool: True if installation successful, False otherwise
         """
         if not self._ssh_connection:
-            self.logger.error("No SSH connection available for package installation")
+            self._logger.error("No SSH connection available for package installation")
             return False
 
-        self.logger.info(f"Installing package '{package}' using YUM")
+        self._logger.info(f"Installing package '{package}' using YUM")
 
         # Use echo to pipe password to sudo for non-interactive installation
-        cmd = f"echo '{sudo_pass}' | sudo -S yum install -y {package}"
-        result = self._ssh_connection.exec_cmd(cmd)
+        result = self._ssh_connection.exec_cmd(f"yum install -y {package}")
+
         if result.success:
-            self.logger.info(f"Successfully installed package '{package}'")
+            self._logger.info(f"Successfully installed package '{package}'")
         else:
-            self.logger.error(f"Failed to install package '{package}': {result._stderr}")
+            self._logger.error(f"Failed to install package '{package}': {result.stderr}")
 
         return result.success
 
@@ -244,41 +247,42 @@ class YumManager(IPackageManager):
             bool: True if removal successful, False otherwise
         """
         if not self._ssh_connection:
-            self.logger.error("No SSH connection available for package removal")
+            self._logger.error("No SSH connection available for package removal")
             return False
 
         if not package:
-            self.logger.warning("No package name provided for removal")
+            self._logger.warning("No package name provided for removal")
             return False
 
-        self.logger.info(f"Removing package '{package}' using YUM")
+        self._logger.info(f"Removing package '{package}' using YUM")
 
         # Execute yum remove with -y flag for non-interactive removal
         result = self._ssh_connection.exec_cmd(f"yum remove -y {package}")
-        success = hasattr(result, "success") and result.success
 
-        if success:
-            self.logger.info(f"Successfully removed package '{package}'")
+        if result.success:
+            self._logger.info(f"Successfully removed package '{package}'")
         else:
-            self.logger.error(f"Failed to remove package '{package}'")
+            self._logger.error(f"Failed to remove package '{package}'")
 
-        return success
+        return result.success
 
-    def get_package_info(self, package: str) -> Package:
-        """List all installed packages using rpm.
+    def get_package_info(self, package: str) -> Package | None:
+        """Get package information using rpm.
 
+        Args:
+            package: Name of package to query
 
         Returns:
-            list[Package]: List of installed packages with metadata
+            Package: Package information or None if not implemented
         """
-        self.logger.error("Not implemented yet")
+        self._logger.error("Not implemented yet")
         return None
 
         if not self._ssh_connection:
-            self.logger.error("No SSH connection available for package listing")
+            self._logger.error("No SSH connection available for package listing")
             return []
 
-        self.logger.debug("Retrieving list of installed packages using rpm")
+        self._logger.debug("Retrieving list of installed packages using rpm")
 
         # Use rpm -qa with custom format to get package info
         # Format: NAME VERSION SIZE (one per line)
@@ -286,24 +290,24 @@ class YumManager(IPackageManager):
             "rpm -qa --queryformat '%{NAME} %{VERSION} %{SIZE}\\n'"
         )
         if not (hasattr(result, "success") and result.success):
-            self.logger.error("Failed to retrieve package list from rpm")
+            self._logger.error("Failed to retrieve package list from rpm")
             return []
 
         packages = self._parse_version(result.str_out)
-        self.logger.info(f"Found {len(packages)} installed packages")
+        self._logger.info(f"Found {len(packages)} installed packages")
         return packages
 
-    def _parse_version(self, output: str) -> str:
-        """Parse rpm -qa output into Package objects.
+    def _parse_version(self, output: str) -> str | None:
+        """Parse rpm -qa output to extract version string.
 
         Args:
             output: Raw output from rpm -qa command
 
         Returns:
-            list[Package]: Parsed package information
+            str: Extracted version string or None if not implemented
         """
         packages = []
-        self.logger.error("NNot implemented yet")
+        self._logger.error("Not implemented yet")
         return None
 
         # Parse each line of rpm output
@@ -323,7 +327,7 @@ class YumManager(IPackageManager):
                     size=size,  # Package size in bytes (if available)
                 )
                 packages.append(package)
-                self.logger.debug(f"Parsed package: {parts[0]} v{parts[1]}")
+                self._logger.debug(f"Parsed package: {parts[0]} v{parts[1]}")
 
         return packages
 
@@ -334,17 +338,18 @@ class YumManager(IPackageManager):
             bool: True if yum command is available, False otherwise
         """
         if not self._ssh_connection:
-            self.logger.debug("No SSH connection available for YUM availability check")
+            self._logger.debug("No SSH connection available for YUM availability check")
             return False
 
-        self.logger.debug("Checking YUM availability using 'which yum'")
+        self._logger.debug("Checking YUM availability using 'which yum'")
 
         # Check if yum command exists in PATH
         result = self._ssh_connection.exec_cmd("which yum")
+
         if result.success:
-            self.logger.info("YUM package manager is available")
+            self._logger.info("YUM package manager is available")
         else:
-            self.logger.debug("YUM package manager is not available")
+            self._logger.debug("YUM package manager is not available")
 
         return result.success
 
@@ -391,11 +396,8 @@ class SoftwareManager:
         self._package_manager: IPackageManager | None = None
 
         # Initialize logger first for detection logging
-        self.logger = logging.getLogger(LogName.MAIN.value)
-        self.logger.info("Initializing Software Manager")
-
-        # Other logger
-        self.sut_system_info_logger = logging.getLogger(LogName.SUT_SYSTEM_INFO.value)
+        self._logger = logging.getLogger(LogName.SUT_SYSTEM_INFO.value)
+        self._logger.info("Initializing Software Manager")
 
         # Detect and initialize the appropriate package manager
         self._detect_package_manager()
@@ -408,35 +410,35 @@ class SoftwareManager:
         The first available package manager is selected and initialized.
         """
         if not self._ssh_connection:
-            self.logger.error("No SSH connection available for package manager detection")
+            self._logger.error("No SSH connection available for package manager detection")
             return
 
-        self.logger.info("Detecting available package manager")
+        self._logger.info("Detecting available package manager")
 
         try:
             # Try APT first (Debian/Ubuntu systems)
-            self.logger.debug("Checking for APT package manager")
+            self._logger.debug("Checking for APT package manager")
             apt_manager = AptManager(self._ssh_connection)
             if apt_manager.is_available():
                 self._package_manager = apt_manager
-                self.logger.info("Detected APT package manager (Debian/Ubuntu system)")
+                self._logger.info("Detected APT package manager (Debian/Ubuntu system)")
                 return
         except Exception as e:
-            self.logger.warning(f"Error checking APT availability: {e}")
+            self._logger.warning(f"Error checking APT availability: {e}")
 
         try:
             # Try YUM (RedHat/CentOS systems)
-            self.logger.debug("Checking for YUM package manager")
+            self._logger.debug("Checking for YUM package manager")
             yum_manager = YumManager(self._ssh_connection)
             if yum_manager.is_available():
                 self._package_manager = yum_manager
-                self.logger.info("Detected YUM package manager (RedHat/CentOS system)")
+                self._logger.info("Detected YUM package manager (RedHat/CentOS system)")
                 return
         except Exception as e:
-            self.logger.warning(f"Error checking YUM availability: {e}")
+            self._logger.warning(f"Error checking YUM availability: {e}")
 
         # No package manager detected
-        self.logger.warning("No supported package manager detected (APT/YUM)")
+        self._logger.warning("No supported package manager detected (APT/YUM)")
 
     def _is_connected(self) -> bool:
         """Check if SSH connection is available.
@@ -445,34 +447,34 @@ class SoftwareManager:
             bool: True if SSH connection exists, False otherwise
         """
         if not self._ssh_connection:
-            self.logger.debug("SSH connection is not available")
+            self._logger.debug("SSH connection is not available")
             return False
         return True
 
-    def _execute_command(self, command: str) -> CmdResult:
+    def _exec_cmd(self, cmd: str) -> tuple[bool, str]:
         """Execute command safely with error handling and logging.
 
         Args:
-            command: Command to execute on remote system
+            cmd: Command to execute on remote system
 
         Returns:
             tuple[bool, str]: (success_status, command_output)
         """
         if not self._is_connected():
-            self.logger.error(f"Cannot execute command '{command}': No SSH connection")
+            self._logger.error(f"Cannot execute command '{cmd}': No SSH connection")
             return False, ""
 
         try:
-            self.logger.debug(f"Executing command: {command}")
-            result = self._ssh_connection.exec_cmd(command)
+            self._logger.debug(f"Executing command: {cmd}")
+            result = self._ssh_connection.exec_cmd(cmd)
             if result.success:
-                self.logger.debug(f"Command executed successfully: {command}")
+                self._logger.debug(f"Command executed successfully: {cmd}")
             else:
-                self.logger.warning(f"Command failed: {command}")
+                self._logger.warning(f"Command failed: {cmd}")
 
-            return result.success, result._stdout.strip()
+            return result.success, result.stdout
         except Exception:
-            self.logger.exception(f"Exception executing command: {command}")
+            self._logger.exception(f"Exception executing command: {cmd}")
             return False, ""
 
     def get_package_manager_type(self) -> PackageManagerType:
@@ -482,13 +484,13 @@ class SoftwareManager:
             PackageManagerType: The detected package manager type
         """
         if isinstance(self._package_manager, AptManager):
-            self.logger.debug("Package manager type: APT")
+            self._logger.debug("Package manager type: APT")
             return PackageManagerType.APT
         if isinstance(self._package_manager, YumManager):
-            self.logger.debug("Package manager type: YUM")
+            self._logger.debug("Package manager type: YUM")
             return PackageManagerType.YUM
 
-        self.logger.debug("Package manager type: UNKNOWN")
+        self._logger.debug("Package manager type: UNKNOWN")
         return PackageManagerType.UNKNOWN
 
     def _validate_package_support(
@@ -506,13 +508,13 @@ class SoftwareManager:
         unsupported = [pkg for pkg in required_packages if pkg not in SUPPORTED_PACKAGES]
 
         if unsupported:
-            self.logger.warning(
+            self._logger.warning(
                 f"Unsupported packages (no version check available): {', '.join(unsupported)}"
             )
 
         return supported, unsupported
 
-    def install_required_packages(self, required_packages: list[str], sudo_pass: str) -> bool:
+    def install_required_packages(self, required_packages: list[str]) -> bool:
         """Install all required software packages using detected package manager.
 
         This method installs packages one by one for better error handling
@@ -520,23 +522,22 @@ class SoftwareManager:
 
         Args:
             required_packages: List of package names to install
-            sudo_pass: Sudo password for authentication
 
         Returns:
             bool: True if all packages installed successfully, False otherwise
         """
         if not required_packages:
-            self.logger.info("No packages specified for installation")
+            self._logger.info("No packages specified for installation")
             return True
 
         if not self._package_manager:
-            self.logger.error("Cannot install packages: No package manager available")
+            self._logger.error("Cannot install packages: No package manager available")
             return False
 
         # Validate package support
         supported_packages, _ = self._validate_package_support(required_packages)
 
-        self.logger.info(
+        self._logger.info(
             f"Installing {len(supported_packages)} required packages: {', '.join(supported_packages)}"
         )
 
@@ -545,22 +546,22 @@ class SoftwareManager:
         failed_packages = []
 
         for package in supported_packages:
-            self.logger.info(
-                f"Installing package {success_count + 1}/{len(supported_packages)}: {package}"
+            self._logger.info(
+                f"Installing package ({success_count + 1}/{len(supported_packages)}) -> {package}"
             )
 
-            if self._package_manager.install(package, sudo_pass):
+            if self._package_manager.install(package):
                 success_count += 1
-                self.logger.info(f"Successfully installed: {package}")
+                self._logger.info(f"Successfully installed: {package}")
             else:
                 failed_packages.append(package)
-                self.logger.error(f"Failed to install: {package}")
+                self._logger.error(f"Failed to install: {package}")
 
         # Log installation summary
         if success_count == len(supported_packages):
-            self.logger.info(f"All {len(supported_packages)} packages installed successfully")
+            self._logger.info(f"All {len(supported_packages)} packages installed successfully")
         else:
-            self.logger.warning(
+            self._logger.warning(
                 f"Installed {success_count}/{len(supported_packages)} packages. "
                 f"Failed: {', '.join(failed_packages)}"
             )
@@ -575,9 +576,9 @@ class SoftwareManager:
 
         Args:
             required_packages: Optional list of specific packages to check.
-                             If None, checks all SUPPORTED_COMMANDS.
+                             If None, checks all SUPPORTED_PACKAGES.
         """
-        self.logger.info("Verifying installed package versions")
+        self._logger.info("Verifying installed package versions")
 
         # If no specific list provided, use all supported commands
         if required_packages is None:
@@ -589,7 +590,7 @@ class SoftwareManager:
         version_info = {}
         # Check each supported command for version information
         for pkg in packages_to_check:
-            self.logger.debug(f"Checking version for package: {pkg}")
+            self._logger.debug(f"Checking version for package: {pkg}")
             if pkg in SUPPORTED_PACKAGES:
                 version_info[pkg] = self._package_manager.get_package_info(pkg)
             else:
@@ -603,14 +604,14 @@ class SoftwareManager:
         Args:
             version_info: Dictionary mapping package names to version strings
         """
-        self.logger.info(f"Version verification complete for {len(version_info)} packages")
+        self._logger.info(f"Version verification complete for {len(version_info)} packages")
 
-        table_config = self._calculate_table_dimensions(version_info)
+        table_cfg = self._calculate_table_dimensions(version_info)
         installed_packages, missing_packages = self._separate_packages_by_status(version_info)
 
-        self._log_table_header(table_config)
-        self._log_package_rows(installed_packages, missing_packages, table_config)
-        self._log_table_footer(table_config)
+        self._log_table_header(table_cfg)
+        self._log_package_rows(installed_packages, missing_packages, table_cfg)
+        self._log_table_footer(table_cfg)
         self._log_summary_statistics(version_info)
 
     def _calculate_table_dimensions(self, version_info: dict[str, str]) -> dict[str, int]:
@@ -667,11 +668,11 @@ class SoftwareManager:
         Args:
             config: Table configuration dictionary
         """
-        self.sut_system_info_logger.info(f"{config['header_line']}")
-        self.sut_system_info_logger.info(
+        self._logger.info(f"{config['header_line']}")
+        self._logger.info(
             f"| {'Package':<{config['name_width'] - 2}} | {'Version Information':<{config['version_width'] - 2}} | {'Status':<{config['status_width'] - 2}} |"
         )
-        self.sut_system_info_logger.info(f"{config['header_line']}")
+        self._logger.info(f"{config['header_line']}")
 
     def _log_package_rows(
         self,
@@ -692,7 +693,7 @@ class SoftwareManager:
 
         # Add separator if both categories exist
         if installed and missing:
-            self.logger.info(f"{config['separator_line']}")
+            self._logger.info(f"{config['separator_line']}")
 
         # Log missing packages
         for pkg, version in missing:
@@ -716,10 +717,10 @@ class SoftwareManager:
             else version
         )
 
-        self.sut_system_info_logger.info(
+        self._logger.info(
             f"| {pkg:<{config['name_width'] - 2}} | {display_version:<{config['version_width'] - 2}} | {status:<{config['status_width'] - 2}} |"
         )
-        self.logger.debug(f"Package '{pkg}' status: {status}")
+        self._logger.debug(f"Package '{pkg}' status: {status}")
 
     def _log_table_footer(self, config: dict[str, int]) -> None:
         """Log table footer.
@@ -727,7 +728,7 @@ class SoftwareManager:
         Args:
             config: Table configuration dictionary
         """
-        self.sut_system_info_logger.info(f"{config['header_line']}")
+        self._logger.info(f"{config['header_line']}")
 
     def _log_summary_statistics(self, version_info: dict[str, str]) -> None:
         """Log installation summary statistics.
@@ -742,21 +743,17 @@ class SoftwareManager:
         failed = total_packages - successful
         success_rate = (successful / total_packages * 100) if total_packages > 0 else 0
 
-        self.sut_system_info_logger.info("Software Installation Verification Summary")
-        self.sut_system_info_logger.info(f"   Total packages verified: {total_packages}")
-        self.sut_system_info_logger.info(
-            f"   Successfully installed: {successful} ({success_rate:.1f}%)"
-        )
+        self._logger.info("Software Installation Verification Summary")
+        self._logger.info(f"   Total packages verified: {total_packages}")
+        self._logger.info(f"   Successfully installed: {successful} ({success_rate:.1f}%)")
         if failed > 0:
-            self.sut_system_info_logger.info(
-                f"   Missing or failed: {failed} ({100 - success_rate:.1f}%)"
-            )
-            self.sut_system_info_logger.warning(
+            self._logger.info(f"   Missing or failed: {failed} ({100 - success_rate:.1f}%)")
+            self._logger.warning(
                 "Some required packages are missing. Consider installing them manually."
             )
         else:
-            self.sut_system_info_logger.info("   All required packages are properly installed!")
-        self.sut_system_info_logger.info("")
+            self._logger.info("   All required packages are properly installed!")
+        self._logger.info("")
 
     # def log_system_info(self, required_packages: list[Package]) -> None:
     #     if not self._package_manager:
@@ -776,26 +773,26 @@ class SoftwareManager:
             bool: True if update successful, False otherwise
         """
         if not self._package_manager:
-            self.logger.error("Cannot update package index: No package manager available")
+            self._logger.error("Cannot update package index: No package manager available")
             return False
 
-        self.logger.info("Updating package index")
+        self._logger.info("Updating package index")
 
         # Use appropriate update command based on package manager type
         if isinstance(self._package_manager, AptManager):
-            self.logger.debug("Updating APT package index")
-            success, _ = self._execute_command("sudo apt update -y")
+            self._logger.debug("Updating APT package index")
+            success, _ = self._exec_cmd("sudo apt update -y")
         elif isinstance(self._package_manager, YumManager):
-            self.logger.debug("Updating YUM package cache")
-            success, _ = self._execute_command("sudo yum check-update")
+            self._logger.debug("Updating YUM package cache")
+            success, _ = self._exec_cmd("sudo yum check-update")
         else:
-            self.logger.error("Unknown package manager type for index update")
+            self._logger.error("Unknown package manager type for index update")
             return False
 
         if success:
-            self.logger.info("Package index updated successfully")
+            self._logger.info("Package index updated successfully")
         else:
-            self.logger.error("Failed to update package index")
+            self._logger.error("Failed to update package index")
 
         # await self.log_required_pakages_versions()
 

@@ -1,4 +1,5 @@
 import asyncio
+from datetime import UTC, datetime as dt
 from typing import Any
 
 from nicegui import ui
@@ -30,7 +31,7 @@ class LogPanel(BasePanel, MultiScreen):
     def __init__(
         self,
         build: bool = False,
-        config: Config | None = None,
+        cfg: Config | None = None,
         ssh_connection: SshConnection = None,
         host_handler=None,
         icon: ui.icon = None,
@@ -38,7 +39,7 @@ class LogPanel(BasePanel, MultiScreen):
         BasePanel.__init__(self, NAME, LABEL, LogTab.ICON_NAME)
         MultiScreen.__init__(self)
 
-        self._config = config
+        self._cfg = config
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
         self._icon = icon
@@ -62,7 +63,7 @@ class LogPanel(BasePanel, MultiScreen):
 
                 if screen_num not in self._log_screens:
                     self._log_screens[screen_num] = LogContent(
-                        None, self._host_handler, self._config, self, screen_num
+                        None, self._host_handler, self._cfg, self, screen_num
                     )
 
                 # Route selector in header
@@ -81,13 +82,13 @@ class LogContent:
         self,
         ssh_connection: SshConnection | None = None,
         host_handler: Any = None,
-        config: Config | None = None,
+        cfg: Config | None = None,
         parent_panel: LogPanel | None = None,
         screen_num: int = 1,
     ) -> None:
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
-        self._config = config
+        self._cfg = config
         self._parent_panel = parent_panel
         self._screen_num = screen_num
         self._selected_route: int | None = None
@@ -184,12 +185,12 @@ class LogContent:
     def _log(self, text: str, level: LogLevel) -> None:
         """Unified logging method."""
         if self._log_component:
-            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            timestamp = dt.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
             formatted_text = f"{timestamp} [{level.name}] - {text}"
             self._log_component.push(formatted_text, classes=level.color)
 
     def _time(self) -> str:
-        return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        return dt.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
     def _log_text(self, text: str, level: LogLevel) -> str:
         return f"{self._time()} [{level.name}] - {text}"
@@ -254,8 +255,8 @@ class LogContent:
         self.debug(f"STDERR: {err}")
 
     def _dump_settings(self) -> None:
-        if self._config:
-            self.debug(f"Dump settings: {self._config.model_dump_json()}")
+        if self._cfg:
+            self.debug(f"Dump settings: {self._cfg.model_dump_json()}")
         else:
             self.debug("No configuration available")
 
@@ -299,7 +300,7 @@ class LogContent:
                 ui.notify("No log content to save", color="warning")
                 return
 
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = dt.now(UTC).strftime("%Y%m%d_%H%M%S")
             filename = f"interface_check_log_{timestamp}.txt"
 
             ui.download(log_content.encode(), filename)

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime as dt
+import logging
 from typing import Any, ClassVar
 
 from src.core.connect import SshConnection
@@ -12,7 +13,14 @@ from src.platform.enums.software import ToolType
 
 @dataclass(frozen=True)
 class DmesgEntry:
-    """Represents a single dmesg log entry."""
+    """Represents a single dmesg log entry.
+
+    Attributes:
+        timestamp: Entry timestamp or None if not parsed
+        facility: Log facility (typically 'kernel')
+        level: Log level (e.g., 'info', 'warn', 'error')
+        message: Log message content
+    """
 
     timestamp: dt | None
     facility: str
@@ -21,11 +29,15 @@ class DmesgEntry:
 
 
 class DmesgTool(Tool, ITool):
-    """Dmesg kernel message diagnostic tool."""
+    """Dmesg kernel message diagnostic tool.
+
+    Provides access to kernel ring buffer messages, filtered for network-related
+    events including Mellanox adapters, SFP/QSFP modules, and ethernet interfaces.
+    """
 
     # fmt: off
     _AVAILABLE_COMMANDS: ClassVar[list[list[Any]]] = [
-        ["sudo", "dmesg", "-T", "|", "egrep", "-i", "'mlx|mellanox|sfp|qsfp|phy|eth|port'", "|", "tail", "-n", "100" ],
+        ["dmesg", "-T", "|", "egrep", "-i", "'mlx|mellanox|sfp|qsfp|phy|eth|port'", "|", "tail", "-n", "100" ],
     ]
     # fmt: on
 
@@ -41,13 +53,18 @@ class DmesgTool(Tool, ITool):
 
     @property
     def type(self) -> ToolType:
+        """Get the tool type identifier.
+
+        Returns:
+            ToolType: ToolType.DMESG constant
+        """
         return ToolType.DMESG
 
-    def available_commands(self) -> list[str]:
+    def available_cmds(self) -> list[str]:
         """Get available commands for this tool.
 
         Returns:
-            List of CLI commands
+            list[str]: List of CLI command strings
         """
         commands_modified = []
         for command in self._AVAILABLE_COMMANDS:
@@ -56,13 +73,22 @@ class DmesgTool(Tool, ITool):
         return commands_modified
 
     def execute(self) -> None:
-        for command in self.available_commands():
+        """Execute all available dmesg commands.
+
+        Runs each command from available_cmds() and stores results.
+        """
+        for command in self.available_cmds():
             self._exec(command)
 
-    def log(self) -> None:
-        self._log()
+    def log(self, logger: logging.Logger) -> None:
+        """Log all command results.
 
-    def _parse(self, _command_name: str, output: str) -> Any:
+        Args:
+            logger: Logger instance for output
+        """
+        self._log(logger)
+
+    def _parse(self, _command_name: str, output: str) -> list[DmesgEntry]:
         """Parse dmesg entries with timestamps.
 
         Args:
@@ -70,7 +96,7 @@ class DmesgTool(Tool, ITool):
             output: Raw dmesg output
 
         Returns:
-            List of DmesgEntry objects
+            list[DmesgEntry]: List of parsed DmesgEntry objects
         """
         entries = []
         lines = output.strip().split("\n")
@@ -112,4 +138,9 @@ class DmesgTool(Tool, ITool):
         return entries
 
     def _summarize(self) -> dict[str, Any]:
-        """Summarize tool results."""
+        """Summarize tool results.
+
+        Returns:
+            dict[str, Any]: Dictionary mapping commands to parsed results
+        """
+        return {}

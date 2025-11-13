@@ -9,31 +9,41 @@ from src.platform import platform
 from src.platform.enums.log import LogName
 from src.platform.platform import create_dir
 
-logger = logging.getLogger(LogName.MAIN.value)
+logger = logging.getLogger(LogName.CORE_MAIN.value)
 
 
 class Configure:
-    """Manages configuration and logging setup."""
+    """Configuration and logging manager.
 
-    _CONFIG_DIR = Path.home() / ".interface-check"
-    _CONFIG_FILE = _CONFIG_DIR / "ssh_config.json"
-    _LOG_FILE = _CONFIG_DIR / "main.log"
+    Manages application configuration files and logging setup.
+    """
+
+    _cfg_DIR = Path.home() / ".interface-check"
+    _cfg_FILE = _cfg_DIR / "ssh_cfg.json"
+    _LOG_FILE = _cfg_DIR / "main.log"
     _NOISY_LOGGERS = ("paramiko", "asyncio", "matplotlib")
 
     _initialized = False
 
     def __init__(self) -> None:
+        """Initialize configuration manager.
+
+        Creates config directory and default config if missing.
+        """
         if not self._initialized:
             self._setup()
             Configure._initialized = True
 
     def _setup(self) -> None:
-        """Initialize directory and default config."""
-        create_dir(self._CONFIG_DIR)
+        """Initialize directory and create default config if missing.
 
-        if not self._CONFIG_FILE.exists():
-            platform.save_json(Config().model_dump(), self._CONFIG_FILE)
-            logger.debug(f"Config created: {self._CONFIG_FILE}")
+        Creates config directory and generates default config.json.
+        """
+        create_dir(self._cfg_DIR)
+
+        if not self._cfg_FILE.exists():
+            platform.save_json(Config().model_dump(), self._cfg_FILE)
+            logger.debug(f"Config created: {self._cfg_FILE}")
 
     # ---------------------------------------------------------------------------- #
     #                                  Public API                                  #
@@ -41,28 +51,49 @@ class Configure:
 
     @property
     def config_path(self) -> Path:
-        return self._CONFIG_FILE
+        """Get config file path.
+
+        Returns:
+            Path to configuration file
+        """
+        return self._cfg_FILE
 
     @property
     def log_path(self) -> Path:
+        """Get log file path.
+
+        Returns:
+            Path to log file
+        """
         return self._LOG_FILE
 
-    def save(self, config: Config) -> None:
-        """Save configuration to file."""
+    def save(self, cfg: Config) -> None:
+        """Save config to file with UI notification.
+
+        Args:
+            cfg: Configuration object to save
+        """
         try:
-            platform.save_json(config.model_dump(), self._CONFIG_FILE)
+            platform.save_json(cfg.model_dump(), self._cfg_FILE)
             ui.notify("Configuration saved", type="positive")
         except Exception as e:
             ui.notify(f"Save failed: {e}", type="negative")
             logger.exception("Config save error")
 
     def load(self, external: dict | None = None) -> Config:
-        """Load and validate configuration."""
+        """Load config from file or external dict.
+
+        Args:
+            external: Optional external config dict
+
+        Returns:
+            Loaded or default Config object
+        """
         if external:
             return Config.model_validate(external)
 
         try:
-            data = platform.load_json(self._CONFIG_FILE)
+            data = platform.load_json(self._cfg_FILE)
             return Config.model_validate(data)
         except (FileNotFoundError, ValueError) as e:
             logger.warning(f"Config issue: {e}. Using defaults.")
@@ -71,7 +102,11 @@ class Configure:
             return default
 
     def setup_logging(self, level: int = logging.INFO) -> None:
-        """Configure rotating file and console logging."""
+        """Setup logging with file rotation and console output.
+
+        Args:
+            level: Logging level (default: INFO)
+        """
         formatter = logging.Formatter(
             "[%(asctime)s] %(levelname)-8s [%(name)-30s.%(funcName)s():%(lineno)d]: %(message)s"
         )
@@ -99,5 +134,9 @@ class Configure:
 
 
 def setup_logging(level: int = logging.INFO) -> None:
-    """Convenience function for setting up logging."""
+    """Setup logging convenience wrapper.
+
+    Args:
+        level: Logging level (default: INFO)
+    """
     Configure().setup_logging(level)

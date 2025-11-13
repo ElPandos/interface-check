@@ -33,7 +33,7 @@ class HostSelector:
 
         return container
 
-    def _on_connection_change(self, connection) -> None:
+    def _on_connection_change(self) -> None:
         """Handle connection status changes."""
         self._update_status_icon()
 

@@ -9,11 +9,24 @@ class IConfigurationProvider(ABC):
 
     @abstractmethod
     def get(self, key: str, default: Any = None) -> Any:
-        """Get configuration value by key."""
+        """Get configuration value by key.
+
+        Args:
+            key: Configuration key
+            default: Default value if key not found
+
+        Returns:
+            Configuration value
+        """
 
     @abstractmethod
     def set(self, key: str, value: Any) -> None:
-        """Set configuration value."""
+        """Set configuration value.
+
+        Args:
+            key: Configuration key
+            value: Value to set
+        """
 
     @abstractmethod
     def save(self) -> None:
@@ -25,7 +38,14 @@ class IConfigurationProvider(ABC):
 
     @abstractmethod
     def get_section(self, section: str) -> dict[str, Any]:
-        """Get configuration section."""
+        """Get configuration section.
+
+        Args:
+            section: Section name
+
+        Returns:
+            Section dictionary
+        """
 
 
 class IConfigurationFactory(ABC):
@@ -33,4 +53,11 @@ class IConfigurationFactory(ABC):
 
     @abstractmethod
     def create_provider(self, source: str) -> IConfigurationProvider:
-        """Create configuration provider from source."""
+        """Create configuration provider from source.
+
+        Args:
+            source: Configuration source
+
+        Returns:
+            Configuration provider instance
+        """

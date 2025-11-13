@@ -11,15 +11,30 @@ from src.core.connect import SshConnection
 from src.core.enums.messages import LogMsg
 from src.interfaces.connection import CmdResult
 from src.platform.enums.log import LogName
-from src.platform.enums.software import CommandInputType
+from src.platform.enums.software import CmdInputType
 from src.platform.tools import helper
 
 
 @dataclass(frozen=True)
 class ToolResult:
-    """Tool result of a command execution."""
+    """Tool result of a command execution.
+
+    Attributes:
+        cmd: Command that was executed
+        data: Output data from command execution
+        error: Error message if execution failed
+        exec_time: Execution time in seconds
+    """
 
     def __init__(self, cmd: str, data: Any, error: str, exec_time: float):
+        """Initialize tool result.
+
+        Args:
+            cmd: Command that was executed
+            data: Output data
+            error: Error message
+            exec_time: Execution time in seconds
+        """
         self._cmd = cmd
         self._data = data
         self._error = error
@@ -27,22 +42,45 @@ class ToolResult:
 
     @property
     def success(self) -> bool:
-        """Indicates whether the tool was executed successfully."""
+        """Indicates whether the tool was executed successfully.
+
+        Returns:
+            True if no error occurred, False otherwise
+        """
         return not self._error.strip()
 
 
 class Tool:
+    """Base class for CLI-based network diagnostic tools.
+
+    Provides common functionality for executing commands via SSH,
+    logging results, and managing command execution state.
+
+    Attributes:
+        _ssh_connection: SSH connection for command execution
+        _results: Dictionary mapping commands to their results
+        _logger: Logger instance for this tool
+    """
+
     def __init__(self, ssh_connection: SshConnection):
+        """Initialize tool with SSH connection.
+
+        Args:
+            ssh_connection: Active SSH connection for command execution
+        """
         self._ssh_connection = ssh_connection
         self._results: dict[str, CmdResult] = {}
 
-        self._logger = logging.getLogger(LogName.MAIN.value)
+        self._logger = logging.getLogger(LogName.CORE_MAIN.value)
 
     def _exec(self, cmd: str) -> CmdResult:
-        """Execute a specific command and return the result.
+        """Execute command and return result.
 
         Args:
             cmd: CLI command to execute
+
+        Returns:
+            Command result
         """
         cmd_result = None
         if not self._ssh_connection.is_connected():
@@ -53,7 +91,7 @@ class Tool:
             if cmd_result.success:
                 self._logger.debug(f"Succesfully executed command: {cmd}")
             else:
-                cmd_result = CmdResult.error(cmd, cmd_result.str_err)
+                cmd_result = CmdResult.error(cmd, cmd_result.stderr)
         except (OSError, TimeoutError) as e:
             cmd_result = CmdResult.error(cmd, str(e))
 
@@ -61,51 +99,54 @@ class Tool:
 
         return cmd_result
 
-    def _gen_cmds(self, interf: str, cmd: list[Any]) -> str:
-        """Generate command string by replacing placeholders with actual values.
+    def _gen_cmds(self, interface: str, cmd: list[Any]) -> str:
+        """Generate command string from template.
 
         Args:
-            interf: Network interface name
-            cmd: Command template with placeholders
+            interface: Network interface name
+            cmd: Command template
 
         Returns:
-            Formatted command string
+            Formatted command
         """
         cmd_mod = []
         for part in cmd:
             match part:
-                case CommandInputType.INTERFACE:
-                    cmd_mod.append(interf)
-                case CommandInputType.MST_PCICONF:
-                    cmd_mod.append(helper.get_mst_device(self._ssh_connection, interf))
-                case CommandInputType.PCI_ID:
-                    cmd_mod.append(helper.get_pci_id(self._ssh_connection, interf))
+                case CmdInputType.INTERFACE:
+                    cmd_mod.append(interface)
+                case CmdInputType.MST_PCICONF:
+                    cmd_mod.append(helper.get_mst_device(self._ssh_connection, interface))
+                case CmdInputType.PCI_ID:
+                    cmd_mod.append(helper.get_pci_id(self._ssh_connection, interface))
                 case _:
                     cmd_mod.append(part)
 
         return " ".join(cmd_mod)
 
-    def _log(self) -> None:
-        """Log all command execution results with formatted output."""
+    def _log(self, logger: logging.Logger) -> None:
+        """Log command execution results.
+
+        Args:
+            logger: Logger instance
+        """
         for cmd, result in self._results.items():
+            border = "".join(itertools.repeat("=", len(f"= {cmd}") + 2))
             if result.success:
-                border = "".join(itertools.repeat("=", len(f"= {cmd}") + 2))
-                self._logger.info(border)
-                self._logger.info(f"= '{cmd}' -> SUCCESS")
-                self._logger.info(border)
-                self._logger.info(f"\n\n{result.str_out}")
+                logger.info(border)
+                logger.info(f"= '{cmd}' -> SUCCESS")
+                logger.info(border)
+                logger.info(f"\n\n{result.stdout}")
             else:
-                border = "".join(itertools.repeat("=", len(f"= {cmd}") + 2))
-                self._logger.warning(border)
-                self._logger.warning(f"= '{cmd}' -> FAILED")
-                self._logger.warning(f"= Reason: {result.str_err}")
+                logger.warning(border)
+                logger.warning(f"= '{cmd}' -> FAILED")
+                logger.warning(f"= Reason: {result.stderr}")
                 self._logger.warning(border)
 
     def _save(self, path: Path) -> None:
-        """Export collected data to JSON file.
+        """Export data to JSON file.
 
         Args:
-            path: Path to output file
+            path: Output file path
         """
         try:
             with path.open("w") as f:
@@ -113,15 +154,15 @@ class Tool:
         except Exception:
             self._logger.exception("%s%s", LogMsg.STORE_FAIL.value, path)
 
-    def _chk_resp(self, interf: str, resp: dict[str, Any], cr: CmdResult) -> None:
-        """Check command result and update response dictionary.
+    def _chk_resp(self, interface: str, resp: dict[str, Any], cr: CmdResult) -> None:
+        """Check command result and update response.
 
         Args:
-            interf: Network interface name
-            resp: Response dictionary to update
-            cr: Command result to check
+            interface: Network interface name
+            resp: Response dictionary
+            cr: Command result
         """
         if cr.success:
-            resp[interf] = cr.str_out
+            resp[interface] = cr.stdout
         else:
-            resp[interf] = CmdResult.error(cr.cmd, cr.str_err, cr.rcode)
+            resp[interface] = CmdResult.error(cr.cmd, cr.stderr, cr.rcode)

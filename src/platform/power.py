@@ -10,7 +10,7 @@ from typing import Any
 
 from src.platform.enums.log import LogName
 
-logger = logging.getLogger(LogName.MAIN.value)
+logger = logging.getLogger(LogName.CORE_MAIN.value)
 
 
 class PowerState(Enum):
@@ -51,21 +51,49 @@ class PowerController(ABC):
 
     @abstractmethod
     def set_power_state(self, component: str, state: PowerState) -> bool:
-        """Set power state for a component."""
+        """Set power state for a component.
+
+        Args:
+            component: Component name
+            state: Desired power state
+
+        Returns:
+            True if successful
+        """
 
     @abstractmethod
     def get_power_caps(self, component: str) -> dict[str, Any]:
-        """Get power capability limits."""
+        """Get power capability limits.
+
+        Args:
+            component: Component name
+
+        Returns:
+            Power capabilities dictionary
+        """
 
 
 class IpmiPowerController(PowerController):
     """IPMI-based power controller."""
 
     def __init__(self, connection):
+        """Initialize IPMI controller.
+
+        Args:
+            connection: SSH connection
+        """
         self._connection = connection
 
     def set_power_state(self, _component: str, state: PowerState) -> bool:
-        """Set power state via IPMI."""
+        """Set power state via IPMI.
+
+        Args:
+            _component: Component name
+            state: Desired power state
+
+        Returns:
+            True if successful
+        """
         try:
             cmd = f"ipmitool power {state.value}"
             stdout, stderr = self._connection.exec_command(cmd)
@@ -75,7 +103,14 @@ class IpmiPowerController(PowerController):
             return False
 
     def get_power_caps(self, _component: str) -> dict[str, Any]:
-        """Get power caps via IPMI."""
+        """Get power caps via IPMI.
+
+        Args:
+            _component: Component name
+
+        Returns:
+            Power capabilities dictionary
+        """
         try:
             stdout, _ = self._connection.exec_command("ipmitool dcmi power reading")
             return {"current": self._parse_power_reading(stdout)}
@@ -83,7 +118,14 @@ class IpmiPowerController(PowerController):
             return {}
 
     def _parse_power_reading(self, output: str) -> float:
-        """Parse IPMI power reading output."""
+        """Parse IPMI power reading output.
+
+        Args:
+            output: Command output
+
+        Returns:
+            Power reading in watts
+        """
         for line in output.split("\n"):
             if "Current Power" in line:
                 return float(line.split(":")[1].strip().split()[0])
@@ -94,17 +136,30 @@ class Power:
     """Independent power management system."""
 
     def __init__(self, connection=None):
+        """Initialize power manager.
+
+        Args:
+            connection: SSH connection
+        """
         self._connection = connection
         self._controllers: list[PowerController] = []
         if connection:
             self._controllers.append(IpmiPowerController(connection))
 
     def add_controller(self, controller: PowerController) -> None:
-        """Add custom power controller."""
+        """Add custom power controller.
+
+        Args:
+            controller: Power controller instance
+        """
         self._controllers.append(controller)
 
     def get_power_info(self) -> list[PowerInfo]:
-        """Get current power consumption information."""
+        """Get current power consumption information.
+
+        Returns:
+            List of power information
+        """
         info = []
 
         if not self._connection:
@@ -126,7 +181,11 @@ class Power:
         return info
 
     def get_battery_info(self) -> BatteryInfo | None:
-        """Get battery status information."""
+        """Get battery status information.
+
+        Returns:
+            Battery information or None
+        """
         if not self._connection:
             return None
 
@@ -140,7 +199,14 @@ class Power:
             return None
 
     def set_power_policy(self, policy: str) -> bool:
-        """Set system power policy."""
+        """Set system power policy.
+
+        Args:
+            policy: Power policy name
+
+        Returns:
+            True if successful
+        """
         if not self._connection:
             return False
 
@@ -153,7 +219,11 @@ class Power:
             return False
 
     def get_power_states(self) -> dict[str, PowerState]:
-        """Get power states of system components."""
+        """Get power states of system components.
+
+        Returns:
+            Dictionary of component states
+        """
         states = {}
 
         if not self._connection:
@@ -181,11 +251,26 @@ class Power:
         return states
 
     def control_component(self, component: str, state: PowerState) -> bool:
-        """Control power state of specific component."""
+        """Control power state of specific component.
+
+        Args:
+            component: Component name
+            state: Desired power state
+
+        Returns:
+            True if successful
+        """
         return any(controller.set_power_state(component, state) for controller in self._controllers)
 
     def _parse_sensors_power(self, output: str) -> list[PowerInfo]:
-        """Parse sensors output for power information."""
+        """Parse sensors output for power information.
+
+        Args:
+            output: Command output
+
+        Returns:
+            List of power information
+        """
         info = []
         current_chip = ""
 
@@ -218,7 +303,14 @@ class Power:
         return info
 
     def _parse_ipmi_power(self, output: str) -> list[PowerInfo]:
-        """Parse IPMI power reading output."""
+        """Parse IPMI power reading output.
+
+        Args:
+            output: Command output
+
+        Returns:
+            List of power information
+        """
         info = []
 
         for line in output.split("\n"):
@@ -240,7 +332,14 @@ class Power:
         return info
 
     def _parse_battery_info(self, output: str) -> BatteryInfo | None:
-        """Parse battery information from acpi output."""
+        """Parse battery information from acpi output.
+
+        Args:
+            output: Command output
+
+        Returns:
+            Battery information or None
+        """
         for line in output.split("\n"):
             if "Battery" in line:
                 parts = line.split(",")

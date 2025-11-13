@@ -9,8 +9,8 @@ from src.tools.factory import ToolFactory
 def main():
     """Example tool usage."""
     # Initialize SSH connection (you'll need proper config)
-    app_config = System()  # Load your config
-    self._ssh_connection = SshConnection(app_config)
+    app_cfg = System()  # Load your config
+    self._ssh_connection = SshConnection(app_cfg)
 
     if not self._ssh.connect():
         return

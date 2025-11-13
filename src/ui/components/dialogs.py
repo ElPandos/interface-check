@@ -10,7 +10,16 @@ class DialogFactory:
 
     @staticmethod
     async def get_text_input(title: str, label: str, placeholder: str = "") -> str | None:
-        """Show a dialog with text input and return user's input."""
+        """Show a dialog with text input and return user's input.
+
+        Args:
+            title: Dialog title
+            label: Input label
+            placeholder: Input placeholder text
+
+        Returns:
+            User input or None if cancelled
+        """
         future = asyncio.get_event_loop().create_future()
         dialog = ui.dialog()
 

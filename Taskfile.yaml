@@ -160,7 +160,7 @@ tasks:
     #     vars:
     #         SUFFIX: ".pid"
     #     cmds:
-    #         - task run-title TITLE="Starting ericai proxy [7999]"
+    #         - task run-title TITLE="Start ericai proxy [7999]"
     #         - |
     #             # Check if task is already running (using a PID file)
     #             if [ -f {{.TASK}} ] && ps -p $(cat {{.TASK}}{{.SUFFIX}}) > /dev/null; then
@@ -179,24 +179,24 @@ tasks:
     #     desc: Ericai needs to be able du send correct openai standardization messages
     #     dir: "{{.USER_WORKING_DIR}}"
     #     cmds:
-    #         - task run-title TITLE="Starting openai converter proxy for ericai [5050]"
+    #         - task run-title TITLE="Start openai converter proxy for ericai [5050]"
     #         - uv run .vscode/scrips/ericai_to_openai.py
 
     # litellm-proxy:
-    #     desc: Starting liteLLM proxy hub
+    #     desc: Start liteLLM proxy hub
     #     dir: "{{.USER_WORKING_DIR}}"
     #     cmds:
     #         - task run-title TITLE="Killing old liteLLM services"
     #         - $pids=Get-Process -Name "LiteLLM" -ErrorAction SilentlyContinue
     #         - if ($pids.Count -gt 0) { $pids | ForEach-Object { Stop-Process -Id $_.Id -Force; Write-Output "Stopped a LiteLLM processes"; } }
-    #         - task run-title TITLE="Starting liteLLM proxy hub [4000]"
+    #         - task run-title TITLE="Start liteLLM proxy hub [4000]"
     #         - uv run litellm
 
     # ai-setup-env:
     #     desc: Enabling full AI environment
     #     dir: "{{.USER_WORKING_DIR}}"
     #     cmds:
-    #         - task run-title TITLE="Starting full AI environment setup"
+    #         - task run-title TITLE="Start full AI environment setup"
     #         - task: ericai-proxy
     #         - task: tunnel-ports-87
     #         - task: ericai-to-openai

@@ -5,25 +5,25 @@
         "pass": "emvekta"
     },
     "slx": {
-        "host": "172.16.170.1",
+        "host": "172.16.171.1",
         "user": "admin",
         "pass": "password",
         "sudo_pass": "fibranne",
         "scan_ports": [
-            "0/10:1"
+            "0/9:1"
         ],
         "scan_interval": 20,
-        "port_toggling_enabled": 1,
+        "port_toggling_enabled": 0,
         "port_toggle_wait": 20,
         "port_eye_scan_wait": 20
     },
     "sut": {
-        "host": "172.16.180.1",
+        "host": "172.16.225.1",
         "user": "hts",
         "pass": "hts",
         "sudo_pass": "hts",
         "scan_interfaces": [
-            "ens2f0np0"
+            "ens3f0np0"
         ],
         "info_dump_level": 0,
         "required_software_packages": [
@@ -34,9 +34,8 @@
             "lshw",
             "lm-sensors",
             "python3-pip",
-            "mstflint",
-            "mlnx-tools"
+            "mstflint"
         ],
-        "scan_interval": 5
+        "scan_interval": 2
     }
 }

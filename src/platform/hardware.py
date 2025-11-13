@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from src.core.connect import SshConnection
+
 
 @dataclass(frozen=True)
 class CpuInfo:
@@ -56,26 +58,39 @@ class HardwareProbe(ABC):
 
     @abstractmethod
     def probe(self) -> Any:
-        """Probe hardware component."""
+        """Probe hardware component.
+
+        Returns:
+            Probe result
+        """
 
 
 class Hardware:
     """Independent hardware management class."""
 
-    def __init__(self, connection=None):
-        self._connection = connection
+    def __init__(self, ssh_connection: SshConnection = None):
+        """Initialize hardware manager.
+
+        Args:
+            ssh_connection: SSH connection for remote operations
+        """
+        self._ssh_connection = ssh_connection
         self._probes: dict[str, HardwareProbe] = {}
         self._cache: dict[str, Any] = {}
 
     def get_cpu_info(self) -> CpuInfo:
-        """Get CPU information."""
+        """Get CPU information.
+
+        Returns:
+            CPU information
+        """
         if "cpu" in self._cache:
             return self._cache["cpu"]
 
-        if not self._connection:
+        if not self._ssh_connection:
             return CpuInfo()
 
-        result = self._connection.execute_command("lscpu")
+        result = self._ssh_connection.execute_command("lscpu")
         if not result.success:
             return CpuInfo()
 
@@ -92,11 +107,15 @@ class Hardware:
         return cpu_info
 
     def get_memory_info(self) -> MemoryInfo:
-        """Get memory information."""
-        if not self._connection:
+        """Get memory information.
+
+        Returns:
+            Memory information
+        """
+        if not self._ssh_connection:
             return MemoryInfo()
 
-        result = self._connection.execute_command("free -b")
+        result = self._ssh_connection.execute_command("free -b")
         if not result.success:
             return MemoryInfo()
 
@@ -122,11 +141,15 @@ class Hardware:
         )
 
     def get_storage_info(self) -> list[StorageInfo]:
-        """Get storage information for all mounted filesystems."""
-        if not self._connection:
+        """Get storage information for all mounted filesystems.
+
+        Returns:
+            List of storage information
+        """
+        if not self._ssh_connection:
             return []
 
-        result = self._connection.execute_command("df -B1")
+        result = self._ssh_connection.execute_command("df -B1")
         if not result.success:
             return []
 
@@ -158,14 +181,18 @@ class Hardware:
         return storage_list
 
     def get_network_interfaces(self) -> list[NetworkInterface]:
-        """Get network interface information."""
-        if not self._connection:
+        """Get network interface information.
+
+        Returns:
+            List of network interfaces
+        """
+        if not self._ssh_connection:
             return []
 
         interfaces = []
 
         # Get interface list
-        result = self._connection.execute_command("ls /sys/class/net/")
+        result = self._ssh_connection.execute_command("ls /sys/class/net/")
         if not result.success:
             return []
 
@@ -178,7 +205,7 @@ class Hardware:
             interface = NetworkInterface(name=name)
 
             # Get MAC address
-            mac_result = self._connection.execute_command(f"cat /sys/class/net/{name}/address")
+            mac_result = self._ssh_connection.execute_command(f"cat /sys/class/net/{name}/address")
             if mac_result.success:
                 interface = interface.__class__(
                     name=interface.name,
@@ -190,7 +217,9 @@ class Hardware:
                 )
 
             # Get state
-            state_result = self._connection.execute_command(f"cat /sys/class/net/{name}/operstate")
+            state_result = self._ssh_connection.execute_command(
+                f"cat /sys/class/net/{name}/operstate"
+            )
             if state_result.success:
                 interface = interface.__class__(
                     name=interface.name,
@@ -206,15 +235,19 @@ class Hardware:
         return interfaces
 
     def get_temperature_sensors(self) -> dict[str, float]:
-        """Get temperature from available sensors."""
+        """Get temperature from available sensors.
+
+        Returns:
+            Dictionary of sensor names to temperatures
+        """
         sensors = {}
 
-        if not self._connection:
+        if not self._ssh_connection:
             return sensors
 
         # CPU thermal zones
         for i in range(10):  # Check up to 10 thermal zones
-            result = self._connection.execute_command(
+            result = self._ssh_connection.execute_command(
                 f"cat /sys/class/thermal/thermal_zone{i}/temp"
             )
             if result.success:
@@ -227,7 +260,7 @@ class Hardware:
                 break
 
         # Try sensors command if available
-        result = self._connection.execute_command("sensors")
+        result = self._ssh_connection.execute_command("sensors")
         if result.success:
             for line in result.str_out.split("\n"):
                 if "°C" in line and ":" in line:
@@ -244,11 +277,23 @@ class Hardware:
         return sensors
 
     def add_probe(self, name: str, probe: HardwareProbe) -> None:
-        """Add custom hardware probe."""
+        """Add custom hardware probe.
+
+        Args:
+            name: Probe name
+            probe: Probe instance
+        """
         self._probes[name] = probe
 
     def run_probe(self, name: str) -> Any:
-        """Run specific hardware probe."""
+        """Run specific hardware probe.
+
+        Args:
+            name: Probe name
+
+        Returns:
+            Probe result or None
+        """
         if name in self._probes:
             return self._probes[name].probe()
         return None
@@ -258,7 +303,14 @@ class Hardware:
         self._cache.clear()
 
     def _parse_key_value(self, output: str) -> dict[str, str]:
-        """Parse key-value output."""
+        """Parse key-value output.
+
+        Args:
+            output: Command output
+
+        Returns:
+            Dictionary of key-value pairs
+        """
         result = {}
         for line in output.strip().split("\n"):
             if ":" in line:
@@ -267,7 +319,14 @@ class Hardware:
         return result
 
     def _parse_frequency(self, freq_str: str) -> float:
-        """Parse frequency string to float."""
+        """Parse frequency string to float.
+
+        Args:
+            freq_str: Frequency string
+
+        Returns:
+            Frequency as float
+        """
         try:
             return float(freq_str)
         except ValueError:

@@ -1,3 +1,4 @@
+from datetime import UTC, datetime as dt
 from typing import Any
 
 from nicegui import ui
@@ -29,7 +30,7 @@ class ChatPanel(BasePanel, MultiScreen):
         self,
         *,
         build: bool = False,
-        config: Config | None = None,
+        cfg: Config | None = None,
         ssh_connection: SshConnection | None = None,
         host_handler: Any = None,
         icon: ui.icon | None = None,
@@ -37,7 +38,7 @@ class ChatPanel(BasePanel, MultiScreen):
         BasePanel.__init__(self, NAME, LABEL, ChatTab.ICON_NAME)
         MultiScreen.__init__(self)
 
-        self._config = config
+        self._cfg = config
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
         self._icon = icon
@@ -61,7 +62,7 @@ class ChatPanel(BasePanel, MultiScreen):
 
                 if screen_num not in self._chat_screens:
                     self._chat_screens[screen_num] = ChatContent(
-                        self._host_handler, self._config, self, screen_num
+                        self._host_handler, self._cfg, self, screen_num
                     )
 
                 # Route selector in header
@@ -77,14 +78,14 @@ class ChatContent:
     def __init__(
         self,
         host_handler: Any = None,
-        config: Config | None = None,
+        cfg: Config | None = None,
         parent_panel: ChatPanel | None = None,
         screen_num: int = 1,
     ) -> None:
         self._current_model: str = "GPT-4"
         self._chat_history: list[dict[str, str]] = []
         self._host_handler = host_handler
-        self._config = config
+        self._cfg = config
         self._parent_panel = parent_panel
         self._screen_num = screen_num
         self._selected_route: int | None = None
@@ -238,7 +239,7 @@ class ChatContent:
         if not self.chat_container:
             return
 
-        timestamp = datetime.now(timezone.utc).strftime("%H:%M")
+        timestamp = dt.now(UTC).strftime("%H:%M")
         message = {"role": role, "content": content, "timestamp": timestamp}
         self._chat_history.append(message)
 
@@ -285,7 +286,7 @@ class ChatContent:
 
         chat_data = {
             "model": self._current_model,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": dt.now(UTC).isoformat(),
             "messages": self._chat_history,
         }
 
@@ -298,7 +299,7 @@ class ChatContent:
         connections = 0
         if self._host_handler and hasattr(self._host_handler, "_connect_route"):
             connections = len(getattr(self._host_handler, "_connect_route", []))
-        context = f"System Context:\n\n• Current host connections: {connections}\n\n• Model: {self._current_model}\n\n• Time: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}"
+        context = f"System Context:\n\n• Current host connections: {connections}\n\n• Model: {self._current_model}\n\n• Time: {dt.now(UTC).strftime('%Y-%m-%d %H:%M:%S')}"
         self._add_message("system", context)
 
     def _quick_action(self, action_type: str) -> None:

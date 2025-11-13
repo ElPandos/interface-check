@@ -33,13 +33,13 @@ class LocalPanel(BasePanel):
     def __init__(
         self,
         build: bool = False,
-        config: Config = None,
+        cfg: Config = None,
         ssh_connection: SshConnection = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
         super().__init__(NAME, LABEL, "dashboard")
-        self._config = config
+        self._cfg = config
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
         self._icon = icon
@@ -51,7 +51,7 @@ class LocalPanel(BasePanel):
         with ui.tab_panel(self.name).classes("w-full h-screen"):
             if not self._local_content:
                 self._local_content = LocalContent(
-                    self._ssh_connection, self._host_handler, self._config
+                    self._ssh_connection, self._host_handler, self._cfg
                 )
             self._local_content.build()
 
@@ -61,11 +61,11 @@ class LocalContent:
         self,
         ssh_connection: SshConnection | None = None,
         host_handler=None,
-        config: Config | None = None,
+        cfg: Config | None = None,
     ) -> None:
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
-        self._config = config
+        self._cfg = config
         self._expansion_states = {}
         self._auto_refresh = False
         self._refresh_timer = None
@@ -174,7 +174,7 @@ class LocalContent:
         processes = list(psutil.process_iter(["name", "cpu_percent", "memory_percent", "status"]))
 
         data = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": dt.now(UTC).isoformat(),
             "system_info": self._get_system_info(),
             "performance": self._get_performance_data(),
             "network": dict(psutil.net_io_counters()._asdict()),
@@ -188,7 +188,7 @@ class LocalContent:
             "uptime": {
                 "boot_time": psutil.boot_time(),
                 "uptime_seconds": (
-                    datetime.now(timezone.utc) - dt.fromtimestamp(psutil.boot_time(), tz=UTC)
+                    dt.now(UTC) - dt.fromtimestamp(psutil.boot_time(), tz=UTC)
                 ).total_seconds(),
             },
         }
@@ -629,7 +629,7 @@ class LocalContent:
                 self._expansions["uptime"] = exp12
                 with exp12:
                     boot_time = dt.fromtimestamp(psutil.boot_time(), tz=UTC)
-                    uptime = datetime.now(timezone.utc) - boot_time
+                    uptime = dt.now(UTC) - boot_time
                     uptime_data = [
                         {"Event": "System Boot", "Time": boot_time.strftime("%Y-%m-%d %H:%M:%S")},
                         {
@@ -638,7 +638,7 @@ class LocalContent:
                         },
                         {
                             "Event": "Current Time",
-                            "Time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+                            "Time": dt.now(UTC).strftime("%Y-%m-%d %H:%M:%S"),
                         },
                     ]
                     self._create_table(

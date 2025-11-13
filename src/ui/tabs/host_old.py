@@ -84,13 +84,13 @@ class HostTab(BaseTab):
 class HostPanel(BasePanel, SingleScreen):
     def __init__(
         self,
-        config: Config,
+        cfg: Config,
         host_handler: HostHandler,
         build: bool = False,
     ):
         BasePanel.__init__(self, NAME, LABEL, HostTab.ICON_NAME)
         SingleScreen.__init__(self)
-        self._config = config
+        self._cfg = config
         self._host_handler = host_handler
         if build:
             self.build()
@@ -183,13 +183,13 @@ class HostContent:
             ui.icon("home", size="lg").classes("text-blue-600")
             ui.label("SSH Host Manager").classes("text-2xl font-bold text-gray-800")
             ui.space()
-            ui.button(icon="save", on_click=self._save_config).classes(
+            ui.button(icon="save", on_click=self._save_cfg).classes(
                 "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
             ).tooltip("Save configuration")
             ui.button(icon="download", on_click=self._open_import_dialog).classes(
                 "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
             ).tooltip("Import configuration")
-            ui.button(icon="upload", on_click=self._export_config).classes(
+            ui.button(icon="upload", on_click=self._export_cfg).classes(
                 "bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded"
             ).tooltip("Export configuration")
             self._undo_btn = (
@@ -235,7 +235,7 @@ class HostContent:
                 )
             self.routes_container = ui.column().classes("w-full")
 
-    def _save_config(self) -> None:
+    def _save_cfg(self) -> None:
         """Save configuration."""
         try:
             self.config.save()
@@ -803,7 +803,7 @@ class HostContent:
     def _update_connection_status(self) -> None:
         """Update connection status."""
 
-    def _export_config(self) -> None:
+    def _export_cfg(self) -> None:
         """Export configuration to JSON."""
         try:
             hosts = [
@@ -850,9 +850,9 @@ class HostContent:
                 else:
                     routes.append(route)
 
-            app_config = Config(networks=Networks(hosts=hosts, routes=routes))
-            config_json = Json.dump_to_string(app_config.model_dump())
-            ui.download(config_json.encode(), "ssh_config.json")
+            app_cfg = Config(networks=Networks(hosts=hosts, routes=routes))
+            config_json = Json.dump_to_string(app_cfg.model_dump())
+            ui.download(config_json.encode(), "ssh_cfg.json")
             ui.notify("Configuration exported successfully", color="positive")
 
         except Exception:
@@ -1149,7 +1149,7 @@ class HostContent:
                 ui.button(
                     icon="download",
                     text="Import",
-                    on_click=lambda: self._import_config(config_input.value, dialog),
+                    on_click=lambda: self._import_cfg(config_input.value, dialog),
                 ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-6 py-2 rounded-lg")
                 ui.space()
                 ui.button(icon="cancel", text="Cancel", on_click=dialog.close).classes(
@@ -1157,7 +1157,7 @@ class HostContent:
                 )
         dialog.open()
 
-    def _import_config(self, config_text: str, dialog: ui.dialog) -> None:
+    def _import_cfg(self, config_text: str, dialog: ui.dialog) -> None:
         """Import configuration from JSON."""
         try:
             if not config_text or not config_text.strip():
@@ -1248,7 +1248,7 @@ class HostContent:
 
             # Decode file content
             config_text = e.content.read().decode("utf-8")
-            self._import_config(config_text, dialog)
+            self._import_cfg(config_text, dialog)
 
         except Exception:
             logger.exception("Error handling file upload")

@@ -2,36 +2,61 @@ from datetime import datetime as dt
 import logging
 
 from src.core.connect import SshConnection
-from src.interfaces.component import ITime
 from src.core.tool import Tool
+from src.interfaces.component import ITime
 from src.models.config import Config
 from src.platform.enums.log import LogName
 
 
 class Sample(Tool, ITime):
-    def __init__(self, config: Config, ssh_connection: SshConnection) -> None:
+    """Data sample collector.
+
+    Args:
+        cfg: Application configuration
+        ssh_connection: SSH connection for command execution
+    """
+
+    def __init__(self, cfg: Config, ssh_connection: SshConnection) -> None:
         Tool.__init__(self, ssh_connection)
         ITime.__init__(self)
 
         self._snapshot: str = ""
-        self._config = config
+        self._cfg = cfg
 
-        self._logger = logging.getLogger(LogName.MAIN.value)
+        self._logger = logging.getLogger(LogName.CORE_MAIN.value)
 
     @property
     def snapshot(self) -> "Sample":
+        """Get snapshot data.
+
+        Returns:
+            Snapshot data
+        """
         return self._snapshot
 
     @snapshot.setter
     def snapshot(self, value: str) -> None:
+        """Set snapshot data.
+
+        Args:
+            value: Snapshot data
+        """
         self._snapshot = value
 
     def collect(self, worker_command: str) -> "Sample":
+        """Collect sample by executing command.
+
+        Args:
+            worker_command: Command to execute
+
+        Returns:
+            Self with collected data
+        """
         self.start_timer()
 
         result = self._exec(worker_command.command)
         if result.success:
-            self._snapshot = result.str_out
+            self._snapshot = result.stdout
         else:
             self._logger.exception("Command execution failed")
 
@@ -41,6 +66,14 @@ class Sample(Tool, ITime):
 
 
 class PlotSampleData:
+    """Plot data extracted from sample.
+
+    Args:
+        sample: Sample to extract data from
+        source: Data source key
+        value: Value key
+    """
+
     def __init__(self, sample: Sample, source: str, value: str) -> None:
         self._x_value: dt = None
         self._y_value: float = None
@@ -66,12 +99,27 @@ class PlotSampleData:
 
     @property
     def x(self) -> dt:
+        """Get X axis value.
+
+        Returns:
+            Timestamp
+        """
         return self._x_value
 
     @property
     def y(self) -> float:
+        """Get Y axis value.
+
+        Returns:
+            Numeric value
+        """
         return self._y_value
 
     @property
     def y_label(self) -> str:
+        """Get Y axis label.
+
+        Returns:
+            Label string
+        """
         return self._y_label

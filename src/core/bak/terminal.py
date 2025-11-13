@@ -39,7 +39,7 @@ class Cli:
     """Robust process manager with security, resource management, and error handling."""
 
     def __init__(self, *, max_processes: int = 50, default_timeout: int = 30) -> None:
-        self._config = ProcessConfig(max_processes, default_timeout)
+        self._cfg = ProcessConfig(max_processes, default_timeout)
         self._procs: weakref.WeakSet[subprocess.Popen[str]] = weakref.WeakSet()
         self._lock = threading.RLock()
 
@@ -57,8 +57,8 @@ class Cli:
             raise ValueError("Command must be non-empty list of strings")
 
         with self._lock:
-            if len(self._procs) >= self._config.max_processes:
-                raise RuntimeError(f"Too many processes ({self._config.max_processes} max)")
+            if len(self._procs) >= self._cfg.max_processes:
+                raise RuntimeError(f"Too many processes ({self._cfg.max_processes} max)")
 
             try:
                 proc = subprocess.Popen(  # noqa: S603
@@ -89,7 +89,7 @@ class Cli:
         self, proc: subprocess.Popen[str], *, timeout: int | None = None
     ) -> ProcessResult:
         """Get process output with timeout and return code."""
-        timeout = timeout or self._config.default_timeout
+        timeout = timeout or self._cfg.default_timeout
 
         try:
             stdout, stderr = proc.communicate(timeout=timeout)
@@ -138,7 +138,7 @@ class Cli:
 
         try:
             proc.terminate()
-            proc.wait(timeout=self._config.cleanup_timeout)
+            proc.wait(timeout=self._cfg.cleanup_timeout)
         except subprocess.TimeoutExpired:
             proc.kill()
             proc.wait()
@@ -149,7 +149,7 @@ class Cli:
         """Force terminate process after timeout."""
         try:
             proc.kill()
-            proc.communicate(timeout=self._config.cleanup_timeout)
+            proc.communicate(timeout=self._cfg.cleanup_timeout)
         except subprocess.TimeoutExpired:
             proc.terminate()
         except Exception:

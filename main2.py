@@ -4,7 +4,9 @@ import re
 # ------------------------------------------------------------------------------
 # Configure structured logging for robust debugging
 # ------------------------------------------------------------------------------
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)-8s] [%(name)-30s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)-8s] [%(name)-30s] %(message)s"
+)
 
 
 class MstDeviceParser:

@@ -36,24 +36,43 @@ class StatCollector(ABC):
 
     @abstractmethod
     def collect(self) -> StatPoint:
-        """Collect statistics data point."""
+        """Collect statistics data point.
+
+        Returns:
+            Statistics data point
+        """
 
     @property
     @abstractmethod
     def name(self) -> str:
-        """Collector name."""
+        """Collector name.
+
+        Returns:
+            Collector name
+        """
 
 
 class NetworkStatCollector(StatCollector):
     """Network statistics collector."""
 
     def __init__(self, connection, interface: str):
+        """Initialize network collector.
+
+        Args:
+            connection: SSH connection
+            interface: Network interface name
+        """
         self._connection = connection
         self._interface = interface
 
     def collect(self) -> StatPoint:
+        """Collect network statistics.
+
+        Returns:
+            Network statistics point
+        """
         if not self._connection:
-            return StatPoint(datetime.now(timezone.utc), 0.0)
+            return StatPoint(dt.now(UTC), 0.0)
 
         # Get RX/TX bytes
         rx_result = self._connection.execute_command(
@@ -77,13 +96,18 @@ class NetworkStatCollector(StatCollector):
         total_bytes = rx_bytes + tx_bytes
 
         return StatPoint(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=dt.now(UTC),
             value=float(total_bytes),
             metadata={"interface": self._interface, "rx_bytes": rx_bytes, "tx_bytes": tx_bytes},
         )
 
     @property
     def name(self) -> str:
+        """Get collector name.
+
+        Returns:
+            Collector name
+        """
         return f"network_{self._interface}"
 
 
@@ -91,11 +115,21 @@ class CpuStatCollector(StatCollector):
     """CPU statistics collector."""
 
     def __init__(self, connection):
+        """Initialize CPU collector.
+
+        Args:
+            connection: SSH connection
+        """
         self._connection = connection
 
     def collect(self) -> StatPoint:
+        """Collect CPU statistics.
+
+        Returns:
+            CPU statistics point
+        """
         if not self._connection:
-            return StatPoint(datetime.now(timezone.utc), 0.0)
+            return StatPoint(dt.now(UTC), 0.0)
 
         result = self._connection.execute_command(
             "grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$3+$4+$5)} END {print usage}'"
@@ -104,14 +138,14 @@ class CpuStatCollector(StatCollector):
             try:
                 cpu_usage = float(result.str_out.strip())
                 return StatPoint(
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=dt.now(UTC),
                     value=cpu_usage,
                     metadata={"unit": "percent"},
                 )
             except ValueError:
                 pass
 
-        return StatPoint(datetime.now(timezone.utc), 0.0)
+        return StatPoint(dt.now(UTC), 0.0)
 
     @property
     def name(self) -> str:
@@ -122,25 +156,35 @@ class MemoryStatCollector(StatCollector):
     """Memory statistics collector."""
 
     def __init__(self, connection):
+        """Initialize memory collector.
+
+        Args:
+            connection: SSH connection
+        """
         self._connection = connection
 
     def collect(self) -> StatPoint:
+        """Collect memory statistics.
+
+        Returns:
+            Memory statistics point
+        """
         if not self._connection:
-            return StatPoint(datetime.now(timezone.utc), 0.0)
+            return StatPoint(dt.now(UTC), 0.0)
 
         result = self._connection.execute_command("free | grep Mem | awk '{print ($3/$2) * 100.0}'")
         if result.success:
             try:
                 mem_usage = float(result.str_out.strip())
                 return StatPoint(
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=dt.now(UTC),
                     value=mem_usage,
                     metadata={"unit": "percent"},
                 )
             except ValueError:
                 pass
 
-        return StatPoint(datetime.now(timezone.utc), 0.0)
+        return StatPoint(dt.now(UTC), 0.0)
 
     @property
     def name(self) -> str:
@@ -151,24 +195,41 @@ class Statistics:
     """Independent statistics collection and analysis class."""
 
     def __init__(self, connection=None):
+        """Initialize statistics manager.
+
+        Args:
+            connection: SSH connection
+        """
         self._connection = connection
         self._collectors: dict[str, StatCollector] = {}
         self._data: dict[str, list[StatPoint]] = {}
         self._max_points = 10000
 
     def add_collector(self, collector: StatCollector) -> None:
-        """Add statistics collector."""
+        """Add statistics collector.
+
+        Args:
+            collector: Statistics collector instance
+        """
         self._collectors[collector.name] = collector
         if collector.name not in self._data:
             self._data[collector.name] = []
 
     def remove_collector(self, name: str) -> None:
-        """Remove statistics collector."""
+        """Remove statistics collector.
+
+        Args:
+            name: Collector name
+        """
         self._collectors.pop(name, None)
         self._data.pop(name, None)
 
     def collect_all(self) -> dict[str, StatPoint]:
-        """Collect data from all collectors."""
+        """Collect data from all collectors.
+
+        Returns:
+            Dictionary of collected data points
+        """
         results = {}
         for name, collector in self._collectors.items():
             try:
@@ -187,7 +248,7 @@ class Statistics:
             except Exception:
                 # Create error point
                 results[name] = StatPoint(
-                    timestamp=datetime.now(timezone.utc),
+                    timestamp=dt.now(UTC),
                     value=0.0,
                     metadata={"error": True},
                 )
@@ -195,15 +256,31 @@ class Statistics:
         return results
 
     def get_data(self, collector_name: str, hours: int = 24) -> list[StatPoint]:
-        """Get data points for specific collector."""
+        """Get data points for specific collector.
+
+        Args:
+            collector_name: Collector name
+            hours: Number of hours of history
+
+        Returns:
+            List of data points
+        """
         if collector_name not in self._data:
             return []
 
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff = dt.now(UTC) - timedelta(hours=hours)
         return [p for p in self._data[collector_name] if p.timestamp > cutoff]
 
     def get_summary(self, collector_name: str, hours: int = 24) -> StatSummary | None:
-        """Get statistical summary for collector."""
+        """Get statistical summary for collector.
+
+        Args:
+            collector_name: Collector name
+            hours: Number of hours of history
+
+        Returns:
+            Statistical summary or None
+        """
         data_points = self.get_data(collector_name, hours)
         if not data_points:
             return None
@@ -225,7 +302,15 @@ class Statistics:
             return None
 
     def get_trend(self, collector_name: str, hours: int = 24) -> str:
-        """Get trend analysis for collector."""
+        """Get trend analysis for collector.
+
+        Args:
+            collector_name: Collector name
+            hours: Number of hours of history
+
+        Returns:
+            Trend string
+        """
         data_points = self.get_data(collector_name, hours)
         if len(data_points) < 2:
             return "insufficient_data"
@@ -245,7 +330,16 @@ class Statistics:
     def get_anomalies(
         self, collector_name: str, hours: int = 24, threshold: float = 2.0
     ) -> list[StatPoint]:
-        """Get anomalous data points (beyond threshold standard deviations)."""
+        """Get anomalous data points (beyond threshold standard deviations).
+
+        Args:
+            collector_name: Collector name
+            hours: Number of hours of history
+            threshold: Standard deviation threshold
+
+        Returns:
+            List of anomalous points
+        """
         data_points = self.get_data(collector_name, hours)
         if len(data_points) < 3:
             return []
@@ -265,7 +359,15 @@ class Statistics:
             return []
 
     def export_data(self, collector_name: str, hours: int = 24) -> dict[str, Any]:
-        """Export data for external analysis."""
+        """Export data for external analysis.
+
+        Args:
+            collector_name: Collector name
+            hours: Number of hours of history
+
+        Returns:
+            Exported data dictionary
+        """
         data_points = self.get_data(collector_name, hours)
         summary = self.get_summary(collector_name, hours)
         trend = self.get_trend(collector_name, hours)
@@ -292,18 +394,26 @@ class Statistics:
             else None,
             "trend": trend,
             "anomalies": len(anomalies),
-            "export_timestamp": datetime.now(timezone.utc).isoformat(),
+            "export_timestamp": dt.now(UTC).isoformat(),
         }
 
     def clear_data(self, collector_name: str | None = None) -> None:
-        """Clear statistics data."""
+        """Clear statistics data.
+
+        Args:
+            collector_name: Collector name or None for all
+        """
         if collector_name:
             self._data.pop(collector_name, None)
         else:
             self._data.clear()
 
     def set_max_points(self, max_points: int) -> None:
-        """Set maximum data points to keep."""
+        """Set maximum data points to keep.
+
+        Args:
+            max_points: Maximum number of points
+        """
         self._max_points = max_points
 
         # Trim existing data
@@ -312,11 +422,23 @@ class Statistics:
                 self._data[name] = self._data[name][-max_points:]
 
     def get_collectors(self) -> list[str]:
-        """Get list of collector names."""
+        """Get list of collector names.
+
+        Returns:
+            List of collector names
+        """
         return list(self._collectors.keys())
 
     def _percentile(self, values: list[float], percentile: int) -> float:
-        """Calculate percentile of values."""
+        """Calculate percentile of values.
+
+        Args:
+            values: List of values
+            percentile: Percentile to calculate
+
+        Returns:
+            Percentile value
+        """
         if not values:
             return 0.0
 

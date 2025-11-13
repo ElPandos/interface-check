@@ -2,7 +2,7 @@ from enum import Enum
 
 
 class LogMsg(Enum):
-    """Log messages."""
+    """SSH connection and command execution log messages."""
 
     EXEC_CMD_FAIL = "Can not execute command: "
     STORE_FAIL = "Failed to store results to: "

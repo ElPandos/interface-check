@@ -12,21 +12,35 @@ class SettingsHandler:
     """Handles rendering and synchronization of application settings."""
 
     def __init__(self) -> None:
+        """Initialize settings handler."""
         self.__dark_mode = ui.dark_mode()  # Keep a reference!
 
     def _get_value(self, name: str) -> tuple[str, int, int]:
-        for s in self._config.settings.options:
+        """Get setting value and range.
+
+        Args:
+            name: Setting name
+
+        Returns:
+            Tuple of (value, min, max)
+        """
+        for s in self._cfg.settings.options:
             if s.name == name:
                 return s.value, s.min, s.max
         return None, None, None
 
     def _save(self) -> None:
-        Configure().save(self._config)
+        """Save configuration."""
+        Configure().save(self._cfg)
 
-    def build(self, config: Config) -> None:
-        """Render settings UI with live bindings to internal values."""
-        self._config = config
-        for o in self._config.settings.options:
+    def build(self, cfg: Config) -> None:
+        """Render settings UI with live bindings to internal values.
+
+        Args:
+            cfg: Application configuration
+        """
+        self._cfg = config
+        for o in self._cfg.settings.options:
             match o.type:
                 case Options.SWITCH.value:
                     self._build_switch(o)
@@ -40,6 +54,11 @@ class SettingsHandler:
                     self._build_info()
 
     def _build_switch(self, opt) -> None:
+        """Build switch setting.
+
+        Args:
+            opt: Option configuration
+        """
         with ui.card().classes("w-full items-left"), ui.row().classes("w-full items-center"):
             ui.label(opt.name)
             value, _, _ = self._get_value(opt.name)
@@ -54,6 +73,11 @@ class SettingsHandler:
             switch.bind_value(opt, "value")
 
     def _build_slider(self, opt) -> None:
+        """Build slider setting.
+
+        Args:
+            opt: Option configuration
+        """
         with ui.card().classes("w-full items-left"), ui.column().classes("w-full items-left"):
             with ui.row().classes("w-full items-center gap-2"):
                 self._add_slider_icon(opt.name)
@@ -66,6 +90,11 @@ class SettingsHandler:
                 slider_value_label.bind_text_from(slider, "value")
 
     def _add_slider_icon(self, name: str) -> None:
+        """Add icon to slider.
+
+        Args:
+            name: Setting name
+        """
         icons = {
             Types.REFRESH.name: (
                 "dashboard",
@@ -84,6 +113,11 @@ class SettingsHandler:
             ui.icon(icon, size="lg").classes(color).tooltip(tooltip)
 
     def _build_text(self, opt) -> None:
+        """Build text setting.
+
+        Args:
+            opt: Option configuration
+        """
         with ui.card().classes("w-full items-left"), ui.column().classes("w-full items-left"):
             value, _, _ = self._get_value(opt.name)
             textarea = ui.textarea(
@@ -92,12 +126,18 @@ class SettingsHandler:
             textarea.bind_value(opt, "value")
 
     def _build_button(self, opt) -> None:
+        """Build button setting.
+
+        Args:
+            opt: Option configuration
+        """
         with ui.card().classes("w-full"), ui.column().classes("w-full"):
             ui.button(opt.name, on_click=self._save).classes(
                 "w-full items-left bg-gray-300 hover:bg-gray-400 text-gray-800"
             )
 
     def _build_info(self) -> None:
+        """Build info section."""
         ui.space()
         with (
             ui.card().classes("w-full"),

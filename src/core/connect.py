@@ -16,14 +16,10 @@ from src.platform.enums.log import LogName
 
 
 class SshConnection(IConnection):
-    """SSH connection class with jump host and keepalive support.
+    """SSH connection with jump host and keepalive support.
 
-    Manages SSH connections with support for:
-    - Direct connections to target hosts
-    - Multi-hop connections through jump hosts
-    - Automatic keepalive to maintain connection health
-    - Interactive shell sessions
-    - Command execution with timeout support
+    Manages SSH connections with multi-hop support through jump hosts.
+    Includes automatic keepalive and shell session management.
     """
 
     __slots__ = (
@@ -57,39 +53,67 @@ class SshConnection(IConnection):
         password: str,
         jump_hosts: list[Host] | None = None,
         keepalive_interval: int = 30,
+        sudo_pass="",
     ):
         """Initialize SSH connection.
 
         Args:
-            host: Target host IP or hostname
+            host: Target host IP address
             username: SSH username
             password: SSH password
-            jump_hosts: Optional list of jump hosts for multi-hop connection
-            keepalive_interval: Seconds between keepalive packets
+            jump_hosts: Optional list of jump hosts
+            keepalive_interval: Keepalive interval in seconds
+            sudo_pass: Optional sudo password
         """
+        # Connection parameters
         self._host = host
         self._username = username
         self._password = password
         self._jump_hosts = jump_hosts or []
         self._keepalive_interval = keepalive_interval
+        self._sudo_pass = sudo_pass
+
+        # SSH clients
         self._ssh_client = None
         self._jump_clients = []
+
+        # Keepalive management
         self._keepalive_thread = None
         self._stop_keepalive = threading.Event()
-        self._shell = None
-        self._prompt_pattern = re.compile(
-            self._PROMPT_PATTERN,
-            re.MULTILINE,
-        )
 
-        self._logger = logging.getLogger(f"{LogName.MAIN.value}.{host}")
+        # Shell session
+        self._shell = None
+        self._prompt_pattern = re.compile(self._PROMPT_PATTERN, re.MULTILINE)
+
+        # Logger with host-specific name
+        self._logger = logging.getLogger(f"{LogName.CORE_MAIN.value}.{host}")
+
+    # ========================================================================
+    # Context Manager Support
+    # ========================================================================
 
     def __enter__(self) -> "SshConnection":
+        """Enter context manager.
+
+        Returns:
+            Self for context manager usage
+        """
         self.connect()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit context manager - cleanup connection.
+
+        Args:
+            exc_type: Exception type
+            exc_val: Exception value
+            exc_tb: Exception traceback
+        """
         self.disconnect()
+
+    # ========================================================================
+    # Factory Methods
+    # ========================================================================
 
     @classmethod
     def from_route(cls, route: Route) -> "SshConnection":
@@ -108,11 +132,12 @@ class SshConnection(IConnection):
             route.jumps,
         )
 
+    # ========================================================================
+    # Connection Management
+    # ========================================================================
+
     def connect(self) -> bool:
         """Establish SSH connection to target host.
-
-        Connects directly or through jump hosts if configured.
-        Starts keepalive thread on successful connection.
 
         Returns:
             True if connection successful, False otherwise
@@ -149,7 +174,7 @@ class SshConnection(IConnection):
 
             self._start_keepalive()
             self._logger.info("%s%s", LogMsg.CON_HOST_SUCCESS.value, self._host)
-            return True
+            return True  # noqa: TRY300
 
         except TimeoutError:
             self._logger.exception("%s%s", LogMsg.CON_TIMEOUT.value, self._host)
@@ -164,11 +189,7 @@ class SshConnection(IConnection):
         return False
 
     def disconnect(self) -> None:
-        """Disconnect from host and cleanup resources.
-
-        Stops keepalive thread, closes shell, and closes all SSH clients.
-        Safe to call multiple times.
-        """
+        """Disconnect from host and cleanup resources."""
         if not self._ssh_client:
             self._logger.debug("%s%s", LogMsg.POST_HOST_DISCON.value, self._host)
             return
@@ -189,7 +210,7 @@ class SshConnection(IConnection):
         """Check if SSH connection is active.
 
         Returns:
-            True if client exists and transport is active
+            True if connected, False otherwise
         """
         return self._ssh_client and (t := self._ssh_client.get_transport()) and t.is_active()
 
@@ -217,9 +238,13 @@ class SshConnection(IConnection):
         Returns:
             CmdResult indicating no active connection
         """
-        self._logger.error("%s - %s", LogMsg.CMD_CON.value, cmd)
-        cmd_result = CmdResult.error(cmd, f"{LogMsg.CMD_CON.value} - {cmd}")
+        self._logger.error("%s - %s", lm, cmd)
+        cmd_result = CmdResult.error(cmd, f"{lm} - {cmd}")
         return cmd_result
+
+    # ========================================================================
+    # Command Execution
+    # ========================================================================
 
     def exec_cmd(self, cmd: str, timeout: int | None = None) -> CmdResult:
         """Execute command via SSH.
@@ -229,28 +254,35 @@ class SshConnection(IConnection):
             timeout: Optional timeout in seconds
 
         Returns:
-            CmdResult with stdout, stderr, return code, and execution time
+            Command execution result
         """
         if not self.is_connected():
             return self.get_cr_msg_connection(cmd, LogMsg.CMD_CON)
 
-        self._logger.debug("Executing cmd: '%s' (timeout: %ss)", cmd, timeout)
+        exec_cmd = cmd
+        if self._sudo_pass:
+            exec_cmd = f"echo '{self._sudo_pass}' | sudo -S {cmd}"
+        self._logger.debug("Executing command: '%s' (timeout: %ss)", exec_cmd, timeout)
 
         try:
             start_time = time.perf_counter()
-            _, stdout, stderr = self._ssh_client.exec_command(cmd, timeout=timeout)
+
+            _, stdout, stderr = self._ssh_client.exec_command(exec_cmd, timeout=timeout)
+
             execution_time = time.perf_counter() - start_time
 
             stdout_data = self._clean(stdout.read().decode())
             stderr_data = self._clean(stderr.read().decode())
             rcode = stdout.channel.recv_exit_status()
 
-            self._logger.debug("Cmd completed in %.3fs with exit status %d", execution_time, rcode)
-            if stderr_data:
-                self._logger.warning("Cmd stderr: %s", stderr_data[:200])
+            self._logger.debug(
+                "Command completed in %.3fs with exit status %d", execution_time, rcode
+            )
+            if rcode != 0:
+                self._logger.warning("Command stderr: %s", stderr_data[:200])
 
             return CmdResult(
-                cmd=cmd,
+                cmd=exec_cmd,
                 stdout=stdout_data,
                 stderr=stderr_data,
                 exec_time=execution_time,
@@ -259,7 +291,7 @@ class SshConnection(IConnection):
 
         except Exception as e:
             self._logger.exception("Cmd execution failed: %s", cmd)
-            return CmdResult(cmd, "", f"Error: {e}", -1)
+            return CmdResult(exec_cmd, "", f"Error: {e}", -1)
 
     def _clean(self, data: str) -> str:
         """Remove ANSI escape sequences from output.
@@ -272,6 +304,10 @@ class SshConnection(IConnection):
         """
         return re.sub(r"\x1B\[[0-?]*[ -/]*[@-~]", "", data)
 
+    # ========================================================================
+    # Private Helper Methods
+    # ========================================================================
+
     def _create_client(self) -> paramiko.SSHClient:
         """Create configured SSH client.
 
@@ -279,7 +315,7 @@ class SshConnection(IConnection):
             SSH client with AutoAddPolicy for host keys
         """
         client = paramiko.SSHClient()
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # noqa: S507
         return client
 
     def _connect_to_host(self, client: paramiko.SSHClient, host: Host, channel=None) -> None:
@@ -312,7 +348,8 @@ class SshConnection(IConnection):
             Exception: On connection failures
         """
         if not self._jump_hosts:
-            raise ValueError("No jump hosts provided")
+            msg = "No jump hosts provided"
+            raise ValueError(msg)
 
         transport = None
         self._logger.debug("Connecting through %d jump hosts", len(self._jump_hosts))
@@ -339,7 +376,8 @@ class SshConnection(IConnection):
                 self._jump_clients.append(client)
                 transport = client.get_transport()
                 if not transport:
-                    raise RuntimeError(f"No transport from {jump.ip}")
+                    msg = f"No transport from {jump.ip}"
+                    raise RuntimeError(msg)
 
                 transport.set_keepalive(self._keepalive_interval)
                 self._logger.info("%s%s", LogMsg.CON_JUMP_SUCCESS.value, jump.ip)
@@ -350,7 +388,8 @@ class SshConnection(IConnection):
 
         # Connect to target through final jump host
         if not transport:
-            raise RuntimeError("No transport available for target connection")
+            msg = "No transport available for target connection"
+            raise RuntimeError(msg)
 
         self._logger.info(
             "Opening final channel from %s to target %s", self._jump_hosts[-1].ip, self._host
@@ -360,7 +399,7 @@ class SshConnection(IConnection):
                 "direct-tcpip", (self._host, 22), (self._jump_hosts[-1].ip, 22)
             )
             # Create temporary Host object for target
-            from pydantic import SecretStr
+            from pydantic import SecretStr  # noqa: PLC0415
 
             target_host = Host(
                 ip=self._host, username=self._username, password=SecretStr(self._password)
@@ -410,13 +449,15 @@ class SshConnection(IConnection):
 
         self._logger.debug("Keepalive loop stopped")
 
+    # ========================================================================
+    # Interactive Shell Management
+    # ========================================================================
+
     def open_shell(self) -> bool:
         """Open interactive shell session.
 
-        Invokes shell, waits for prompt, and configures terminal settings.
-
         Returns:
-            True if shell opened successfully, False otherwise
+            True if successful, False otherwise
         """
         if not self.is_connected():
             self._logger.error(LogMsg.SHELL_NOT_CONNECTED.value)
@@ -446,32 +487,36 @@ class SshConnection(IConnection):
                 self._logger.warning("Initial prompt detection failed, but continuing")
                 output = ""
 
-            # Try to configure terminal - these commands may not work on all systems
+            # Configure SLX terminal - these commands may not work on all systems
             config_commands = [
-                "export TERM=xterm",
-                "stty -echo",  # Disable echo if possible
-                "terminal length 0",  # SLX specific
-                "set +H",  # Disable history expansion
+                "terminal length 0"  # SLX specific
             ]
 
-            for config_cmd in config_commands:
+            for cmd in config_commands:
                 try:
-                    self._logger.debug("Trying config cmd: %s", config_cmd)
-                    self._shell.send(f"{config_cmd}\n")
+                    self._logger.debug("Executing config command: %s", cmd)
+                    self._shell.send(f"{cmd}\n")
                     time.sleep(0.5)
                 except Exception:
-                    self._logger.debug("Config cmd '%s' failed", config_cmd)
+                    self._logger.exception("Failed executing config command: '%s'", cmd)
+
+            # Clear buffer after config commands to prevent contamination
+            try:
+                self._read_until_prompt(timeout=2)
+                self._logger.debug("Buffer cleared after config commands")
+            except Exception:
+                self._logger.exception("Buffer clear failed, continuing anyway")
 
             self._logger.info(LogMsg.SHELL_OPEN_SUCCESS.value)
 
-            return True
+            return True  # noqa: TRY300
 
         except Exception:
             self._logger.exception("Failed to open shell")
             if self._shell:
-                try:
+                try:  # noqa: SIM105
                     self._shell.close()
-                except:
+                except Exception:  # noqa: BLE001, S110
                     pass
                 self._shell = None
             return False
@@ -485,14 +530,7 @@ class SshConnection(IConnection):
         Returns:
             True if line appears to be a prompt
         """
-        return (
-            line.endswith("$")
-            or line.endswith("#")
-            or line.endswith(">")
-            or ":~$" in line
-            or line.endswith(":")
-            or "Shell>" in line
-        )
+        return line.endswith(("$", "#", ">", ":")) or ":~$" in line or "Shell>" in line
 
     def _read_until_prompt(self, timeout: float = 10.0) -> str:
         """Read shell output until prompt detected.
@@ -508,7 +546,8 @@ class SshConnection(IConnection):
             TimeoutError: If prompt not detected within timeout
         """
         if not self._shell:
-            raise ConnectionError("Shell not open")
+            msg = "Shell not open"
+            raise ConnectionError(msg)
 
         buffer = b""
         start = time.time()
@@ -554,9 +593,10 @@ class SshConnection(IConnection):
             # Return what we have instead of failing
             return content
 
-        raise TimeoutError("Prompt not detected within timeout")
+        msg = "Prompt not detected within timeout"
+        raise TimeoutError(msg)
 
-    def execute_shell_command(self, cmd: str, until_prompt: bool = True) -> str:
+    def exec_shell_command(self, cmd: str, until_prompt: bool = True) -> str:  # noqa: FBT001, FBT002
         """Execute command in interactive shell.
 
         Args:
@@ -564,21 +604,23 @@ class SshConnection(IConnection):
             until_prompt: Wait for prompt before returning
 
         Returns:
-            Command output with echo and prompts removed
+            Command output
 
         Raises:
             ConnectionError: If shell not open or connection lost
         """
         if not self._shell:
             self._logger.error(LogMsg.SHELL_CMD_NO_SHELL.value)
-            raise ConnectionError("Shell not opened")
+            msg = "Shell not opened"
+            raise ConnectionError(msg)
 
         if not self.is_connected():
             self._logger.error(LogMsg.SHELL_CMD_NO_CON.value)
-            raise ConnectionError("Connection lost")
+            msg = "Connection lost"
+            raise ConnectionError(msg)
 
         cmd_preview = cmd[:100] + "..." if len(cmd) > 100 else cmd
-        self._logger.debug("Executing shell cmd: %s", cmd_preview)
+        self._logger.debug("Executing shell command: %s", cmd_preview)
         self._logger.debug("Shell ready state: %s", self._shell.recv_ready())
 
         try:
@@ -605,7 +647,7 @@ class SshConnection(IConnection):
             else:
                 self._logger.debug("Command sent without waiting for prompt")
 
-            return result
+            return result  # noqa: TRY300
 
         except Exception:
             self._logger.exception("Shell cmd execution failed: %s", cmd)
@@ -661,33 +703,15 @@ class SshConnection(IConnection):
         self._jump_clients.clear()
 
     def close_shell(self) -> None:
-        """Close interactive shell session.
-
-        Safe to call multiple times.
-        """
+        """Close interactive shell session."""
         if self._shell:
             try:
                 self._logger.debug("Closing shell")
                 self._shell.close()
                 self._logger.debug("Shell closed successfully")
             except Exception:
-                self._logger.warning("Error closing shell")
+                self._logger.exception("Error closing shell")
             finally:
                 self._shell = None
         else:
-            self._logger.debug("Shell already closed or not opened")
-
-
-# class SshConnectionFactory(IConnectionFactory):
-#     def create_connection(self, config: Any) -> IConnection:
-#         password = (
-#             config.password.get_secret_value()
-#             if hasattr(config.password, "get_secret_value")
-#             else config.password
-#         )
-#         return SshConnection(
-#             getattr(config, "ip", "localhost"),
-#             getattr(config, "username", "user"),
-#             password,
-#             getattr(config, "jump_hosts", None),
-#         )
+            self._logger.debug("Shell already closed or not has not been opened")

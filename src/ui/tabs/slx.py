@@ -10,9 +10,10 @@ from src.core.connect import SshConnection
 from src.core.parser import EyeScanParser
 from src.core.screen import MultiScreen
 from src.models.config import Config
+from src.platform.enums.log import LogName
 from src.ui.tabs.base import BasePanel, BaseTab
 
-logger = logging.getLogger(LogName.MAIN.value)
+logger = logging.getLogger(LogName.CORE_MAIN.value)
 
 NAME = "slx"
 LABEL = "SLX"
@@ -34,7 +35,7 @@ class SlxPanel(BasePanel, MultiScreen):
     def __init__(
         self,
         build: bool = False,
-        config: Config = None,
+        cfg: Config = None,
         ssh_connection: SshConnection = None,
         host_handler=None,
         icon: ui.icon = None,
@@ -42,7 +43,7 @@ class SlxPanel(BasePanel, MultiScreen):
         BasePanel.__init__(self, NAME, LABEL, SlxTab.ICON_NAME)
         MultiScreen.__init__(self)
 
-        self._config = config
+        self._cfg = cfg
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
         self._icon = icon
@@ -67,7 +68,7 @@ class SlxPanel(BasePanel, MultiScreen):
 
                 if screen_num not in self._slx_screens:
                     self._slx_screens[screen_num] = SlxContent(
-                        None, self._host_handler, self._config, self, screen_num
+                        None, self._host_handler, self._cfg, self, screen_num
                     )
 
                 # Buttons next to host label
@@ -92,13 +93,13 @@ class SlxContent:
         self,
         ssh_connection: SshConnection | None = None,
         host_handler: Any = None,
-        config: Config | None = None,
+        cfg: Config | None = None,
         parent_panel: SlxPanel | None = None,
         screen_num: int = 1,
     ) -> None:
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
-        self._config = config
+        self._cfg = config
         self._parent_panel = parent_panel
         self._screen_num = screen_num
         self._selected_route: int | None = None
@@ -379,10 +380,10 @@ class SlxContent:
             ui.notify("No shell connection", color="negative")
             return
 
-        logger.debug("Starting show interface status command")
+        logger.debug("Start show interface status command")
         try:
             # Use execute_shell_command like in main_eye_optimized.py
-            logger.debug("Executing: show interface status")
+            logger.debug("Executing command: show interface status")
             result = connection.execute_shell_command("show interface status")
             logger.debug(f"Command result length: {len(result)} characters")
             logger.debug(f"First 200 chars of result: {result[:200]}")
@@ -419,7 +420,7 @@ class SlxContent:
     def _get_port_id(self, ssh: SshConnection, interface: str) -> str | None:
         """Extract port ID from cmsh output."""
         cmd = f"cmsh -e 'hsl ifm show localdb' | grep {interface}"
-        result = ssh.execute_shell_command(cmd)
+        result = ssh.exec_shell_command(cmd)
 
         pattern = rf"{re.escape(interface)}\s+0x[0-9a-fA-F]+\s+\d+\s+(\d+)"
         match = re.search(pattern, result)
@@ -427,8 +428,8 @@ class SlxContent:
 
     def get_interface_name(self, ssh: SshConnection, port_id: str) -> str | None:
         """Find interface name by port ID in fbr-CLI."""
-        ssh.execute_shell_command("fbr-CLI")
-        ps_result = ssh.execute_shell_command("ps")
+        ssh.exec_shell_command("fbr-CLI")
+        ps_result = ssh.exec_shell_command("ps")
 
         pattern = rf"(\w+)\(\s*{re.escape(port_id)}\)"
         match = re.search(pattern, ps_result)
@@ -441,7 +442,7 @@ class SlxContent:
         try:
             # Run eye scan
             cmd = f"phy diag {interface_name} eyescan"
-            logger.info(f"Starting eye scan: {cmd}")
+            logger.info(f"Start eye scan: {cmd}")
 
             # Send command and wait (like main_eye_optimized.py)
             ssh._shell.send(cmd + "\n")

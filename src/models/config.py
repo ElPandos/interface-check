@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from src.ui.enums.settings import Options, Types
@@ -11,18 +13,26 @@ class Host(BaseModel):
     password: SecretStr = SecretStr("")
     info: str = ""
 
-    model_config = ConfigDict(json_encoders={SecretStr: lambda v: v.get_secret_value()})
+    model_config: ClassVar[ConfigDict] = ConfigDict(json_encoders={SecretStr: lambda v: v.get_secret_value()})
 
     @classmethod
     def default_jump(cls) -> "Host":
-        """Return default jump host configuration."""
+        """Return default jump host configuration.
+
+        Returns:
+            Default jump host
+        """
         return cls(
             ip="137.58.231.134", username="emvekta", password=SecretStr("a"), info="Default value"
         )
 
     @classmethod
     def default_target(cls) -> "Host":
-        """Return default target host configuration."""
+        """Return default target host configuration.
+
+        Returns:
+            Default target host
+        """
         return cls(ip="172.16.180.1", username="hts", password=SecretStr("a"), info="Default value")
 
 
@@ -42,7 +52,11 @@ class Route(BaseModel):
 
     @classmethod
     def default_route(cls) -> "Route":
-        """Return default route configuration."""
+        """Return default route configuration.
+
+        Returns:
+            Default route
+        """
         return cls(
             summary="137.58.231.134 ⟶ 172.16.180.1 (Target)",
             target=Host.default_target(),
@@ -51,7 +65,7 @@ class Route(BaseModel):
 
 
 class Option(BaseModel):
-    model_config = ConfigDict(use_enum_values=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(use_enum_values=True)
 
     name: str = ""
     type: Options = Options.SWITCH
@@ -61,7 +75,11 @@ class Option(BaseModel):
 
     @classmethod
     def default_debug(cls) -> "Option":
-        """Return default debug configuration."""
+        """Return default debug configuration.
+
+        Returns:
+            Default debug option
+        """
         return cls(
             name=Types.DEBUG.value,
             type=Options.SWITCH,
@@ -70,7 +88,11 @@ class Option(BaseModel):
 
     @classmethod
     def default_dark(cls) -> "Option":
-        """Return default dark configuration."""
+        """Return default dark configuration.
+
+        Returns:
+            Default dark option
+        """
         return cls(
             name=Types.DARK.value,
             type=Options.SWITCH,
@@ -79,7 +101,11 @@ class Option(BaseModel):
 
     @classmethod
     def default_command(cls) -> "Option":
-        """Return default command configuration."""
+        """Return default command configuration.
+
+        Returns:
+            Default command option
+        """
         return cls(
             name=Types.COMMAND.value,
             type=Options.SLIDER,
@@ -90,7 +116,11 @@ class Option(BaseModel):
 
     @classmethod
     def default_graph(cls) -> "Option":
-        """Return default graph configuration."""
+        """Return default graph configuration.
+
+        Returns:
+            Default graph option
+        """
         return cls(
             name=Types.GRAPH.value,
             type=Options.SLIDER,
@@ -101,7 +131,11 @@ class Option(BaseModel):
 
     @classmethod
     def default_refresh(cls) -> "Option":
-        """Return default refresh configuration."""
+        """Return default refresh configuration.
+
+        Returns:
+            Default refresh option
+        """
         return cls(
             name=Types.REFRESH.value,
             type=Options.SLIDER,
@@ -112,7 +146,11 @@ class Option(BaseModel):
 
     @classmethod
     def default_message(cls) -> "Option":
-        """Return default message configuration."""
+        """Return default message configuration.
+
+        Returns:
+            Default message option
+        """
         return cls(
             name=Types.MESSAGE.value,
             type=Options.TEXT,
@@ -121,7 +159,11 @@ class Option(BaseModel):
 
     @classmethod
     def default_save(cls) -> "Option":
-        """Return default save configuration."""
+        """Return default save configuration.
+
+        Returns:
+            Default save option
+        """
         return cls(
             name=Types.SAVE.value,
             type=Options.BUTTON,
@@ -130,7 +172,11 @@ class Option(BaseModel):
 
     @classmethod
     def default_libs(cls) -> "Option":
-        """Return default libs configuration."""
+        """Return default libs configuration.
+
+        Returns:
+            Default libs option
+        """
         return cls(
             name=Types.LIBS.value,
             type=Options.INFO,
@@ -152,16 +198,24 @@ class Settings(BaseModel):
         ]
     )
 
-    # TODO: check what this is
     def get_command_update_value(self) -> int:
+        """Get command update value.
+
+        Returns:
+            Command update interval
+        """
         command_update = next((s for s in self.settings if s.name == Types.COMMAND.value), None)
         if command_update is None:
             msg = "UPDATE setting not defined in configuration"
             raise ValueError(msg)
         return int(command_update.value)
 
-    # TODO: check what this is
     def get_graph_update_value(self) -> int:
+        """Get graph update value.
+
+        Returns:
+            Graph update interval
+        """
         graph_update = next((s for s in self.settings if s.name == Types.GRAPH.value), None)
         if graph_update is None:
             msg = "UPDATE setting not defined in configuration"

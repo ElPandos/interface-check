@@ -1,16 +1,17 @@
 from dataclasses import dataclass
+from datetime import UTC, datetime as dt
 import logging
 from typing import Any
 
 from src.core.connect import SshConnection
 from src.platform.enums.log import LogName
 
-logger = logging.getLogger(LogName.MAIN.value)
+logger = logging.getLogger(LogName.CORE_MAIN.value)
 
 
 @dataclass(frozen=True)
 class TaskResult:
-    """Structured task execution result."""
+    """Task execution result with command output and status."""
 
     command: str
     stdout: str
@@ -20,7 +21,7 @@ class TaskResult:
 
 @dataclass(frozen=True)
 class TaskAnalysis:
-    """Structured task analysis result."""
+    """Task analysis result with status, issues, and recommendations."""
 
     summary: str
     status: str = "unknown"
@@ -29,6 +30,7 @@ class TaskAnalysis:
     metrics: dict[str, Any] = None
 
     def __post_init__(self) -> None:
+        """Initialize default empty collections."""
         if self.issues is None:
             object.__setattr__(self, "issues", [])
         if self.recommendations is None:
@@ -38,21 +40,31 @@ class TaskAnalysis:
 
 
 class Agent:
-    """
-    Intelligent network diagnostics agent that can execute automated tasks
-    and provide insights based on network interface analysis.
-    """
+    """Intelligent network diagnostics agent for automated tasks and network analysis."""
 
     def __init__(self, ssh_connection: SshConnection) -> None:
+        """Initialize agent with SSH connection.
+
+        Args:
+            ssh_connection: SSH connection instance
+        """
         self._ssh = ssh_connection
         self._running = False
 
     def is_running(self) -> bool:
-        """Check if the agent is currently running."""
+        """Check if agent is running.
+
+        Returns:
+            True if running
+        """
         return self._running
 
     def start(self) -> bool:
-        """Start the network agent."""
+        """Start agent.
+
+        Returns:
+            True if started successfully
+        """
         if not self._ssh.is_connected():
             logger.error("Cannot start agent: SSH connection not available")
             return False
@@ -62,17 +74,24 @@ class Agent:
         return True
 
     def stop(self) -> None:
-        """Stop the network agent."""
+        """Stop agent."""
         self._running = False
         logger.info("Network agent stopped")
 
     async def execute_task(self, task: dict[str, Any]) -> dict[str, Any]:
-        """Execute a network diagnostic task."""
+        """Execute diagnostic task with commands and return analysis.
+
+        Args:
+            task: Task dictionary with commands
+
+        Returns:
+            Task execution result
+        """
         if not self._ssh.is_connected():
             return {
                 "status": "failed",
                 "error": "SSH connection not available",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": dt.now(UTC).isoformat(),
             }
 
         task_id = task.get("id", "unknown")
@@ -101,11 +120,19 @@ class Agent:
                 for r in results
             ],
             "analysis": analysis.__dict__,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": dt.now(UTC).isoformat(),
         }
 
     def _analyze_results(self, task: dict[str, Any], results: list[TaskResult]) -> TaskAnalysis:
-        """Analyze command results and provide intelligent insights."""
+        """Analyze command results based on task type.
+
+        Args:
+            task: Task dictionary
+            results: List of task results
+
+        Returns:
+            Task analysis
+        """
         task_type = task.get("type", "unknown")
 
         analyzers = {
@@ -119,7 +146,14 @@ class Agent:
         return analyzer(results)
 
     def _analyze_health_check(self, results: list[TaskResult]) -> TaskAnalysis:
-        """Analyze interface health check results."""
+        """Analyze interface health and link status.
+
+        Args:
+            results: List of task results
+
+        Returns:
+            Health analysis
+        """
         issues = []
         recommendations = []
         status = "healthy"
@@ -155,7 +189,14 @@ class Agent:
         )
 
     def _analyze_performance(self, results: list[TaskResult]) -> TaskAnalysis:
-        """Analyze performance monitoring results."""
+        """Analyze network performance metrics and error rates.
+
+        Args:
+            results: List of task results
+
+        Returns:
+            Performance analysis
+        """
         metrics = {}
         recommendations = []
 
@@ -182,7 +223,14 @@ class Agent:
         )
 
     def _analyze_diagnostics(self, results: list[TaskResult]) -> TaskAnalysis:
-        """Analyze link diagnostics results."""
+        """Analyze link diagnostics and hardware tests.
+
+        Args:
+            results: List of task results
+
+        Returns:
+            Diagnostics analysis
+        """
         link_status = "unknown"
         tests_passed = 0
         tests_failed = 0
@@ -219,7 +267,14 @@ class Agent:
         )
 
     def _analyze_backup(self, results: list[TaskResult]) -> TaskAnalysis:
-        """Analyze configuration backup results."""
+        """Analyze configuration backup completeness.
+
+        Args:
+            results: List of task results
+
+        Returns:
+            Backup analysis
+        """
         configs_captured = 0
         interfaces_found = []
         routes_found = 0
@@ -250,7 +305,14 @@ class Agent:
         )
 
     def _analyze_generic(self, results: list[TaskResult]) -> TaskAnalysis:
-        """Generic analysis for custom tasks."""
+        """Generic task analysis with success rate.
+
+        Args:
+            results: List of task results
+
+        Returns:
+            Generic analysis
+        """
         successful = sum(1 for r in results if r.success)
         failed = len(results) - successful
         success_rate = f"{(successful / len(results) * 100):.1f}%" if results else "0%"
@@ -266,7 +328,14 @@ class Agent:
         )
 
     def _parse_ethtool_stats(self, output: str) -> dict[str, int]:
-        """Parse ethtool statistics output."""
+        """Parse ethtool statistics output.
+
+        Args:
+            output: Command output
+
+        Returns:
+            Statistics dictionary
+        """
         stats = {}
         for line in output.split("\n"):
             if ":" in line:
@@ -277,7 +346,14 @@ class Agent:
         return stats
 
     def _parse_sar_output(self, output: str) -> dict[str, Any]:
-        """Parse sar network activity output."""
+        """Parse sar network activity output.
+
+        Args:
+            output: Command output
+
+        Returns:
+            Network activity dictionary
+        """
         interfaces = {}
         for line in output.split("\n"):
             if "eth" in line and "Average:" not in line:
@@ -295,7 +371,13 @@ class Agent:
     def _analyze_interface_stats(
         self, stdout: str, issues: list[str], recommendations: list[str]
     ) -> None:
-        """Analyze interface statistics from /proc/net/dev."""
+        """Analyze interface statistics from /proc/net/dev.
+
+        Args:
+            stdout: Command output
+            issues: Issues list to update
+            recommendations: Recommendations list to update
+        """
         for line in stdout.split("\n"):
             if "eth" in line:
                 parts = line.split()
@@ -312,7 +394,14 @@ class Agent:
                         continue
 
     def get_task_recommendations(self, interface: str = "eth0") -> list[dict[str, Any]]:
-        """Get intelligent task recommendations based on current system state."""
+        """Get task recommendations for interface.
+
+        Args:
+            interface: Network interface name
+
+        Returns:
+            List of task recommendations
+        """
         recommendations = [
             {
                 "name": "Quick Health Check",

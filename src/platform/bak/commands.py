@@ -87,15 +87,15 @@ class Ethtool(Command):
     def __init__(self) -> None:
         super().__init__(Type.ETHTOOL)
 
-    def module_info(self, interf: str) -> Command:
+    def module_info(self, interface: str) -> Command:
         self.syntax = f"sudo ethtool -m {interf}"
         return self
 
-    def stats(self, interf: str) -> Command:
+    def stats(self, interface: str) -> Command:
         self.syntax = f"sudo ethtool -S {interf}"
         return self
 
-    def info(self, interf: str) -> Command:
+    def info(self, interface: str) -> Command:
         self.syntax = f"sudo ethtool {interf}"
         return self
 
@@ -109,11 +109,11 @@ class Mlxlink(Command):
     def __init__(self) -> None:
         super().__init__(Type.MLXLINK)
 
-    def serdes_tx(self, interf: str) -> str:
+    def serdes_tx(self, interface: str) -> str:
         """Show some MLNX CX-6Lx TX serdes params."""
         return f"sudo mlxlink -d {interf} --show_serdes_tx"
 
-    def rs_fec_err_counters(self, interf: str) -> str:
+    def rs_fec_err_counters(self, interface: str) -> str:
         """Show MLNX CX-6 Lx RX received signal RS-FEC error counters :"""
         return f"sudo mlxlink -d {interf} --rx_fec_histogram --show_histogram"
 
@@ -127,7 +127,7 @@ class Mlxconfig(Command):
     def __init__(self) -> None:
         super().__init__(Type.MLXCONFIG)
 
-    def query(self, interf: str) -> Command:
+    def query(self, interface: str) -> Command:
         self.syntax = f"sudo mlxconfig -d {interf} query"
         return self
 

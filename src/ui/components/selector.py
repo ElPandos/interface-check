@@ -16,11 +16,22 @@ class SelectionProvider[T](ABC):
 
     @abstractmethod
     def get_options(self) -> list[dict[str, Any]]:
-        """Get available options as list of dicts with 'label' and 'value' keys."""
+        """Get available options as list of dicts with 'label' and 'value' keys.
+
+        Returns:
+            List of option dictionaries
+        """
 
     @abstractmethod
     def is_available(self, value: T) -> bool:
-        """Check if option is available for selection."""
+        """Check if option is available for selection.
+
+        Args:
+            value: Value to check
+
+        Returns:
+            True if available
+        """
 
 
 class Selector[T]:
@@ -33,6 +44,14 @@ class Selector[T]:
         label: str = "Select Option",
         classes: str = "w-64",
     ):
+        """Initialize selector.
+
+        Args:
+            provider: Selection provider
+            on_selection_change: Change callback
+            label: Selector label
+            classes: CSS classes
+        """
         self._provider = provider
         self._on_selection_change = on_selection_change
         self._label = label
@@ -41,7 +60,11 @@ class Selector[T]:
         self._selector: ui.select | None = None
 
     def build(self) -> ui.select:
-        """Build selector dropdown."""
+        """Build selector dropdown.
+
+        Returns:
+            Selector component
+        """
         options = self._provider.get_options()
 
         # Convert options to simple list for ui.select
@@ -67,11 +90,19 @@ class Selector[T]:
 
     @property
     def selected_value(self) -> T | None:
-        """Get currently selected value."""
+        """Get currently selected value.
+
+        Returns:
+            Selected value or None
+        """
         return self._selected_value
 
     def set_value(self, value: T | None) -> None:
-        """Set selected value programmatically."""
+        """Set selected value programmatically.
+
+        Args:
+            value: Value to set
+        """
         self._selected_value = value
         if self._selector and hasattr(self, "_option_mapping"):
             # Find label for value
@@ -83,7 +114,11 @@ class Selector[T]:
             self._selector.value = label
 
     def _on_selection_change_wrapper(self, e: Any) -> None:
-        """Handle selection change with label to value mapping."""
+        """Handle selection change with label to value mapping.
+
+        Args:
+            e: Event object
+        """
         if e.value and hasattr(self, "_option_mapping"):
             actual_value = self._option_mapping.get(e.value)
             self._selected_value = actual_value
@@ -99,11 +134,21 @@ class ConnectionSelectionProvider(SelectionProvider[int]):
     """Selection provider for connection routes."""
 
     def __init__(self, connected_routes: set[int], routes: list[dict[str, str]]):
+        """Initialize provider.
+
+        Args:
+            connected_routes: Set of connected route indices
+            routes: List of route configurations
+        """
         self._connected_routes = connected_routes
         self._routes = routes
 
     def get_options(self) -> list[dict[str, Any]]:
-        """Get available connection options."""
+        """Get available connection options.
+
+        Returns:
+            List of connection options
+        """
         options = []
         for i in self._connected_routes:
             if i < len(self._routes):
@@ -114,11 +159,23 @@ class ConnectionSelectionProvider(SelectionProvider[int]):
         return options
 
     def is_available(self, value: int) -> bool:
-        """Check if connection is available."""
+        """Check if connection is available.
+
+        Args:
+            value: Route index
+
+        Returns:
+            True if available
+        """
         return value in self._connected_routes and value < len(self._routes)
 
     def update_connections(self, connected_routes: set[int], routes: list[dict[str, str]]) -> None:
-        """Update connection data."""
+        """Update connection data.
+
+        Args:
+            connected_routes: Set of connected route indices
+            routes: List of route configurations
+        """
         self._connected_routes = connected_routes
         self._routes = routes
 
@@ -127,19 +184,39 @@ class InterfaceSelectionProvider(SelectionProvider[str]):
     """Selection provider for network interfaces."""
 
     def __init__(self, interfaces: list[str]):
+        """Initialize provider.
+
+        Args:
+            interfaces: List of interface names
+        """
         self._interfaces = interfaces
 
     def get_options(self) -> list[dict[str, Any]]:
-        """Get available interface options."""
+        """Get available interface options.
+
+        Returns:
+            List of interface options
+        """
         return [
             {"label": iface, "value": iface, "tooltip": f"Network interface {iface}"}
             for iface in self._interfaces
         ]
 
     def is_available(self, value: str) -> bool:
-        """Check if interface is available."""
+        """Check if interface is available.
+
+        Args:
+            value: Interface name
+
+        Returns:
+            True if available
+        """
         return value in self._interfaces
 
     def update_interfaces(self, interfaces: list[str]) -> None:
-        """Update interface list."""
+        """Update interface list.
+
+        Args:
+            interfaces: List of interface names
+        """
         self._interfaces = interfaces

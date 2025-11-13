@@ -26,7 +26,7 @@ class PackageManagerType(Enum):
     UNKNOWN = "unknown"
 
 
-class CommandInputType(Enum):
+class CmdInputType(Enum):
     """Command input types."""
 
     INTERFACE = "Network interface"

@@ -14,7 +14,11 @@ from src.platform.tools.system import SystemTool
 
 
 class ToolFactory:
-    """Factory for creating log/diagnostic tool instances."""
+    """Factory for creating diagnostic tool instances.
+
+    Provides centralized tool creation with support for ethtool, mlx tools,
+    mst, rdma, system utilities, and dmesg.
+    """
 
     _TOOLS: ClassVar[dict[ToolType, type[ITool]]] = {
         ToolType.ETHTOOL: EthtoolTool,
@@ -37,7 +41,7 @@ class ToolFactory:
             interfaces: Optional list of network interfaces
 
         Returns:
-            Tool instance
+            ITool: Tool instance
 
         Raises:
             ValueError: If tool_type is not supported
@@ -51,15 +55,19 @@ class ToolFactory:
 
     @classmethod
     def get_available_tools(cls) -> list[ToolType]:
-        """Get list of available tool types."""
+        """Get list of available tool types.
+
+        Returns:
+            list[ToolType]: List of registered ToolType enums
+        """
         return list(cls._TOOLS.keys())
 
     @classmethod
     def register_tool(cls, name: str, tool_class: type[ITool]) -> None:
-        """Register a new tool class.
+        """Register a new tool class dynamically.
 
         Args:
-            name: Tool name
-            tool_class: Tool class implementing Tool interface
+            name: Tool name identifier
+            tool_class: Tool class implementing ITool interface
         """
         cls._TOOLS[name] = tool_class

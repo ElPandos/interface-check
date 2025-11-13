@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import contextlib
 from dataclasses import dataclass, field
-from datetime import datetime as dt, timedelta
+from datetime import UTC, datetime as dt, timedelta
 import logging
 from pathlib import Path
 import re
@@ -13,7 +13,7 @@ from src.core.json import Json
 from src.platform import Hardware, Health, Power, Software, Statistics
 from src.platform.enums.log import LogName
 
-logger = logging.getLogger(LogName.MAIN.value)
+logger = logging.getLogger(LogName.CORE_MAIN.value)
 
 # ---------------------------------------------------------------------------- #
 #                                  Interfaces                                  #
@@ -68,14 +68,14 @@ class Interfaces:
 # ---------------------------------------------------------------------------- #
 
 
-def run_command(command: list[str], *, fail_ok: bool = False) -> str:
-    if not command or not all(isinstance(arg, str) for arg in command):
+def run_command(cmd: list[str], *, fail_ok: bool = False) -> str:
+    if not cmd or not all(isinstance(arg, str) for arg in cmd):
         msg = "Command must be a non-empty list of strings"
         raise ValueError(msg)
 
     # Input is validated above - command is list of strings, shell=False prevents injection
     result = subprocess.run(  # noqa: S603
-        command,
+        cmd,
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -85,10 +85,10 @@ def run_command(command: list[str], *, fail_ok: bool = False) -> str:
 
     if result.returncode != 0:
         if fail_ok:
-            logger.warning(f"Command failed but will continue: {' '.join(command)}")
+            logger.warning(f"Command failed but will continue: {' '.join(cmd)}")
         else:
             raise RuntimeError(
-                f"Command failed: {' '.join(command)}\n{result.str_out}\n{result.str_err}"
+                f"Command failed: {' '.join(cmd)}\n{result.str_out}\n{result.str_err}"
             )
     else:
         logger.info(result.str_out)
@@ -191,7 +191,7 @@ def dump_lists_to_file(
 
         # Check if file exists and back it up
         if full_path.exists():
-            timestamp = dt.now(tz=dt.UTC).strftime("%Y%m%d_%H%M%S")
+            timestamp = dt.now(UTC).strftime("%Y%m%d_%H%M%S")
             backup_path = full_path.with_suffix(f".{timestamp}")
             full_path.rename(backup_path)
             logger.info(f"Existing file renamed to backup: {backup_path}")
@@ -200,7 +200,7 @@ def dump_lists_to_file(
         data = {
             "x": list1,
             "y": list2,
-            "created_at": dt.now(tz=dt.UTC).isoformat(),
+            "created_at": dt.now(UTC).isoformat(),
         }
 
         # Write to JSON file with indentation for readability
@@ -275,7 +275,7 @@ class SystemHealth:
     temperature: float = 0.0
     network_status: dict[str, bool] = field(default_factory=dict)
     power_status: str = "unknown"
-    timestamp: dt = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: dt = field(default_factory=lambda: dt.now(UTC))
 
 
 @dataclass
@@ -535,13 +535,13 @@ class Platform:
 
     def get_health_history(self, hours: int = 24) -> list[SystemHealth]:
         """Get health metrics history."""
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        cutoff = dt.now(UTC) - timedelta(hours=hours)
         return [h for h in self._health_log if h.timestamp > cutoff]
 
     def log_system_test(self, test_name: str, result: bool, details: str = "") -> None:
         """Log system test results."""
         log_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": dt.now(UTC).isoformat(),
             "test_name": test_name,
             "result": "PASS" if result else "FAIL",
             "details": details,

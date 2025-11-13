@@ -23,11 +23,17 @@ from src.ui.tabs.system import SystemPanel, SystemTab
 from src.ui.tabs.toolbox import ToolboxPanel, ToolboxTab
 from src.ui.themes.style import apply_global_theme
 
-logger = logging.getLogger(LogName.MAIN.value)
+logger = logging.getLogger(LogName.CORE_MAIN.value)
 
 
 class Gui:
-    _config: Config
+    """Main GUI controller for the application.
+
+    Args:
+        cfg: Application configuration
+    """
+
+    _cfg: Config
     _host_handler: HostHandler
     _tabs: ui.tabs
     _right_drawer: ui.right_drawer
@@ -36,12 +42,17 @@ class Gui:
     _tab_content: dict[str, Any]
     _panel_content: dict[str, Any]
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, cfg: Config) -> None:
+        """Initialize GUI with configuration.
+
+        Args:
+            cfg: Application configuration
+        """
         logger.debug("GUI init")
         logger.debug(f"Nicegui version: {nicegui.__version__}")
 
-        self._config = config
-        self._host_handler = HostHandler(config)
+        self._cfg = cfg
+        self._host_handler = HostHandler(cfg)
 
         self._tab_content = {}
         self._panel_content = {}
@@ -49,6 +60,7 @@ class Gui:
         self.build()
 
     def build(self) -> None:
+        """Build all GUI components."""
         apply_global_theme()
         self._add_custom_styles()
         self._build_right_drawer()
@@ -60,9 +72,11 @@ class Gui:
         self._add_gui_events()
 
     def run(self) -> None:
+        """Run the GUI application."""
         ui.run(favicon="./assets/icons/interoperability.png", reload=True)
 
     def _build_header(self) -> None:
+        """Build header with tabs."""
         with ui.header().classes(replace="row items-center justify-between"):
             with ui.tabs() as self._tabs:
                 tab_classes = [
@@ -85,8 +99,9 @@ class Gui:
             ui.button(on_click=self._right_drawer.toggle, icon="settings").props("flat color=white")
 
     def _build_body(self) -> None:
+        """Build body with tab panels."""
         with ui.tab_panels(self._tabs, value=LocalTab().name).classes("w-full h-fit bg-gray-100"):
-            panel_configs = [
+            panel_cfgs = [
                 (LocalPanel, {}),
                 (HostPanel, {}),
                 (ToolboxPanel, {}),
@@ -100,18 +115,20 @@ class Gui:
                 (ChatPanel, {}),
             ]
 
-            for panel_class, extra_kwargs in panel_configs:
+            for panel_class, extra_kwargs in panel_cfgs:
                 panel = panel_class(
-                    build=True, config=self._config, host_handler=self._host_handler, **extra_kwargs
+                    build=True, config=self._cfg, host_handler=self._host_handler, **extra_kwargs
                 )
                 self._panel_content[panel.name] = panel
 
     def _build_right_drawer(self) -> None:
+        """Build right drawer with settings."""
         with ui.right_drawer().classes("bg-blue-100") as self._right_drawer:
             self._right_drawer.hide()  # Hide as default
-            settings.build(self._config)
+            settings.build(self._cfg)
 
     def _build_footer(self) -> None:
+        """Build footer with version info."""
         with ui.footer(value=False) as self.footer:
             try:
                 proc = Cli().run(Git().patchset().syntax)
@@ -129,6 +146,7 @@ class Gui:
                 ui.button("Reload page", on_click=ui.navigate.reload)
 
     def _build_sticky_footer(self) -> None:
+        """Build sticky footer button."""
         with ui.page_sticky(position="bottom-right", x_offset=20, y_offset=20):
             ui.button(on_click=self.footer.toggle, icon="build_circle").props("fab")
 
@@ -184,4 +202,5 @@ class Gui:
         """)
 
     def disconnect(self) -> None:
+        """Disconnect all hosts."""
         self._host_manager.disconnect()

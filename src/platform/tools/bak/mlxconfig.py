@@ -37,7 +37,7 @@ class MlxconfigTool(Tool):
         if command_name in ["query", "query_next"]:
             return self._parse_parameters(raw_output)
         if command_name == "show_confs":
-            return self._parse_configurations(raw_output)
+            return self._parse_cfgurations(raw_output)
         return raw_output.strip()
 
     def _parse_parameters(self, output: str) -> list[MlxParameter]:
@@ -60,7 +60,7 @@ class MlxconfigTool(Tool):
 
         return parameters
 
-    def _parse_configurations(self, output: str) -> dict[str, str]:
+    def _parse_cfgurations(self, output: str) -> dict[str, str]:
         """Parse configuration list."""
         configs = {}
         lines = output.strip().split("\n")

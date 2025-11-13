@@ -35,13 +35,13 @@ class EthtoolPanel(BasePanel):
         self,
         *,
         build: bool = False,
-        config: Config = None,
+        cfg: Config = None,
         ssh_connection: SshConnection = None,
         host_handler=None,
         icon: ui.icon = None,
     ):
         super().__init__(NAME, LABEL, EthtoolTab.ICON_NAME)
-        self._config = config
+        self._cfg = config
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
         self._icon = icon
@@ -59,7 +59,7 @@ class EthtoolPanel(BasePanel):
                 self._icon.style("color: #ef4444")
 
     def _close_card(
-        self, card: ui.card, _interf: str | None = None, kill_worker: bool = False
+        self, card: ui.card, _interface: str | None = None, kill_worker: bool = False
     ) -> None:
         if kill_worker:
             logger.debug("Kill worker")
@@ -182,11 +182,11 @@ class EthtoolPanel(BasePanel):
     def _activate_workers(self, options: list) -> None:
         for interf in options.value:
             self._work_manager.add(
-                Worker(Ethtool().module_info(interf), interf, self._config, self._ssh_connection)
+                Worker(Ethtool().module_info(interf), interf, self._cfg, self._ssh_connection)
             )
             self._build_source(interf)
 
-    def _build_source(self, interf: str) -> None:
+    def _build_source(self, interface: str) -> None:
         card = ui.card().classes("w-full")
         with card, ui.row().classes("w-full"):
             sample = self._work_manager.get_worker(interf).get_first_sample()
@@ -207,11 +207,11 @@ class EthtoolPanel(BasePanel):
                 "X", on_click=lambda opt=card: self._close_card(opt, interf, kill_worker=True)
             )
 
-    def _activate_source(self, interf: str, options: list) -> None:
+    def _activate_source(self, interface: str, options: list) -> None:
         for source in options.value:
             self._build_value(interf, source)
 
-    def _build_value(self, interf: str, source: str) -> None:
+    def _build_value(self, interface: str, source: str) -> None:
         card = ui.card().classes("w-full")
         with card, ui.row().classes("w-full"):
             samples = self._work_manager.get_worker(interf).get_all_samples()
@@ -232,7 +232,7 @@ class EthtoolPanel(BasePanel):
             ui.space()
             ui.button("X", on_click=lambda opt=card: self._close_card(opt))
 
-    def _plot_values(self, interf: str, source: str, options: list) -> None:
+    def _plot_values(self, interface: str, source: str, options: list) -> None:
         gh = GraphHandler()
         for value in options.value:
-            gh.add(self._work_manager, self._config, interf, source, value)
+            gh.add(self._work_manager, self._cfg, interf, source, value)

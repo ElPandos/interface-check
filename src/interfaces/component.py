@@ -12,95 +12,142 @@ if TYPE_CHECKING:
 
 
 class IParser(ABC):
-    """Abstract interface for parsers."""
+    """Abstract interface for command output parsers.
+
+    Provides base functionality for parsing command output into structured data.
+    """
 
     def __init__(self, log_name: str):
+        """Initialize parser with logger.
+
+        Args:
+            log_name: Logger name for this parser
+        """
         self._logger = logging.getLogger(log_name)
 
     @property
     @abstractmethod
     def name(self) -> str:
-        """Parser name identifier."""
+        """Get parser name identifier.
+
+        Returns:
+            str: Parser name
+        """
 
     @abstractmethod
     def _parse(self) -> Any:
-        """Parse data."""
+        """Parse raw data into structured format.
+
+        Returns:
+            Any: Parsed data structure
+        """
 
     @abstractmethod
     def get_result(self) -> Any:
-        """Get parsed result."""
+        """Get parsed result.
+
+        Returns:
+            Any: Parsed result data
+        """
 
     @abstractmethod
     def log(self) -> None:
-        """Log parsed content."""
+        """Log parsed content to logger."""
 
 
 class ITool(ABC):
-    """Abstract interface for tools."""
+    """Abstract interface for diagnostic tools.
+
+    Provides base functionality for network diagnostic tools like ethtool,
+    mlxlink, and other command-line utilities.
+    """
 
     @property
     @abstractmethod
     def type(self) -> "ToolType":
-        """Tool type identifier."""
-
-    @abstractmethod
-    def _parse(self, command: str, output: str) -> dict[str, str]:
-        """Parse function to build output data to structured data.
-
-        Args:
-            command: Command that was executed
-            output: Raw output from command execution
+        """Get tool type identifier.
 
         Returns:
-            Parsed data as dictionary
+            ToolType: Tool type enum value
         """
 
     @abstractmethod
-    def available_commands(self) -> list[str]:
+    def _parse(self, cmd: str, output: str) -> dict[str, str]:
+        """Parse command output into structured data.
+
+        Args:
+            cmd: Command that was executed
+            output: Raw output from command execution
+
+        Returns:
+            dict[str, str]: Parsed data as dictionary
+        """
+
+    @abstractmethod
+    def available_cmds(self) -> list[str]:
         """Get available commands for the tool.
 
         Returns:
-            List of command strings
+            list[str]: List of command strings
         """
 
     @abstractmethod
     def execute(self) -> None:
-        """Execute all commands for the tool."""
+        """Execute all available commands for the tool."""
 
     @abstractmethod
-    def log(self) -> None:
-        """Log all results for the tool."""
+    def log(self, logger: logging.Logger) -> None:
+        """Log all results for the tool.
+
+        Args:
+            logger: Logger instance for output
+        """
 
     @abstractmethod
-    def _summarize(self) -> dict[str, Any]:  # Needed?
-        """Summarizes the results."""
+    def _summarize(self) -> dict[str, Any]:
+        """Summarize all command results.
+
+        Returns:
+            dict[str, Any]: Summary of all results
+        """
 
 
 class IConnection(ABC):
-    """Abstract interface for connections."""
+    """Abstract interface for remote connections.
+
+    Provides base functionality for SSH and other remote connection types.
+    """
 
     @abstractmethod
     def connect(self) -> bool:
-        """Connect to host. Returns if it was successful or not."""
+        """Connect to remote host.
+
+        Returns:
+            bool: True if connection successful, False otherwise
+        """
 
     @abstractmethod
     def disconnect(self) -> None:
-        """Disconnect from host and cleans up resources."""
+        """Disconnect from remote host and clean up resources."""
 
     @abstractmethod
     def is_connected(self) -> bool:
-        """Check if connection is active."""
+        """Check if connection is active.
+
+        Returns:
+            bool: True if connected, False otherwise
+        """
 
     @abstractmethod
     def exec_cmd(self, cmd: str, timeout: int | None = None) -> CmdResult:
-        """Execute command and return command result.
+        """Execute command and return result.
 
         Args:
             cmd: Command to execute
             timeout: Optional timeout in seconds
 
         Returns:
-            Command execution result
+            CmdResult: Command execution result
         """
 
 
@@ -112,6 +159,7 @@ class ITime:
     """
 
     def __init__(self):
+        """Initialize time tracking with None timestamps."""
         self._begin: dt | None = None
         self._end: dt | None = None
 
@@ -135,12 +183,20 @@ class ITime:
 
     @property
     def begin(self) -> dt | None:
-        """Get begin timestamp."""
+        """Get begin timestamp.
+
+        Returns:
+            dt | None: Begin timestamp or None if not started
+        """
         return self._begin
 
     @property
     def end(self) -> dt | None:
-        """Get end timestamp."""
+        """Get end timestamp.
+
+        Returns:
+            dt | None: End timestamp or None if not stopped
+        """
         return self._end
 
     @property
@@ -148,7 +204,7 @@ class ITime:
         """Calculate duration in seconds.
 
         Returns:
-            Duration in seconds, or None if times not set
+            float | None: Duration in seconds, or None if times not set
         """
         if self._begin and self._end:
             return (self._end - self._begin).total_seconds()

@@ -9,17 +9,16 @@ logger = logging.getLogger(LogName.MAIN.value)
 
 
 class App:
-    """
-    Main application class responsible for:
-    - Loading environment variables
-    - Reading configuration
-    - Initializing and managing the GUI lifecycle
+    """Main application class responsible for lifecycle management.
+    
+    Handles environment setup, configuration loading, and GUI initialization.
     """
 
     def __init__(self) -> None:
-        """
-        Initialize the application environment, configuration, and GUI.
-        Handles graceful cleanup on user interrupt or initialization error.
+        """Initialize application environment, configuration, and GUI.
+        
+        Raises:
+            Exception: If initialization fails
         """
         logger.debug("Initializing App...")
 
@@ -53,10 +52,7 @@ class App:
             raise  # re-raise to make the error visible
 
     def _safe_disconnect(self) -> None:
-        """
-        Safely disconnect the GUI if it was initialized.
-        Prevents AttributeError if _gui was never set.
-        """
+        """Safely disconnect GUI if initialized."""
         if self._gui is not None:
             try:
                 self._gui.disconnect()

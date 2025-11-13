@@ -1,25 +1,30 @@
+import logging
 from typing import Any, ClassVar
 
 from src.core.connect import SshConnection
 from src.core.tool import Tool
 from src.interfaces.component import ITool
 from src.interfaces.connection import CmdResult
-from src.platform.enums.software import CommandInputType, ToolType
+from src.platform.enums.software import CmdInputType, ToolType
 
 
 class EthtoolTool(Tool, ITool):
-    """Ethtool class for CLI diagnostic tools."""
+    """Ethtool network interface diagnostic tool.
+
+    Provides access to ethtool commands for querying network interface
+    statistics, configuration, and hardware information.
+    """
 
     # fmt: off
     _AVAILABLE_COMMANDS: ClassVar[list[list[Any]]] = [
-        ["sudo", "ethtool", CommandInputType.INTERFACE],
+        ["ethtool", CmdInputType.INTERFACE],
         #["ethtool", "-v", "-s", CommandInputType.INTERFACE],
-        ["sudo", "ethtool", "-i", CommandInputType.INTERFACE],
-        ["sudo", "ethtool", "-S", CommandInputType.INTERFACE],  # Statistics
-        ["sudo", "ethtool", "-m", CommandInputType.INTERFACE],  # Temp, Volt
-        ["sudo", "ethtool", "-k", CommandInputType.INTERFACE],  # Features
-        ["sudo", "ethtool", "-g", CommandInputType.INTERFACE],  # Features
-        ["sudo", "ethtool", "-c", CommandInputType.INTERFACE],  # Coalesce
+        ["ethtool", "-i", CmdInputType.INTERFACE], # Interface
+        ["ethtool", "-S", CmdInputType.INTERFACE], # Statistics
+        ["ethtool", "-m", CmdInputType.INTERFACE], # Temp, Volt
+        ["ethtool", "-k", CmdInputType.INTERFACE], # Features
+        ["ethtool", "-g", CmdInputType.INTERFACE], # Features
+        ["ethtool", "-c", CmdInputType.INTERFACE], # Coalesce
     ]
     # fmt: on
 
@@ -31,18 +36,23 @@ class EthtoolTool(Tool, ITool):
             interfaces: List of network interface names
         """
         Tool.__init__(self, ssh_connection)
+
         self._interfaces = interfaces
 
     @property
     def type(self) -> ToolType:
-        """Name of the CLI tool."""
-        return ToolType.ETHTOOL
-
-    def available_commands(self) -> list[str]:
-        """Get available commands for this tool.
+        """Get the tool type identifier.
 
         Returns:
-            list of CLI commands
+            ToolType.ETHTOOL constant
+        """
+        return ToolType.ETHTOOL
+
+    def available_cmds(self) -> list[str]:
+        """Get available commands for all configured interfaces.
+
+        Returns:
+            list[str]: List of command dictionaries with interface mappings
         """
         commands_modified = []
         for interface in self._interfaces:
@@ -51,21 +61,30 @@ class EthtoolTool(Tool, ITool):
         return commands_modified
 
     def execute(self) -> None:
-        for command in self.available_commands():
+        """Execute all available ethtool commands.
+
+        Runs each command from available_cmds() and stores results.
+        """
+        for command in self.available_cmds():
             self._exec(command)
 
-    def log(self) -> None:
-        self._log()
+    def log(self, logger: logging.Logger) -> None:
+        """Log all command results.
+
+        Args:
+            logger: Logger instance for output
+        """
+        self._log(logger)
 
     def _parse(self, command: str, output: str) -> dict[str, str]:
         """Parse raw command output into structured data.
 
         Args:
-            command: Name of the executed command
+            command: Executed command string
             output: Raw stdout from command execution
 
         Returns:
-            ToolResult with parsed data
+            Dictionary with raw_output key containing unparsed output
         """
         return {"raw_output": output}
 
@@ -73,22 +92,22 @@ class EthtoolTool(Tool, ITool):
         """Execute all commands and return parsed results.
 
         Returns:
-            Dict mapping command names to parsed data
+            Dictionary mapping interface names to command results or error objects
         """
-        available_commands = self.available_commands()
+        available_commands = self.available_cmds()
 
         response = {}
         for interface in self._interfaces:
-            for command_config in available_commands:
-                for cmd_type, args in command_config.items():
+            for command_cfg in available_commands:
+                for cmd_type, args in command_cfg.items():
                     target = interface
-                    if cmd_type != CommandInputType.INTERFACE:
+                    if cmd_type != CmdInputType.INTERFACE:
                         continue
 
                     final_command = f"{' '.join(args)} {target}"
                     result = self._exec(final_command)
                     if result.success:
-                        response[interface] = result._stdout.strip()
+                        response[interface] = result.stdout
                     else:
-                        response[interface] = CmdResult.error(result._stderr, result._rcode)
+                        response[interface] = CmdResult.error(result.stderr, result.rcode)
         return response

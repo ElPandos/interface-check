@@ -115,9 +115,9 @@ class CircularBuffer:
 class NetworkMetric:
     __slots__ = ['timestamp', 'interface', 'rx_bytes', 'tx_bytes']
     
-    def __init__(self, timestamp: float, interface: str, rx_bytes: int, tx_bytes: int):
+    def __init__(self, timestamp: float, interf: str, rx_bytes: int, tx_bytes: int):
         self.timestamp = timestamp
-        self.interface = interface
+        self.interf = interf
         self.rx_bytes = rx_bytes
         self.tx_bytes = tx_bytes
 ```

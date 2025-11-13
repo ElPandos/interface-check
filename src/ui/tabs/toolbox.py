@@ -28,7 +28,7 @@ class ToolboxPanel(BasePanel, MultiScreen):
     def __init__(
         self,
         build: bool = False,
-        config: Config = None,
+        cfg: Config = None,
         ssh_connection: SshConnection = None,
         host_handler=None,
         icon: ui.icon = None,
@@ -36,7 +36,7 @@ class ToolboxPanel(BasePanel, MultiScreen):
         BasePanel.__init__(self, NAME, LABEL, ToolboxTab.ICON_NAME)
         MultiScreen.__init__(self)
 
-        self._config = config
+        self._cfg = config
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
         self._icon = icon
@@ -62,7 +62,7 @@ class ToolboxPanel(BasePanel, MultiScreen):
 
                 if screen_num not in self._toolbox_screens:
                     self._toolbox_screens[screen_num] = ToolboxContent(
-                        self._ssh_connection, self._host_handler, self._config, self, screen_num
+                        self._ssh_connection, self._host_handler, self._cfg, self, screen_num
                     )
 
                 # Route selector in header
@@ -79,13 +79,13 @@ class ToolboxContent:
         self,
         ssh_connection: SshConnection | None = None,
         host_handler: Any = None,
-        config: Config | None = None,
+        cfg: Config | None = None,
         parent_panel: ToolboxPanel | None = None,
         screen_num: int = 1,
     ) -> None:
         self._ssh_connection = ssh_connection
         self._host_handler = host_handler
-        self._config = config
+        self._cfg = config
         self._parent_panel = parent_panel
         self._screen_num = screen_num
         self._selected_route: int | None = None

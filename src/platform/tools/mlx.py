@@ -1,19 +1,24 @@
+import logging
 from typing import Any, ClassVar
 
 from src.core.connect import SshConnection
-from src.interfaces.connection import CmdResult
 from src.core.tool import Tool
 from src.interfaces.component import ITool
-from src.platform.enums.software import CommandInputType, ToolType
+from src.interfaces.connection import CmdResult
+from src.platform.enums.software import CmdInputType, ToolType
 
 
 class MlxTool(Tool, ITool):
-    """Mlx class for CLI diagnostic tools."""
+    """Mellanox diagnostic tool for mlxlink and mlxconfig commands.
+
+    Provides access to Mellanox-specific diagnostic commands for querying
+    adapter configuration and link status.
+    """
 
     # fmt: off
     _AVAILABLE_COMMANDS: ClassVar[list[list[Any]]] = [
-        ["sudo", "mlxlink", "-d", CommandInputType.MST_PCICONF],
-        ["sudo", "mlxconfig", "-d", CommandInputType.MST_PCICONF, "query"]
+        ["mlxlink", "-d", CmdInputType.MST_PCICONF],
+        ["mlxconfig", "-d", CmdInputType.MST_PCICONF, "query"]
     ]
     # fmt: on
 
@@ -29,14 +34,18 @@ class MlxTool(Tool, ITool):
 
     @property
     def type(self) -> ToolType:
-        """Name of the CLI tool."""
+        """Get the tool type identifier.
+
+        Returns:
+            ToolType: ToolType.MLX constant
+        """
         return ToolType.MLX
 
-    def available_commands(self) -> list[str]:
+    def available_cmds(self) -> list[str]:
         """Get available commands for this tool.
 
         Returns:
-            List of CLI commands
+            list[str]: List of command dictionaries with interface mappings
         """
         commands_modified = []
         for interface in self._interfaces:
@@ -46,21 +55,30 @@ class MlxTool(Tool, ITool):
         return commands_modified
 
     def execute(self) -> None:
-        for command in self.available_commands():
+        """Execute all available mlx commands.
+
+        Runs each command from available_cmds() and stores results.
+        """
+        for command in self.available_cmds():
             self._exec(command)
 
-    def log(self) -> None:
-        self._log()
+    def log(self, logger: logging.Logger) -> None:
+        """Log all command results.
 
-    def _parse(self, command: str, output: str) -> dict[str, str]:
+        Args:
+            logger: Logger instance for output
+        """
+        self._log(logger)
+
+    def _parse(self, cmd: str, output: str) -> dict[str, str]:
         """Parse raw command output into structured data.
 
         Args:
-            command: Name of the executed command
+            cmd: Executed command string
             output: Raw stdout from command execution
 
         Returns:
-            ToolResult with parsed data
+            dict[str, str]: Dictionary with raw_output key containing unparsed output
         """
         return {"raw_output": output}
 
@@ -68,22 +86,22 @@ class MlxTool(Tool, ITool):
         """Execute all commands and return parsed results.
 
         Returns:
-            Dict mapping command names to parsed data
+            dict[str, Any]: Dictionary mapping interface names to command results or error objects
         """
-        available_commands = self.available_commands()
+        available_commands = self.available_cmds()
 
         response = {}
         for interface in self._interfaces:
-            for command_config in available_commands:
-                for cmd_type, args in command_config.items():
+            for command_cfg in available_commands:
+                for cmd_type, args in command_cfg.items():
                     target = interface
-                    if cmd_type == CommandInputType.MST_PCICONF:
+                    if cmd_type == CmdInputType.MST_PCICONF:
                         target = get_pci_id_command(interface)
 
                     final_command = f"{' '.join(args)} {target}"
                     result = self._exec(final_command)
                     if result.success:
-                        response[interface] = result._stdout.strip()
+                        response[interface] = result.stdout
                     else:
-                        response[interface] = CmdResult.error(result._stderr, result._rcode)
+                        response[interface] = CmdResult.error(result.stderr, result.rcode)
         return response
