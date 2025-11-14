@@ -12,4 +12,4 @@ class LogName(Enum):
     SUT_SYSTEM_INFO = "sut_system_info"
     SUT_MXLINK = "sut_mxlink"
     SUT_MTEMP = "sut_mtemp"
-    SUT_LINK_STATUS = "sut_link_status"
+    SUT_LINK_FLAP = "sut_link_status"

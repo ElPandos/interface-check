@@ -37,9 +37,7 @@ class WorkerConfig:
 
     command: str = None
     parser: Any = None
-    attrs: list[str] = None
-    logger: logging.Logger = None
-    mem_logger: logging.Logger = None
+    attributes: list[str] = None
 
 
 class Worker(Thread, ITime):
@@ -54,7 +52,7 @@ class Worker(Thread, ITime):
 
     def __init__(
         self,
-        worker_config: WorkerConfig,
+        worker_cfg: WorkerConfig,
         cfg: Config,
         ssh: SshConnection,
         name: str = "Worker",
@@ -72,7 +70,7 @@ class Worker(Thread, ITime):
 
         self.MAX_RECONNECT = 10
 
-        self._worker_config = worker_config
+        self._worker_cfg = worker_cfg
         self._cfg = cfg
         self._ssh = ssh
 
@@ -81,7 +79,7 @@ class Worker(Thread, ITime):
         self._collected_samples: queue.Queue = queue.Queue()  # Thread-safe queue for samples
         self._extracted_samples: list[Sample] = []  # Extracted samples for analysis
 
-        self._logger = self._worker_config.logger
+        self._logger = worker_cfg.logger
 
     def run(self) -> None:
         """Main thread execution loop."""
@@ -90,8 +88,8 @@ class Worker(Thread, ITime):
         headers = [
             "begin_timestamp",
         ]
-        if self._worker_config.attrs is not None:
-            headers.extend(self._worker_config.attrs)
+        if self._worker_cfg.attributes is not None:
+            headers.extend(self._worker_cfg.attributes)
         else:
             headers.append("value")
 
@@ -108,11 +106,12 @@ class Worker(Thread, ITime):
                     break
 
                 # Collect sample by executing command
-                sample = Sample(self._cfg, self._ssh).collect(self._worker_config)
+                sample = Sample(self._cfg, self._ssh).collect(self._worker_cfg)
 
                 # Parse output if parser provided
-                if self._worker_config.parser is not None:
-                    sample.snapshot = self._worker_config.parser(sample.snapshot).get_result()
+                if self._worker_cfg.parser is not None:
+                    self._worker_cfg.parser.parse(sample.snapshot)
+                    sample.snapshot = self._worker_cfg.parser.get_result()
                 elif sample.snapshot is not None:
                     sample.snapshot = sample.snapshot.strip()
                 else:
@@ -122,18 +121,29 @@ class Worker(Thread, ITime):
                 self._collected_samples.put(sample)
 
                 # Log sample value
-                row = []
                 timestamp = (
                     sample.begin.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] if sample.begin else ""
                 )
-                row.append(timestamp)
-                if self._worker_config.attrs is not None:
-                    row.extend(
-                        get_attr_value(sample.snapshot, attr) for attr in self._worker_config.attrs
-                    )
+
+                # Special handling for DmesgFlapResult - log each flap on separate row
+                if hasattr(sample.snapshot, "flaps"):
+                    for flap in sample.snapshot.flaps:
+                        row = [timestamp]
+                        row.append(flap.interface)
+                        row.append(flap.down_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
+                        row.append(flap.up_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
+                        row.append(str(flap.duration))
+                        self._logger.info(",".join(row))
                 else:
-                    row.append(sample.snapshot)
-                self._logger.info(",".join(row))
+                    row = [timestamp]
+                    if self._worker_cfg.attributes is not None:
+                        row.extend(
+                            get_attr_value(sample.snapshot, attr)
+                            for attr in self._worker_cfg.attributes
+                        )
+                    else:
+                        row.append(sample.snapshot)
+                    self._logger.info(",".join(row))
 
                 # Log collected mem usage, can t check size on queue
                 # if self._worker_config.mem_logger is not None:
@@ -181,7 +191,7 @@ class Worker(Thread, ITime):
         Returns:
             Command string
         """
-        return self._worker_config.command
+        return self._worker_cfg.command
 
     def add(self, sample: Sample) -> None:
         """Add sample to queue.

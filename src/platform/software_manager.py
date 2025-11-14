@@ -419,7 +419,6 @@ class SoftwareManager:
             apt_manager = AptManager(self._ssh)
             if apt_manager.is_available():
                 self._package_manager = apt_manager
-                self._logger.info("")
                 return
         except Exception as e:
             self._logger.warning(f"Error checking APT availability: {e}")

@@ -71,17 +71,19 @@ signal.signal(signal.SIGINT, signal_handler)
 # ============================================================================
 
 # Create timestamped log directory
-log_time_stamp = f"{dt.now(UTC).strftime('%Y%m%d_%H%M%S')}"
+log_time_stamp = f"{dt.now().strftime('%Y%m%d_%H%M%S')}"
 log_dir = Path(__file__).parent / "logs"
 log_dir.mkdir(exist_ok=True)
 
 # Define separate log files for different components
 main_log = log_dir / f"{log_time_stamp}_main.log"  # Main execution flow
 memory_log = log_dir / f"{log_time_stamp}_memory.log"
+
 sut_system_info_log = log_dir / f"{log_time_stamp}_sut_system_info.log"  # SUT system info
 sut_mxlink_log = log_dir / f"{log_time_stamp}_sut_mxlink.log"  # SUT metrics
 sut_mtemp_log = log_dir / f"{log_time_stamp}_sut_mtemp.log"  # SUT metrics
-sut_link_status_log = log_dir / f"{log_time_stamp}_sut_link_status.log"  # SUT link status
+sut_link_flap_log = log_dir / f"{log_time_stamp}_sut_link_flap.log"  # SUT link status
+
 slx_eye_log = log_dir / f"{log_time_stamp}_slx_eye.log"  # SLX eye scan
 
 
@@ -111,7 +113,7 @@ logger_cfgs = [
     (LogName.SUT_SYSTEM_INFO.value, sut_system_info_log),
     (LogName.SUT_MXLINK.value, sut_mxlink_log),
     (LogName.SUT_MTEMP.value, sut_mtemp_log),
-    (LogName.SUT_LINK_STATUS.value, sut_link_status_log),
+    (LogName.SUT_LINK_FLAP.value, sut_link_flap_log),
     (LogName.SLX_EYE.value, slx_eye_log),
 ]
 
@@ -129,7 +131,7 @@ memory_logger = logging.getLogger(LogName.CORE_MEMORY.value)
 sut_system_info_logger = logging.getLogger(LogName.SUT_SYSTEM_INFO.value)
 sut_mxlink_logger = logging.getLogger(LogName.SUT_MXLINK.value)
 sut_mtemp_logger = logging.getLogger(LogName.SUT_MTEMP.value)
-sut_link_status_logger = logging.getLogger(LogName.SUT_LINK_STATUS.value)
+sut_link_flap_logger = logging.getLogger(LogName.SUT_LINK_FLAP.value)
 slx_eye_logger = logging.getLogger(LogName.SLX_EYE.value)
 
 
@@ -844,8 +846,8 @@ class SutSystemScanner:
                 pci_id = helper.get_pci_id(self._ssh, interface)
                 self._logger.debug(f"PCI ID for '{interface}': '{pci_id}'")
 
-                self._create_mlxlink_worker(pci_id)
-                self._create_mtemp_worker(pci_id)
+                # self._create_mlxlink_worker(pci_id)
+                # self._create_mtemp_worker(pci_id)
                 self._create_dmesg_worker(interface)
 
             self._logger.info(f"Created {len(cfg.sut_scan_interfaces) * 3} workers")
@@ -860,8 +862,7 @@ class SutSystemScanner:
         Args:
             pci_id: PCI device ID
         """
-        # mlxlink attributes (excluding begin - we add it first)
-        mlxlink_attrs = [
+        attributes = [
             "temperature",
             "voltage",
             "bias_current",
@@ -874,14 +875,13 @@ class SutSystemScanner:
             "raw_physical_ber",
         ]
 
-        worker_command = WorkerConfig()
-        worker_command.command = f"mlxlink -d {pci_id} -e -m -c"
-        worker_command.parser = MlxlinkParser
-        worker_command.logger = sut_mxlink_logger
-        worker_command.attrs = mlxlink_attrs
-        worker_command.mem_logger = memory_logger
-        self._logger.debug(f"Worker command: '{worker_command.command}'")
-        self._worker_manager.add(Worker(worker_command, self._cfg, self._ssh))
+        worker_cfg = WorkerConfig()
+        worker_cfg.command = f"mlxlink -d {pci_id} -e -m -c"
+        worker_cfg.parser = MlxlinkParser()
+        worker_cfg.attributes = attributes
+        worker_cfg.logger = sut_mxlink_logger
+
+        self._add_worker_to_manager(worker_cfg)
 
     def _create_mtemp_worker(self, pci_id: str) -> None:
         """Create temperature worker for NIC temperature.
@@ -889,13 +889,12 @@ class SutSystemScanner:
         Args:
             pci_id: PCI device ID
         """
-        worker_command = WorkerConfig()
-        worker_command.command = f"mget_temp -d {pci_id}"
-        worker_command.parser = None
-        worker_command.logger = sut_mtemp_logger
-        worker_command.mem_logger = memory_logger
-        self._logger.debug(f"Worker command: '{worker_command.command}'")
-        self._worker_manager.add(Worker(worker_command, self._cfg, self._ssh))
+        worker_cfg = WorkerConfig()
+        worker_cfg.command = f"mget_temp -d {pci_id}"
+        worker_cfg.parser = None
+        worker_cfg.logger = sut_mtemp_logger
+
+        self._add_worker_to_manager(worker_cfg)
 
     def _create_dmesg_worker(self, interface: str) -> None:
         """Create dmesg worker for link status monitoring.
@@ -903,13 +902,24 @@ class SutSystemScanner:
         Args:
             interface: Network interface name
         """
-        worker_command = WorkerConfig()
-        worker_command.command = f'dmesg -T | grep -i "{interface}.*link" | tail -100'
-        worker_command.parser = DmesgFlapParser
-        worker_command.logger = sut_link_status_logger
-        worker_command.mem_logger = memory_logger
-        self._logger.debug(f"Worker command: '{worker_command.command}'")
-        self._worker_manager.add(Worker(worker_command, self._cfg, self._ssh))
+        attributes = [
+            "interface",
+            "down_timestamp",
+            "up_timestamp",
+            "duration",
+        ]
+
+        worker_cfg = WorkerConfig()
+        worker_cfg.command = f'dmesg --time-format iso | grep -i "{interface}.*link" | tail -100'
+        worker_cfg.parser = DmesgFlapParser(dt.now(UTC))
+        worker_cfg.attributes = attributes
+        worker_cfg.logger = sut_link_flap_logger
+
+        self._add_worker_to_manager(worker_cfg)
+
+    def _add_worker_to_manager(self, worker_cfg: WorkerConfig) -> None:
+        self._logger.debug(f"Worker command: '{worker_cfg.command}'")
+        self._worker_manager.add(Worker(worker_cfg, self._cfg, self._ssh))
 
     @property
     def worker_manager(self) -> WorkManager:
@@ -1164,7 +1174,7 @@ def main():  # noqa: PLR0912, PLR0915
         ("System info", sut_system_info_log),
         ("mxlink scan", sut_mxlink_log),
         ("m_temp scan", sut_mtemp_log),
-        ("link_status scan", sut_link_status_log),
+        ("link_status scan", sut_link_flap_log),
         ("SLX eye scan", slx_eye_log),
     ]:
         _logger.info(f"{label}: {path}")

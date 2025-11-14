@@ -53,13 +53,10 @@ class EyeScanParser(IParser):
         ":": 2,
     }
 
-    def __init__(self, raw_output: str):
+    def __init__(self):
         IParser.__init__(self, LogName.SLX_EYE_SCANNER.value)
 
-        self._raw_output = raw_output
         self._rows: list[dict[str, str]] = []
-
-        self._parse()
 
     def name(self) -> str:
         """Get parser name.
@@ -69,14 +66,16 @@ class EyeScanParser(IParser):
         """
         return "eye_scan"
 
-    def _parse(self) -> list[dict[str, str]]:
+    def parse(self, raw_data: str) -> list[dict[str, str]]:
         """Extract voltage/pattern rows from CLI output.
 
         Returns:
             List of voltage/pattern dictionaries
         """
+        self._raw_data = raw_data
+
         rows = []
-        for line in self._raw_output.splitlines():
+        for line in self._raw_data.splitlines():
             match = self._row_pattern.match(line)
             if match:
                 voltage, pattern = match.groups()
@@ -111,7 +110,6 @@ class EyeScanParser(IParser):
 
     def log(self) -> None:
         """Log parsed eye scan data."""
-        pass
 
 
 # ---------------------------------------------------------------------------- #
@@ -167,7 +165,7 @@ class MstVersionDevice(ParsedDevice):
 class MstStatusVersionParser(IParser):
     """Parser for mst status -v output."""
 
-    def __init__(self, raw_output: str):
+    def __init__(self):
         """Initialize parser.
 
         Args:
@@ -175,10 +173,7 @@ class MstStatusVersionParser(IParser):
         """
         IParser.__init__(self, LogName.CORE_MAIN.value)
 
-        self._raw_output = raw_output
         self._devices: list[MstVersionDevice] = []
-
-        self._parse()
 
     def name(self) -> str:
         """Get parser name.
@@ -188,9 +183,11 @@ class MstStatusVersionParser(IParser):
         """
         return "mst_version"
 
-    def _parse(self) -> None:
+    def parse(self, raw_data: str) -> None:
         """Parse MST status output."""
-        lines = self._raw_output.splitlines()
+        self._raw_data = raw_data
+
+        lines = self._raw_data.splitlines()
 
         # Find header line (starts with DEVICE_TYPE)
         start_idx = None
@@ -251,8 +248,10 @@ class MstStatusVersionParser(IParser):
 
     def log(self) -> None:
         """Log all devices."""
-        for device in self._devices:
-            device.log()
+        device = self.get_result()
+
+        for d in device:
+            d.log()
 
 
 # ---------------------------------------------------------------------------- #
@@ -375,7 +374,7 @@ class EthtoolModuleDevice(ParsedDevice):
 class EthtoolModuleParser(IParser):
     """Parser for `ethtool -m <interface>` output."""
 
-    def __init__(self, raw_output: str):
+    def __init__(self):
         """Initialize parser.
 
         Args:
@@ -383,10 +382,7 @@ class EthtoolModuleParser(IParser):
         """
         IParser.__init__(self, LogName.CORE_MAIN.value)
 
-        self._raw_output = raw_output
         self._result: dict[str, str] = {}
-
-        self._parse()
 
     def name(self) -> str:
         """Get parser name.
@@ -396,8 +392,10 @@ class EthtoolModuleParser(IParser):
         """
         return "ethtool_module"
 
-    def _parse(self) -> None:
+    def parse(self, raw_data: str) -> None:
         """Parse key-value pairs from ethtool -m output."""
+        self._raw_data = raw_data
+
         for line in self._raw_output.splitlines():
             if ":" in line:
                 key, value = line.split(":", 1)
@@ -414,6 +412,7 @@ class EthtoolModuleParser(IParser):
     def log(self) -> None:
         """Log parsed data."""
         device = self.get_result()
+
         self._logger.info(f"Vendor: {device.vendor_name}")
         self._logger.info(f"Part Number: {device.vendor_pn}")
         self._logger.info(f"Serial Number: {device.vendor_sn}")
@@ -670,7 +669,7 @@ class MlxlinkDevice(ParsedDevice):
 class MlxlinkParser(IParser):
     """Parser for mlxlink command output."""
 
-    def __init__(self, raw_output: str):
+    def __init__(self):
         """Initialize parser.
 
         Args:
@@ -678,10 +677,7 @@ class MlxlinkParser(IParser):
         """
         IParser.__init__(self, LogName.CORE_MAIN.value)
 
-        self._raw_output = raw_output
         self._result: dict[str, str] = {}
-
-        self._parse()
 
     @property
     def name(self) -> str:
@@ -692,10 +688,12 @@ class MlxlinkParser(IParser):
         """
         return "mlxlink"
 
-    def _parse(self) -> None:
+    def parse(self, raw_data: str) -> None:
         """Parse key-value pairs from mlxlink output."""
-        if self._raw_output is not None:
-            for line in self._raw_output.splitlines():
+        self._raw_data = raw_data
+
+        if self._raw_data is not None:
+            for line in self._raw_data.splitlines():
                 if ":" in line and not line.strip().endswith(":"):
                     key, value = line.split(":", 1)
                     self._result[key.strip()] = value.strip()
@@ -711,6 +709,7 @@ class MlxlinkParser(IParser):
     def log(self) -> None:
         """Log parsed data."""
         device = self.get_result()
+
         self._logger.info(f"State: {device.state}")
         self._logger.info(f"Speed: {device.speed}")
         self._logger.info(f"Vendor: {device.vendor_name}")
@@ -729,180 +728,149 @@ class MlxlinkParser(IParser):
 class DmesgEvent:
     """Represents a single link state change event in dmesg."""
 
-    timestamp: str  # Local time formatted as YYYY-MM-DD HH:MM:SS
-    state: str  # "Up" or "Down"
+    timestamp: dt  # Parsed datetime object
+    state: str  # "up" or "down"
     interface: str
-    raw_timestamp: str  # Original timestamp from dmesg
 
 
-class DmesgFlapDevice(ParsedDevice):
-    """Represents link flap statistics for a single network interface in dmesg."""
+@dataclass(frozen=True)
+class DmesgFlapDevice:
+    """Represents a single link flap (down->up cycle)."""
 
-    def __init__(self, interface: str, events: list[DmesgEvent]):
-        """Initialize flap device.
-
-        Args:
-            interface: Network interface name
-            events: List of link events
-        """
-        ParsedDevice.__init__(self, LogName.CORE_MAIN.value)
-
-        self._interface = interface
-        self._events = events
+    interface: str
+    down_time: dt
+    up_time: dt
 
     @property
-    def ups(self) -> int:
-        """Count of link up events.
-
-        Returns:
-            Number of up events
-        """
-        return sum(1 for e in self._events if e.state == "Up")
+    def duration(self) -> float:
+        """Flap duration in seconds."""
+        return (self.up_time - self.down_time).total_seconds()
 
     @property
-    def downs(self) -> int:
-        """Count of link down events.
+    def csv_row(self) -> str:
+        """CSV format: interface,down_time,up_time"""
+        return f"{self.interface},{self.down_time.isoformat()},{self.up_time.isoformat()}, {self.duration}"
 
-        Returns:
-            Number of down events
-        """
-        return sum(1 for e in self._events if e.state == "Down")
+
+class DmesgFlapResult:
+    """Wrapper for dmesg flap results with property access."""
+
+    def __init__(self, flaps: list[DmesgFlapDevice]):
+        self._flaps = flaps
 
     @property
-    def flap_count(self) -> int:
-        """Total number of state changes.
+    def flaps(self) -> list[DmesgFlapDevice]:
+        """Get list of all flaps."""
+        return self._flaps
 
-        Returns:
-            Total event count
-        """
-        return len(self._events)
+    @property
+    def down_timestamp(self) -> str:
+        """Get most recent flap down timestamp."""
+        return self._flaps[-1].down_time.strftime("%Y-%m-%d %H:%M:%S") if self._flaps else ""
 
-    def log(self) -> None:
-        """Log flap statistics."""
-        self._logger.info(
-            f"LinkFlapDevice(interface={self._interface!r}, "
-            f"ups={self.ups}, downs={self.downs}, "
-            f"total_events={self.flap_count})"
-        )
+    @property
+    def up_timestamp(self) -> str:
+        """Get most recent flap up timestamp."""
+        return self._flaps[-1].up_time.strftime("%Y-%m-%d %H:%M:%S") if self._flaps else ""
+
+    @property
+    def duration(self) -> str:
+        """Get most recent flap duration."""
+        return str(self._flaps[-1].duration) if self._flaps else ""
 
 
 class DmesgFlapParser(IParser):
-    """Parser for dmesg -T output to detect network link flaps."""
+    """Parser for dmesg output to detect link flaps after start_time."""
 
     _link_event_pattern: ClassVar[re.Pattern] = re.compile(
-        r"\[(?P<timestamp>[^\]]+)\]\s+.*?(?P<iface>[a-zA-Z0-9\-_]+):\s+Link\s+(?:is\s+)?(?P<state>up|down)",
+        r"(?P<timestamp>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2},\d+[+-]\d{2}:\d{2})\s+"
+        r".*?(?P<iface>\S+):\s+Link\s+(?P<state>up|down)",
         re.IGNORECASE,
     )
 
-    def __init__(self, raw_output: str = ""):
+    def __init__(self, start_time: dt | None = None):
         """Initialize parser.
 
         Args:
-            raw_output: Raw dmesg output
+            start_time: Only parse events after this time (defaults to epoch)
         """
         IParser.__init__(self, LogName.CORE_MAIN.value)
 
-        self._raw_output = raw_output
-        self._devices: dict[str, DmesgFlapDevice] = {}
+        self._start_time = start_time if start_time else dt.fromtimestamp(0, tz=UTC)
+        self._start_time = dt(2025, 11, 11, 12, 37, 57, tzinfo=UTC)
+        self._result: list[DmesgFlapDevice] = []
 
-        if raw_output:
-            self._parse()
-
+    @property
     def name(self) -> str:
-        """Get parser name.
+        return "dmesg_flap"
 
-        Returns:
-            Parser identifier
-        """
-        return "link_flap"
-
-    def _parse_timestamp(self, ts_str: str) -> str:
-        """Parse dmesg -T timestamp and convert to local time.
-
-        Args:
-            ts_str: Timestamp string from dmesg -T (e.g., 'Sun Nov  9 05:15:04 2025')
-
-        Returns:
-            Formatted local timestamp as 'YYYY-MM-DD HH:MM:SS'
-        """
+    def _parse_timestamp(self, ts_str: str) -> dt | None:
+        """Parse ISO format timestamp from dmesg -T."""
         try:
-            dt_utc = dt.strptime(ts_str, "%a %b %d %H:%M:%S %Y")
-            dt_local = dt_utc.replace(tzinfo=UTC).astimezone()
-            return dt_local.strftime("%Y-%m-%d %H:%M:%S")
-        except ValueError as e:
-            self._logger.debug(f"Failed to parse timestamp: '{ts_str}': {e}")
-            return ts_str
+            return dt.fromisoformat(ts_str.replace(",", "."))
+        except ValueError:
+            self._logger.debug(f"Failed to parse timestamp: {ts_str}")
+            return None
 
-    def _parse(self) -> None:
-        """Parse dmesg output and extract link events per interface."""
+    def parse(self, raw_data: str) -> None:
+        """Parse dmesg output and extract link flaps after start_time."""
+        self._raw_data = raw_data
+
         events_by_iface: dict[str, list[DmesgEvent]] = {}
 
-        for line in self._raw_output.splitlines():
+        # Extract all events
+        for line in self._raw_data.splitlines():
             match = self._link_event_pattern.search(line)
-            if match:
-                iface = match.group("iface")
-                state = match.group("state").capitalize()
-                raw_ts = match.group("timestamp") or "unknown"
+            if not match:
+                continue
 
-                # Convert timestamp to local time
-                local_ts = self._parse_timestamp(raw_ts) if raw_ts != "unknown" else ""
+            ts = self._parse_timestamp(match.group("timestamp"))
+            if not ts or ts < self._start_time:
+                continue
 
-                event = DmesgEvent(
-                    timestamp=local_ts, state=state, interface=iface, raw_timestamp=raw_ts
-                )
-                events_by_iface.setdefault(iface, []).append(event)
+            event = DmesgEvent(
+                timestamp=ts, state=match.group("state").lower(), interface=match.group("iface")
+            )
+            events_by_iface.setdefault(event.interface, []).append(event)
 
-        # Create LinkFlapDevice objects
+        # Pair down->up events into flaps
         for iface, events in events_by_iface.items():
-            self._devices[iface] = DmesgFlapDevice(iface, events)
+            events.sort(key=lambda e: e.timestamp)
+
+            i = 0
+            while i < len(events) - 1:
+                if events[i].state == "down" and events[i + 1].state == "up":
+                    self._result.append(
+                        DmesgFlapDevice(
+                            interface=iface,
+                            down_time=events[i].timestamp,
+                            up_time=events[i + 1].timestamp,
+                        )
+                    )
+                    i += 2
+                else:
+                    i += 1
+
+    def get_result(self) -> DmesgFlapResult:
+        """Get all detected link flaps and update start_time to latest up_timestamp."""
+        if self._result:
+            self._start_time = max(f.up_time for f in self._result)
+        return DmesgFlapResult(self._result)
 
     def get_most_recent_status(self) -> tuple[str, str]:
-        """Get the most recent link status from all interfaces.
-
-        Returns:
-            Tuple of (status, timestamp) where status is 'Up', 'Down', or 'Unknown'
-        """
+        """Get most recent link status (for backward compatibility)."""
         if not self._raw_output:
-            self._logger.debug("No dmesg output to parse")
             return "Unknown", ""
 
-        lines = self._raw_output.strip().split("\n")
-        self._logger.debug(f"Parsing {len(lines)} dmesg lines for most recent link status")
-
-        # Search from bottom up for most recent state
-        for line in reversed(lines):
+        for line in reversed(self._raw_output.splitlines()):
             match = self._link_event_pattern.search(line)
             if match:
-                state = match.group("state").capitalize()
-                raw_ts = match.group("timestamp") or ""
-                local_ts = self._parse_timestamp(raw_ts) if raw_ts else ""
+                return match.group("state").capitalize(), match.group("timestamp")
 
-                self._logger.debug(f"Found most recent link state: {state} at {local_ts}")
-                return state, local_ts
-
-        self._logger.debug("No link status found in dmesg output")
         return "Unknown", ""
 
-    def get_result(self) -> dict[str, DmesgFlapDevice]:
-        """Returns dictionary of interface name to LinkFlapDevice.
-
-        Returns:
-            Dictionary mapping interface to flap device
-        """
-        return self._devices
-
-    def get_device(self, interface: str) -> DmesgFlapDevice | None:
-        """Get link flap data for a specific interface.
-
-        Args:
-            interface: Network interface name
-
-        Returns:
-            Flap device or None
-        """
-        return self._devices.get(interface)
-
     def log(self) -> None:
-        """Log all devices."""
-        for device in self._devices.values():
-            device.log()
+        """Log all flaps in CSV format."""
+        self._logger.info("interface,down_time,up_time")
+        for flap in self._result:
+            self._logger.info(flap.csv_row)

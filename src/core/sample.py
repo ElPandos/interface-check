@@ -1,11 +1,9 @@
 from datetime import datetime as dt
-import logging
 
 from src.core.connect import SshConnection
 from src.core.tool import Tool
 from src.interfaces.component import ITime
 from src.models.config import Config
-from src.platform.enums.log import LogName
 
 
 class Sample(Tool, ITime):
@@ -22,8 +20,6 @@ class Sample(Tool, ITime):
 
         self._snapshot: str = ""
         self._cfg = cfg
-
-        self._logger = logging.getLogger(LogName.CORE_MAIN.value)
 
     @property
     def snapshot(self) -> "Sample":

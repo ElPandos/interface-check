@@ -35,8 +35,11 @@ class IParser(ABC):
         """
 
     @abstractmethod
-    def _parse(self) -> Any:
+    def parse(self, raw_data: str) -> Any:
         """Parse raw data into structured format.
+
+        Args:
+            raw_data: Raw data to parse
 
         Returns:
             Any: Parsed data structure
