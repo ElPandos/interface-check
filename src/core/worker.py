@@ -62,6 +62,7 @@ class Worker(Thread, ITime):
         cfg: Config,
         ssh: SshConnection,
         name: str = "Worker",
+        shared_flap_state: dict | None = None,
     ) -> None:
         """Initialize worker thread.
 
@@ -70,6 +71,7 @@ class Worker(Thread, ITime):
             config: Application configuration
             ssh: SSH connection for command execution
             name: Thread name for identification
+            shared_flap_state: Shared dictionary for flap detection across workers
         """
         Thread.__init__(self, name=name, daemon=True)  # daemon=True prevents blocking app exit
         ITime.__init__(self)
@@ -79,6 +81,11 @@ class Worker(Thread, ITime):
         self._worker_cfg = worker_cfg
         self._cfg = cfg
         self._ssh = ssh
+        self._shared_flap_state = shared_flap_state or {
+            "flaps_detected": False,
+            "workers_rotated": set(),
+        }
+        self._worker_id = id(self)  # Unique worker identifier
 
         self._stop_event = Event()  # Signal for graceful shutdown
 
@@ -86,8 +93,8 @@ class Worker(Thread, ITime):
         self._extracted_samples: list[Sample] = []  # Extracted samples for analysis
 
         self._logger = worker_cfg.logger
-        self._flaps_detected = False  # Track if any flaps detected
         self._log_rotation_count = 0  # Track number of log rotations
+        self._has_rotated_since_flap = False  # Track if this worker rotated since last flap
 
     def run(self) -> None:
         """Main thread execution loop."""
@@ -114,7 +121,10 @@ class Worker(Thread, ITime):
                     break
 
                 # Collect sample by executing command
+                cmd_start = time.time()
                 sample = Sample(self._cfg, self._ssh).collect(self._worker_cfg)
+                cmd_duration_ms = (time.time() - cmd_start) * 1000
+                self._logger.debug(f"Command execution took: {cmd_duration_ms:.1f} ms")
 
                 # Parse output if parser provided
                 if self._worker_cfg.parser is not None:
@@ -136,7 +146,7 @@ class Worker(Thread, ITime):
                 # Special handling for DmesgFlapResult - log each flap on separate row
                 if hasattr(sample.snapshot, "flaps"):
                     for flap in sample.snapshot.flaps:
-                        self._flaps_detected = True  # Mark that flaps occurred
+                        self._shared_flap_state["flaps_detected"] = True  # Mark that flaps occurred
                         row = [timestamp]
                         row.append(flap.interface)
                         row.append(flap.down_time.strftime("%Y-%m-%d %H:%M:%S.%f"))
@@ -162,8 +172,12 @@ class Worker(Thread, ITime):
                 #    self._log_mem_size(self._collected_samples)
 
                 reconnect = 0  # Reset counter on success
-                sleep_time = float(self._worker_cfg.scan_interval_ms / 1000)
-                time.sleep(sleep_time)
+                sleep_time_ms = self._worker_cfg.scan_interval_ms
+                total_cycle_ms = cmd_duration_ms + sleep_time_ms
+                self._logger.debug(
+                    f"Sleeping {sleep_time_ms} ms (Total cycle: {total_cycle_ms:.1f} ms)"
+                )
+                time.sleep(float(sleep_time_ms / 1000))
 
             except KeyboardInterrupt:
                 self._logger.info(f"User pressed 'ctrl+c' - Exiting worker thread: {self.name}")
@@ -236,13 +250,25 @@ class Worker(Thread, ITime):
         if file_size_kb < self._worker_cfg.max_log_size_kb:
             return
 
-        # Log size exceeded - rotate
-        if self._flaps_detected:
-            # Flaps detected - create new log file with suffix
-            self._rotate_to_new_file(log_file)
+        # Log size exceeded
+        if self._worker_cfg.is_flap_logger:
+            # Flap logger: never rotate or clear, just keep growing
+            return
+        # Other loggers: rotate with suffix if flaps detected, otherwise clear
+        if self._shared_flap_state.get("flaps_detected", False):
+            if self._has_rotated_since_flap:
+                # Already rotated once since flap, now clear and reset flag
+                self._clear_log_keep_header(log_file)
+                self._shared_flap_state["flaps_detected"] = False
+                self._has_rotated_since_flap = False
+                self._logger.debug("Cleared log and reset flap flag after one rotation cycle")
+            else:
+                # First rotation since flap detected
+                self._rotate_to_new_file(log_file)
+                self._has_rotated_since_flap = True
         else:
-            # No flaps - clear log and keep header
             self._clear_log_keep_header(log_file)
+            self._has_rotated_since_flap = False
 
     def _rotate_to_new_file(self, log_file: Path) -> None:
         """Rotate to new log file with suffix.
@@ -251,8 +277,14 @@ class Worker(Thread, ITime):
             log_file: Current log file path
         """
         self._log_rotation_count += 1
+        # Extract base name without previous rotation suffix
+        base_stem = (
+            log_file.stem.rsplit("_", 1)[0]
+            if "_" in log_file.stem and log_file.stem.split("_")[-1].isdigit()
+            else log_file.stem
+        )
         new_log_file = log_file.with_name(
-            f"{log_file.stem}_{self._log_rotation_count}{log_file.suffix}"
+            f"{base_stem}_{self._log_rotation_count}{log_file.suffix}"
         )
 
         # Close current handler
@@ -276,9 +308,6 @@ class Worker(Thread, ITime):
         else:
             headers.append("value")
         self._logger.info(",".join(headers))
-
-        # Reset flap detection for new file
-        self._flaps_detected = False
 
     def _clear_log_keep_header(self, log_file: Path) -> None:
         """Clear log file but keep header row.
@@ -422,6 +451,7 @@ class WorkManager:
     def __init__(self) -> None:
         """Initialize empty worker pool."""
         self._work_pool: list[Worker] = []
+        self._shared_flap_state = {"flaps_detected": False, "workers_rotated": set()}
 
         self._logger = logging.getLogger(LogName.CORE_MAIN.value)
 
@@ -438,6 +468,14 @@ class WorkManager:
         else:
             old_worker.start()
             self._logger.debug(f"Worker already exists for command: {worker.command}")
+
+    def get_shared_flap_state(self) -> dict:
+        """Get shared flap detection state.
+
+        Returns:
+            Dictionary with flap detection state
+        """
+        return self._shared_flap_state
 
     def clear(self) -> None:
         """Clear worker pool."""

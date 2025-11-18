@@ -930,7 +930,10 @@ class SutSystemScanner:
 
     def _add_worker_to_manager(self, worker_cfg: WorkerConfig) -> None:
         self._logger.debug(f"Worker command: '{worker_cfg.command}'")
-        self._worker_manager.add(Worker(worker_cfg, self._cfg, self._ssh))
+        shared_state = self._worker_manager.get_shared_flap_state()
+        self._worker_manager.add(
+            Worker(worker_cfg, self._cfg, self._ssh, shared_flap_state=shared_state)
+        )
 
     @property
     def worker_manager(self) -> WorkManager:

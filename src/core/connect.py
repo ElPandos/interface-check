@@ -147,6 +147,7 @@ class SshConnection(IConnection):
             return True
 
         self._logger.info("Connecting to %s via %d jump hosts", self._host, len(self._jump_hosts))
+        conn_start = time.perf_counter()
 
         try:
             self._ssh_client = self._create_client()
@@ -172,6 +173,8 @@ class SshConnection(IConnection):
                 self._logger.error(LogMsg.CON_TRANSPORT_INACTIVE.value)
                 return False
 
+            conn_time = (time.perf_counter() - conn_start) * 1000
+            self._logger.debug("SSH connection established in %.1f ms", conn_time)
             self._start_keepalive()
             self._logger.info("%s%s", LogMsg.CON_HOST_SUCCESS.value, self._host)
             return True  # noqa: TRY300
@@ -268,15 +271,23 @@ class SshConnection(IConnection):
             start_time = time.perf_counter()
 
             _, stdout, stderr = self._ssh_client.exec_command(exec_cmd, timeout=timeout)
+            cmd_sent_time = (time.perf_counter() - start_time) * 1000
+            self._logger.debug("Command sent in %.1f ms", cmd_sent_time)
 
-            execution_time = time.perf_counter() - start_time
-
+            read_start = time.perf_counter()
             stdout_data = self._clean(stdout.read().decode())
             stderr_data = self._clean(stderr.read().decode())
             rcode = stdout.channel.recv_exit_status()
+            read_time = (time.perf_counter() - read_start) * 1000
+
+            execution_time = time.perf_counter() - start_time
 
             self._logger.debug(
-                "Command completed in %.3fs with exit status %d", execution_time, rcode
+                "Command completed in %.1fms (send: %.1f ms, read: %.1f ms) with exit status %d",
+                execution_time * 1000,
+                cmd_sent_time,
+                read_time,
+                rcode,
             )
             if rcode != 0:
                 self._logger.warning("Command stderr: %s", stderr_data[:200])
