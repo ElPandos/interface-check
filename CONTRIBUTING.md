@@ -175,9 +175,9 @@ worker.close_and_wait()
 class CustomParser(IParser):
     """Parse custom command output."""
     
-    def __init__(self, raw_output: str):
+    def __init__(self, _raw_data: str):
         super().__init__(LogName.MAIN.value)
-        self._raw_output = raw_output
+        self._raw_data = _raw_data
         self._parse()
     
     def name(self) -> str:

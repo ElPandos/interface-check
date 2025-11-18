@@ -4,8 +4,8 @@
 import logging
 
 from src.core.connect import SshConnection
-from src.core.result import CmdResult
 from src.core.parser import MstStatusVersionParser
+from src.core.result import CmdResult
 from src.platform.enums.log import LogName
 
 logger = logging.getLogger(LogName.CORE_MAIN.value)
@@ -52,7 +52,8 @@ def get_mst_device(ssh: SshConnection, interface: str) -> str | None:
     command = "mst status -v"
     result = _execute(ssh, command)
     if result.success:
-        parser = MstStatusVersionParser(result.stdout)
+        parser = MstStatusVersionParser()
+        parser.parse(result.stdout)
         return parser.get_mst_by_pci(get_pci_id(ssh, interface))
     logger.warning(f"Failed to get mst device: {result.stderr}")
     return None

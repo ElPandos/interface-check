@@ -159,10 +159,10 @@ class Config:
     slx_pass: str
     slx_sudo_pass: str
     slx_scan_ports: list[str]
-    slx_scan_interval: int
+    slx_scan_interval_sec: int
     slx_port_toggle_enabled: int
-    slx_port_toggle_wait: int
-    slx_port_eyescan_wait: int
+    slx_port_toggle_wait_sec: int
+    slx_port_eyescan_wait_sec: int
 
     sut_host: str
     sut_user: str
@@ -171,7 +171,9 @@ class Config:
     sut_scan_interfaces: list[str]
     sut_info_dump_level: int
     sut_required_software_packages: list[str]
-    sut_scan_interval: int
+    sut_scan_interval_low_res_ms: int
+    sut_scan_interval_high_res_ms: int
+    sut_scan_max_log_size_kb: int
 
     @classmethod
     def from_dict(cls, data: dict) -> "Config":
@@ -193,10 +195,10 @@ class Config:
             slx_pass=slx["pass"],
             slx_sudo_pass=slx["sudo_pass"],
             slx_scan_ports=slx["scan_ports"],
-            slx_scan_interval=slx["scan_interval"],
+            slx_scan_interval_sec=slx["scan_interval_sec"],
             slx_port_toggle_enabled=slx["port_toggling_enabled"],
-            slx_port_toggle_wait=slx["port_toggle_wait"],
-            slx_port_eyescan_wait=slx["port_eye_scan_wait"],
+            slx_port_toggle_wait_sec=slx["port_toggle_wait_sec"],
+            slx_port_eyescan_wait_sec=slx["port_eye_scan_wait_sec"],
             sut_host=sut["host"],
             sut_user=sut["user"],
             sut_pass=sut["pass"],
@@ -204,7 +206,9 @@ class Config:
             sut_scan_interfaces=sut["scan_interfaces"],
             sut_info_dump_level=sut["info_dump_level"],
             sut_required_software_packages=sut["required_software_packages"],
-            sut_scan_interval=sut["scan_interval"],
+            sut_scan_interval_low_res_ms=sut["scan_interval_low_res_ms"],
+            sut_scan_interval_high_res_ms=sut["scan_interval_high_res_ms"],
+            sut_scan_max_log_size_kb=sut["scan_max_log_size_kb"],
         )
 
 
@@ -501,9 +505,9 @@ class SlxEyeScanner:
             self._exit_fbr_cli()
 
             self._logger.debug(
-                f"{EyeScanLogMsg.TOGGLE_WAITING.value}: {self._cfg.slx_port_toggle_wait} seconds..."
+                f"{EyeScanLogMsg.TOGGLE_WAITING.value}: {self._cfg.slx_port_toggle_wait_sec} seconds..."
             )
-            time.sleep(self._cfg.slx_port_toggle_wait)
+            time.sleep(self._cfg.slx_port_toggle_wait_sec)
 
         except Exception:
             self._logger.exception(f"{EyeScanLogMsg.TOGGLE_FAILED.value} '{cmd}'")
@@ -546,8 +550,8 @@ class SlxEyeScanner:
             self._ssh.exec_shell_command(cmd + "\n", until_prompt=False)
 
             # Wait for eye scan to complete
-            self._logger.info(f"Waiting {self._cfg.slx_port_eyescan_wait}s for eye scan")
-            time.sleep(self._cfg.slx_port_eyescan_wait)
+            self._logger.info(f"Waiting {self._cfg.slx_port_eyescan_wait_sec}s for eye scan")
+            time.sleep(self._cfg.slx_port_eyescan_wait_sec)
 
             # Get results
             result = self._ssh.exec_shell_command("\n")
@@ -846,8 +850,8 @@ class SutSystemScanner:
                 pci_id = helper.get_pci_id(self._ssh, interface)
                 self._logger.debug(f"PCI ID for '{interface}': '{pci_id}'")
 
-                # self._create_mlxlink_worker(pci_id)
-                # self._create_mtemp_worker(pci_id)
+                self._create_mlxlink_worker(pci_id)
+                self._create_mtemp_worker(pci_id)
                 self._create_dmesg_worker(interface)
 
             self._logger.info(f"Created {len(cfg.sut_scan_interfaces) * 3} workers")
@@ -880,6 +884,8 @@ class SutSystemScanner:
         worker_cfg.parser = MlxlinkParser()
         worker_cfg.attributes = attributes
         worker_cfg.logger = sut_mxlink_logger
+        worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_high_res_ms
+        worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
 
         self._add_worker_to_manager(worker_cfg)
 
@@ -893,6 +899,8 @@ class SutSystemScanner:
         worker_cfg.command = f"mget_temp -d {pci_id}"
         worker_cfg.parser = None
         worker_cfg.logger = sut_mtemp_logger
+        worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_low_res_ms
+        worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
 
         self._add_worker_to_manager(worker_cfg)
 
@@ -914,6 +922,9 @@ class SutSystemScanner:
         worker_cfg.parser = DmesgFlapParser(dt.now(UTC))
         worker_cfg.attributes = attributes
         worker_cfg.logger = sut_link_flap_logger
+        worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_low_res_ms
+        worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
+        worker_cfg.is_flap_logger = True
 
         self._add_worker_to_manager(worker_cfg)
 
@@ -1020,7 +1031,7 @@ def main():  # noqa: PLR0912, PLR0915
         #                            Log system information                            #
         # ---------------------------------------------------------------------------- #
 
-        # _logger.info(f"Start system information scan. Logs saved to: {sut_system_info_log}")
+        logger.info(f"Start system information scan. Logs saved to: {sut_system_info_log}")
 
         # if not sut_system_scanner.log_system_info(sut_system_info_logger):
         #    _logger.warning("Failed to log system information")
@@ -1063,8 +1074,8 @@ def main():  # noqa: PLR0912, PLR0915
 
                 # Wait before next scan (check shutdown every second for responsiveness)
                 if not shutdown_event.is_set():
-                    _logger.info(f"Waiting {cfg.slx_scan_interval} seconds before next scan...")
-                    for _ in range(cfg.slx_scan_interval):
+                    _logger.info(f"Waiting {cfg.slx_scan_interval_sec} seconds before next scan...")
+                    for _ in range(cfg.slx_scan_interval_sec):
                         if shutdown_event.is_set():
                             _logger.info(EyeScanLogMsg.SHUTDOWN_SIGNAL.value)
                             break

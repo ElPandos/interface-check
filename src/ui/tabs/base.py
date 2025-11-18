@@ -27,7 +27,6 @@ class Base(ABC):
     @abstractmethod
     def build(self) -> None:
         """Build the component."""
-        pass
 
     @property
     def name(self) -> str:

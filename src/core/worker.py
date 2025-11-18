@@ -33,11 +33,17 @@ class WorkerConfig:
         command: Shell command to execute
         parser: Optional parser class to process command output
         logger: Logger for worker
+        scan_interval_ms: Polling interval in milliseconds
+        max_log_size_kb: Maximum log file size in KB before rotation (default 102400KB = 100MB)
+        is_flap_logger: Whether this logger tracks link flaps
     """
 
     command: str = None
     parser: Any = None
     attributes: list[str] = None
+    scan_interval_ms: int = 500
+    max_log_size_kb: int = 102400
+    is_flap_logger: bool = False
 
 
 class Worker(Thread, ITime):
@@ -80,6 +86,8 @@ class Worker(Thread, ITime):
         self._extracted_samples: list[Sample] = []  # Extracted samples for analysis
 
         self._logger = worker_cfg.logger
+        self._flaps_detected = False  # Track if any flaps detected
+        self._log_rotation_count = 0  # Track number of log rotations
 
     def run(self) -> None:
         """Main thread execution loop."""
@@ -128,10 +136,11 @@ class Worker(Thread, ITime):
                 # Special handling for DmesgFlapResult - log each flap on separate row
                 if hasattr(sample.snapshot, "flaps"):
                     for flap in sample.snapshot.flaps:
+                        self._flaps_detected = True  # Mark that flaps occurred
                         row = [timestamp]
                         row.append(flap.interface)
-                        row.append(flap.down_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
-                        row.append(flap.up_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3])
+                        row.append(flap.down_time.strftime("%Y-%m-%d %H:%M:%S.%f"))
+                        row.append(flap.up_time.strftime("%Y-%m-%d %H:%M:%S.%f"))
                         row.append(str(flap.duration))
                         self._logger.info(",".join(row))
                 else:
@@ -145,12 +154,16 @@ class Worker(Thread, ITime):
                         row.append(sample.snapshot)
                     self._logger.info(",".join(row))
 
+                # Check log size and rotate if needed
+                self._check_and_rotate_log()
+
                 # Log collected mem usage, can t check size on queue
                 # if self._worker_config.mem_logger is not None:
                 #    self._log_mem_size(self._collected_samples)
 
                 reconnect = 0  # Reset counter on success
-                time.sleep(float(self._cfg.sut_scan_interval))
+                sleep_time = float(self._worker_cfg.scan_interval_ms / 1000)
+                time.sleep(sleep_time)
 
             except KeyboardInterrupt:
                 self._logger.info(f"User pressed 'ctrl+c' - Exiting worker thread: {self.name}")
@@ -205,6 +218,109 @@ class Worker(Thread, ITime):
         """Clear extracted samples."""
         self._extracted_samples.clear()
         self._logger.debug("Clearing extracted samples")
+
+    def _check_and_rotate_log(self) -> None:
+        """Check log file size and rotate if needed."""
+        # Get log file path from logger handlers
+        log_file = None
+        for handler in self._logger.handlers:
+            if isinstance(handler, logging.FileHandler):
+                log_file = Path(handler.baseFilename)
+                break
+
+        if not log_file or not log_file.exists():
+            return
+
+        # Check file size
+        file_size_kb = log_file.stat().st_size / 1024
+        if file_size_kb < self._worker_cfg.max_log_size_kb:
+            return
+
+        # Log size exceeded - rotate
+        if self._flaps_detected:
+            # Flaps detected - create new log file with suffix
+            self._rotate_to_new_file(log_file)
+        else:
+            # No flaps - clear log and keep header
+            self._clear_log_keep_header(log_file)
+
+    def _rotate_to_new_file(self, log_file: Path) -> None:
+        """Rotate to new log file with suffix.
+
+        Args:
+            log_file: Current log file path
+        """
+        self._log_rotation_count += 1
+        new_log_file = log_file.with_name(
+            f"{log_file.stem}_{self._log_rotation_count}{log_file.suffix}"
+        )
+
+        # Close current handler
+        for handler in self._logger.handlers[:]:
+            if isinstance(handler, logging.FileHandler):
+                handler.close()
+                self._logger.removeHandler(handler)
+
+        # Create new handler with new file
+        new_handler = logging.FileHandler(new_log_file)
+        new_handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)-30s - %(levelname)-8s - %(message)s")
+        )
+        new_handler.setLevel(self._logger.level)
+        self._logger.addHandler(new_handler)
+
+        # Log header in new file
+        headers = ["begin_timestamp"]
+        if self._worker_cfg.attributes:
+            headers.extend(self._worker_cfg.attributes)
+        else:
+            headers.append("value")
+        self._logger.info(",".join(headers))
+
+        # Reset flap detection for new file
+        self._flaps_detected = False
+
+    def _clear_log_keep_header(self, log_file: Path) -> None:
+        """Clear log file but keep header row.
+
+        Args:
+            log_file: Log file path to clear
+        """
+        # Read first line (header)
+        header = None
+        try:
+            with log_file.open("r") as f:
+                for line in f:
+                    if "begin_timestamp" in line:
+                        header = line
+                        break
+        except Exception:
+            self._logger.exception("Failed to read header from log file")
+            return
+
+        if not header:
+            return
+
+        # Close current handler
+        for handler in self._logger.handlers[:]:
+            if isinstance(handler, logging.FileHandler):
+                handler.close()
+                self._logger.removeHandler(handler)
+
+        # Truncate file and write header
+        try:
+            with log_file.open("w") as f:
+                f.write(header)
+        except Exception:
+            self._logger.exception("Failed to clear log file")
+
+        # Reopen handler
+        new_handler = logging.FileHandler(log_file)
+        new_handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)-30s - %(levelname)-8s - %(message)s")
+        )
+        new_handler.setLevel(self._logger.level)
+        self._logger.addHandler(new_handler)
 
     def _log_mem_size(self, collection: Any):
         """Log memory size of collection.

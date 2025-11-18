@@ -10,13 +10,13 @@ logger = logging.getLogger(LogName.MAIN.value)
 
 class App:
     """Main application class responsible for lifecycle management.
-    
+
     Handles environment setup, configuration loading, and GUI initialization.
     """
 
     def __init__(self) -> None:
         """Initialize application environment, configuration, and GUI.
-        
+
         Raises:
             Exception: If initialization fails
         """

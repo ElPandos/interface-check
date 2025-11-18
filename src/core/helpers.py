@@ -30,9 +30,9 @@ def get_attr_value(obj: Any, attr_name: str, default: str = "") -> str:
     # Handle objects with .value property (like ValueWithUnit)
     if hasattr(attr, "value"):
         value = attr.value
-        # Format floats with 3 decimal places
+        # Format floats with 6 decimal places
         if isinstance(value, float):
-            return f"{value:.3f}"
+            return f"{value:.6f}"
         return str(value)
 
     return str(attr)

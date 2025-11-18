@@ -2,14 +2,16 @@ import logging
 
 from nicegui import ui
 
+from src.platform.enums.log import LogName
+
 logger = logging.getLogger(LogName.MAIN.value)
 
 from src.core.connect import SshConnection
+from src.core.worker import Worker, WorkManager
 from src.models.config import Config
 from src.platform.bak.commands import Common, Ethtool, Modify, System
 from src.ui.handlers.graph import GraphHandler
 from src.ui.tabs.base import BasePanel, BaseTab
-from src.utils.collector import Worker, WorkManager
 
 NAME = "ethtool"
 LABEL = "Ethtool"
@@ -180,16 +182,16 @@ class EthtoolPanel(BasePanel):
             ui.button("X", on_click=lambda opt=card: self._close_card(opt, kill_worker=True))
 
     def _activate_workers(self, options: list) -> None:
-        for interf in options.value:
+        for interface in options.value:
             self._work_manager.add(
-                Worker(Ethtool().module_info(interf), interf, self._cfg, self._ssh)
+                Worker(Ethtool().module_info(interface), interface, self._cfg, self._ssh)
             )
-            self._build_source(interf)
+            self._build_source(interface)
 
     def _build_source(self, interface: str) -> None:
         card = ui.card().classes("w-full")
         with card, ui.row().classes("w-full"):
-            sample = self._work_manager.get_worker(interf).get_first_sample()
+            sample = self._work_manager.get_worker(interface).get_first_sample()
             selection = (
                 ui.select(
                     list(sample.snapshot.keys()),
@@ -201,20 +203,20 @@ class EthtoolPanel(BasePanel):
                 .classes("w-64")
                 .props("use-chips")
             )
-            ui.button("Start", on_click=lambda opt=selection: self._activate_source(interf, opt))
+            ui.button("Start", on_click=lambda opt=selection: self._activate_source(interface, opt))
             ui.space()
             ui.button(
-                "X", on_click=lambda opt=card: self._close_card(opt, interf, kill_worker=True)
+                "X", on_click=lambda opt=card: self._close_card(opt, interface, kill_worker=True)
             )
 
     def _activate_source(self, interface: str, options: list) -> None:
         for source in options.value:
-            self._build_value(interf, source)
+            self._build_value(interface, source)
 
     def _build_value(self, interface: str, source: str) -> None:
         card = ui.card().classes("w-full")
         with card, ui.row().classes("w-full"):
-            samples = self._work_manager.get_worker(interf).get_all_samples()
+            samples = self._work_manager.get_worker(interface).get_all_samples()
             selection = (
                 ui.select(
                     list(samples[0].snapshot[source].keys()),
@@ -227,7 +229,7 @@ class EthtoolPanel(BasePanel):
                 .props("use-chips")
             )
             ui.button(
-                "Start", on_click=lambda opt=selection: self._plot_values(interf, source, opt)
+                "Start", on_click=lambda opt=selection: self._plot_values(interface, source, opt)
             )
             ui.space()
             ui.button("X", on_click=lambda opt=card: self._close_card(opt))
@@ -235,4 +237,4 @@ class EthtoolPanel(BasePanel):
     def _plot_values(self, interface: str, source: str, options: list) -> None:
         gh = GraphHandler()
         for value in options.value:
-            gh.add(self._work_manager, self._cfg, interf, source, value)
+            gh.add(self._work_manager, self._cfg, interface, source, value)

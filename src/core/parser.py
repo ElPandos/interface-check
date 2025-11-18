@@ -57,6 +57,7 @@ class EyeScanParser(IParser):
         IParser.__init__(self, LogName.SLX_EYE_SCANNER.value)
 
         self._rows: list[dict[str, str]] = []
+        self._raw_data: str | None = None
 
     def name(self) -> str:
         """Get parser name.
@@ -174,6 +175,7 @@ class MstStatusVersionParser(IParser):
         IParser.__init__(self, LogName.CORE_MAIN.value)
 
         self._devices: list[MstVersionDevice] = []
+        self._raw_data: str | None = None
 
     def name(self) -> str:
         """Get parser name.
@@ -268,12 +270,12 @@ class ValueWithUnit:
     raw: str
 
     def __str__(self) -> str:
-        """Format value with 3 decimal places.
+        """Format value with 6 decimal places.
 
         Returns:
             Formatted string
         """
-        return f"{self.value:.3f}"
+        return f"{self.value:.6f}"
 
 
 class EthtoolModuleDevice(ParsedDevice):
@@ -383,6 +385,7 @@ class EthtoolModuleParser(IParser):
         IParser.__init__(self, LogName.CORE_MAIN.value)
 
         self._result: dict[str, str] = {}
+        self._raw_data: str | None = None
 
     def name(self) -> str:
         """Get parser name.
@@ -396,7 +399,7 @@ class EthtoolModuleParser(IParser):
         """Parse key-value pairs from ethtool -m output."""
         self._raw_data = raw_data
 
-        for line in self._raw_output.splitlines():
+        for line in self._raw_data.splitlines():
             if ":" in line:
                 key, value = line.split(":", 1)
                 self._result[key.strip()] = value.strip()
@@ -678,6 +681,7 @@ class MlxlinkParser(IParser):
         IParser.__init__(self, LogName.CORE_MAIN.value)
 
         self._result: dict[str, str] = {}
+        self._raw_data: str | None = None
 
     @property
     def name(self) -> str:
@@ -797,8 +801,9 @@ class DmesgFlapParser(IParser):
         IParser.__init__(self, LogName.CORE_MAIN.value)
 
         self._start_time = start_time if start_time else dt.fromtimestamp(0, tz=UTC)
-        self._start_time = dt(2025, 11, 11, 12, 37, 57, tzinfo=UTC)
+        # self._start_time = dt(2025, 11, 11, 12, 37, 57, tzinfo=UTC)
         self._result: list[DmesgFlapDevice] = []
+        self._raw_data: str | None = None
 
     @property
     def name(self) -> str:
@@ -815,6 +820,7 @@ class DmesgFlapParser(IParser):
     def parse(self, raw_data: str) -> None:
         """Parse dmesg output and extract link flaps after start_time."""
         self._raw_data = raw_data
+        self._result.clear()  # Clear previous results
 
         events_by_iface: dict[str, list[DmesgEvent]] = {}
 
@@ -825,7 +831,7 @@ class DmesgFlapParser(IParser):
                 continue
 
             ts = self._parse_timestamp(match.group("timestamp"))
-            if not ts or ts < self._start_time:
+            if not ts or ts <= self._start_time:  # Changed < to <= to exclude exact match
                 continue
 
             event = DmesgEvent(
@@ -836,17 +842,15 @@ class DmesgFlapParser(IParser):
         # Pair down->up events into flaps
         for iface, events in events_by_iface.items():
             events.sort(key=lambda e: e.timestamp)
-
             i = 0
             while i < len(events) - 1:
                 if events[i].state == "down" and events[i + 1].state == "up":
-                    self._result.append(
-                        DmesgFlapDevice(
-                            interface=iface,
-                            down_time=events[i].timestamp,
-                            up_time=events[i + 1].timestamp,
-                        )
+                    device = DmesgFlapDevice(
+                        interface=iface,
+                        down_time=events[i].timestamp,
+                        up_time=events[i + 1].timestamp,
                     )
+                    self._result.append(device)
                     i += 2
                 else:
                     i += 1
@@ -859,10 +863,10 @@ class DmesgFlapParser(IParser):
 
     def get_most_recent_status(self) -> tuple[str, str]:
         """Get most recent link status (for backward compatibility)."""
-        if not self._raw_output:
+        if self._raw_data is None:
             return "Unknown", ""
 
-        for line in reversed(self._raw_output.splitlines()):
+        for line in reversed(self._raw_data.splitlines()):
             match = self._link_event_pattern.search(line)
             if match:
                 return match.group("state").capitalize(), match.group("timestamp")

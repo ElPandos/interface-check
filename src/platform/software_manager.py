@@ -667,7 +667,7 @@ class SoftwareManager:
         """
         self._logger.info(f"{config['header_line']}")
         self._logger.info(
-            f"| {'Package':<{config['name_width'] - 2}} | {'Version Information':<{config['version_width'] - 2}} | {'Status':<{config['status_width'] - 2}} |"
+            f"| {'Package':<{config['name_width'] - 2}} | {'Version Information':<{config['version_width'] - 2}} | {'Status':<{config['status_width'] - 1}} |"
         )
         self._logger.info(f"{config['header_line']}")
 

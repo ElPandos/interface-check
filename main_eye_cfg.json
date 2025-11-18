@@ -10,15 +10,15 @@
         "pass": "password",
         "sudo_pass": "fibranne",
         "scan_ports": [
-            "0/9:1"
+            "0/25:1"
         ],
-        "scan_interval": 20,
+        "scan_interval_sec": 20,
         "port_toggling_enabled": 0,
-        "port_toggle_wait": 20,
-        "port_eye_scan_wait": 20
+        "port_toggle_wait_sec": 20,
+        "port_eye_scan_wait_sec": 20
     },
     "sut": {
-        "host": "172.16.225.1",
+        "host": "172.16.227.1",
         "user": "hts",
         "pass": "hts",
         "sudo_pass": "hts",
@@ -36,6 +36,8 @@
             "python3-pip",
             "mstflint"
         ],
-        "scan_interval": 2
+        "scan_interval_low_res_ms": 500,
+        "scan_interval_high_res_ms": 50,
+        "scan_max_log_size_kb": 200
     }
 }

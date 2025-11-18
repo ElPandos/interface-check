@@ -13,7 +13,9 @@ class Host(BaseModel):
     password: SecretStr = SecretStr("")
     info: str = ""
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(json_encoders={SecretStr: lambda v: v.get_secret_value()})
+    model_config: ClassVar[ConfigDict] = ConfigDict(
+        json_encoders={SecretStr: lambda v: v.get_secret_value()}
+    )
 
     @classmethod
     def default_jump(cls) -> "Host":
