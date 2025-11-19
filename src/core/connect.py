@@ -293,7 +293,7 @@ class SshConnection(IConnection):
 
         exec_cmd = cmd
         if self._sudo_pass:
-            exec_cmd = f"echo '{self._sudo_pass}' | sudo -S {cmd}"
+            exec_cmd = f'echo "{self._sudo_pass}" | sudo -S {cmd}'
         timeout_str = f" (timeout: {timeout} s)" if timeout is not None else ""
         self._logger.debug("Executing command: '%s'%s", exec_cmd, timeout_str)
 
@@ -828,19 +828,24 @@ class LocalConnection(IConnection):
             Command execution result
         """
         exec_cmd = cmd
-        if self._sudo_pass:
-            exec_cmd = f"echo '{self._sudo_pass}' | sudo -S {cmd}"
+        use_sudo = self._sudo_pass and not cmd.startswith("sudo")
+        if use_sudo:
+            exec_cmd = f"sudo -S {cmd}"
 
         self._logger.debug("Executing local command: '%s' (timeout: %s s)", exec_cmd, timeout)
 
         try:
             start_time = time.perf_counter()
 
+            # Pass sudo password via stdin if needed
+            stdin_input = f"{self._sudo_pass}\n" if use_sudo else None
+
             result = subprocess.run(
                 exec_cmd,
                 shell=True,
                 capture_output=True,
                 text=True,
+                input=stdin_input,
                 timeout=timeout,
                 check=False,
             )

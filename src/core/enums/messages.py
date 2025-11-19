@@ -166,6 +166,44 @@ class LogMsg(Enum):
     SHUTDOWN_START = "Starting shutdown"
     SHUTDOWN_EYE_SCANNER = "Shutting down eye scanner"
 
+    # Main eye scan messages
+    MAIN_CONFIG_NOT_FOUND = "Config file not found"
+    MAIN_CONFIG_SAME_DIR = "Make sure config.json is in the same directory as the executable"
+    MAIN_CONFIG_INVALID_JSON = "Invalid JSON in config file"
+    MAIN_SSH_ESTABLISHED = "SSH connection established"
+    MAIN_SHELL_OPENED = "Shell opened successfully"
+    MAIN_SUDO_PASSWORD = "Providing sudo password"
+    MAIN_PASSWORD_AUTH_RESULT = "Password authentication result"
+    MAIN_CONN_FAILED = "Connection failed"
+    MAIN_FBR_ENTERED = "Entered fbr-CLI successfully"
+    MAIN_FBR_EXIT_CTRL_C = "Sending 'Ctrl+C' to exit fbr-CLI"
+    MAIN_BUFFER_CLEARING = "Clearing buffer before eye scan"
+    MAIN_BUFFER_CLEARED = "Buffer cleared"
+    MAIN_SCAN_ITERATION_FAILED = "Scan iteration failed"
+    MAIN_RETRY_WAIT = "Waiting 5 seconds before retry..."
+    MAIN_LOCAL_EXEC = "Using local command execution (no SSH)"
+    MAIN_LOCAL_CONN_ESTABLISHED = "Local connection established"
+    MAIN_SHELL_SKIP = "Skipping shell opening (using exec_cmd instead)"
+    MAIN_SW_MGR_INIT = "Initializing software manager"
+    MAIN_SW_INSTALL_START = "Installing required software packages"
+    MAIN_SW_INSTALL_FAILED = "Software installation failed"
+    MAIN_SW_VERSION_FAILED = "Failed to log software versions"
+    MAIN_SW_INSTALL_WARN = "Failed to install required software, continuing anyway"
+    MAIN_SW_VERSION_WARN = "Failed to log installed software versions"
+    MAIN_SYS_INFO_START = "Start system information scan"
+    MAIN_SYS_INFO_SKIP = "Skipping system information scan (not in local mode or disabled)"
+    MAIN_SCAN_FAILED_START = "System scanning failed to start"
+    MAIN_SCANNER_FAILED = "System scanner failed"
+    MAIN_EYE_SCAN_START = "Start eye scan automation"
+    MAIN_EXIT_PROMPT = "Press Ctrl+C for immediate exit"
+    MAIN_SLX_CONN_FAILED = "Failed to connect to SLX eye scanner"
+    MAIN_EXEC_FAILED = "Main execution failed"
+    MAIN_EYE_DISCONNECTED = "Eye scanner disconnected"
+    MAIN_SCANNER_DISCONNECT = "Disconnecting system scanner"
+    MAIN_SHUTDOWN_COMPLETE = "Shutdown complete"
+    MAIN_LOGS_SAVED = "Logs saved to logs/ directory"
+    SW_MGR_INIT_FAILED = "Failed to initialize software manager"
+
     # Agent messages
     AGENT_NO_SSH = "Cannot start agent: SSH connection not available"
     AGENT_STARTED = "Network agent started"
@@ -178,7 +216,10 @@ class LogMsg(Enum):
     PARSER_TIMESTAMP_FAIL = "Failed to parse timestamp"
 
     # Sample messages
-    SAMPLE_CMD_FAIL = "Command execution failed"
+    SAMPLE_CMD_FAIL = "Sample command execution failed"
 
     # Tool messages
     TOOL_CMD_SUCCESS = "Succesfully executed command"
+
+    # Pattern search messages
+    PATTERN_SEARCH = "Searching with pattern"

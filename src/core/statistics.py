@@ -3,6 +3,8 @@
 from collections import deque
 from dataclasses import dataclass, field
 
+from src.core.cli import PrettyFrame
+
 
 @dataclass
 class WorkerStats:
@@ -84,18 +86,21 @@ class WorkerStatistics:
         if not self._stats:
             return "No statistics available"
 
-        lines = ["Worker Command Duration Statistics:", "=" * 80]
+        frame = PrettyFrame(width=80)
+        rows = []
 
         for cmd, stats in self._stats.items():
             min_dur = stats.get_min()
             mean = stats.get_mean()
             max_dur = stats.get_max()
             count = stats.get_count()
-            cmd_preview = cmd[:60] + "..." if len(cmd) > 60 else cmd
-            lines.append(f"{cmd_preview}")
-            lines.append(
-                f"  Count: {count}, Min: {min_dur:.1f} ms, Mean: {mean:.1f} ms, Max: {max_dur:.1f} ms"
-            )
 
-        lines.append("=" * 80)
-        return "\n".join(lines)
+            # Command row
+            cmd_preview = cmd[:74] + "..." if len(cmd) > 74 else cmd
+            rows.append(cmd_preview)
+
+            # Stats row
+            stats_line = f"  Count: {count:2d} │ Min: {min_dur:6.1f}ms │ Avg: {mean:6.1f}ms │ Max: {max_dur:6.1f}ms"
+            rows.append(stats_line)
+
+        return frame.build("Worker Command Duration Statistics", rows)

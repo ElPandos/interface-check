@@ -28,23 +28,23 @@ from datetime import UTC, datetime as dt
 import json
 import logging
 from pathlib import Path
-import re
 import signal
 import sys
 import threading
 import time
 
+from src.core.cli import PrettyFrame
 from src.core.connect import LocalConnection, SshConnection
-from src.core.enums.connect import ConnectType, ShowPartType
+from src.core.enums.connect import ConnectType, HostType, ShowPartType
 from src.core.enums.messages import LogMsg
 from src.core.helpers import get_attr_value
 from src.core.logging_setup import initialize_logging
 from src.core.parser import DmesgFlapParser, MlxlinkParser
 from src.core.worker import Worker, WorkerConfig, WorkManager
 from src.models.config import Host
-from src.platform.enums.log import LogName
 from src.platform.software_manager import SoftwareManager
 from src.platform.tools import helper
+from src.platform.tools.slx_eye_scanner import SlxEyeScanner
 from src.platform.tools.tool_factory import ToolFactory
 
 # ============================================================================
@@ -56,12 +56,14 @@ shutdown_event = threading.Event()
 
 
 def signal_handler(_signum, _frame) -> None:
-    """Handle Ctrl+C signal for immediate shutdown.
+    """Handle Ctrl+C signal for graceful shutdown.
 
-    Exits immediately without cleanup.
+    Sets shutdown event to trigger cleanup in finally block.
     """
-    sys.stderr.write("\nCtrl+C pressed. Exiting immediately...\n")
-    sys.exit(0)
+    frame = PrettyFrame()
+    msg = frame.build("SHUTDOWN SIGNAL", ["Ctrl+C pressed. Shutting down gracefully..."])
+    sys.stderr.write(f"\n{msg}\n")
+    shutdown_event.set()
 
 
 # Register signal handler for SIGINT (Ctrl+C)
@@ -72,13 +74,12 @@ signal.signal(signal.SIGINT, signal_handler)
 # ============================================================================
 
 loggers = initialize_logging()
-main_logger = loggers[LogName.MAIN.value]
-memory_logger = loggers[LogName.MEMORY.value]
-sut_system_info_logger = loggers[LogName.SUT_SYSTEM_INFO.value]
-sut_mxlink_logger = loggers[LogName.SUT_MXLINK.value]
-sut_mtemp_logger = loggers[LogName.SUT_MTEMP.value]
-sut_link_flap_logger = loggers[LogName.SUT_LINK_FLAP.value]
-slx_eye_logger = loggers[LogName.SLX_EYE.value]
+main_logger = loggers["main"]
+sut_system_info_logger = loggers["sut_system_info"]
+sut_mxlink_logger = loggers["sut_mxlink"]
+sut_mtemp_logger = loggers["sut_mtemp"]
+sut_link_flap_logger = loggers["sut_link_flap"]
+slx_eye_logger = loggers["slx_eye"]
 
 
 @dataclass(frozen=True)
@@ -193,78 +194,31 @@ def load_cfg(logger: logging.Logger) -> Config:
 
         return Config.from_dict(data)
     except FileNotFoundError:
-        logger.exception(f"Config file not found: {config_file}")
-        logger.exception("Make sure config.json is in the same directory as the executable")
+        logger.exception(f"{LogMsg.MAIN_CONFIG_NOT_FOUND.value}: {config_file}")
+        logger.exception(LogMsg.MAIN_CONFIG_SAME_DIR.value)
         raise
     except json.JSONDecodeError:
-        logger.exception("Invalid JSON in config file")
+        logger.exception(LogMsg.MAIN_CONFIG_INVALID_JSON.value)
         raise
 
 
-@dataclass
-class EyeScanResult:
-    """Eye scan result data.
-
-    Attributes:
-        interface: Interface name (e.g., 'xe1')
-        port_id: Port identifier from cmsh
-        result: Raw eye scan output from phy diag command
-    """
-
-    interface: str
-    port_id: str
-    result: str
-
-
-class SlxEyeScanner:
-    """Automated eye scan execution on SLX switches.
-
-    Manages SSH connection to SLX switch, performs interface lookups,
-    executes eye scans with optional port toggling, and collects results.
-
-    The scanner:
-    1. Connects to SLX via jump host
-    2. Maps interface names to port IDs
-    3. Optionally toggles ports before scanning
-    4. Executes eye scan commands
-    5. Collects and stores results
-    """
+class SlxEyeScannerWrapper:
+    """Wrapper for SlxEyeScanner with connection management."""
 
     def __init__(self, cfg: Config, logger: logging.Logger):
-        """Initialize SLX eye scanner.
+        """Initialize wrapper.
 
         Args:
             cfg: Configuration object
-            logger: Logger instance for this scanner
+            logger: Logger instance
         """
         self._cfg = cfg
-        self._results: list[EyeScanResult] = []
-        self._interface_cache: dict[str, tuple[str, str]] = {}
-        self._ssh: SshConnection | None = None
-
         self._logger = logger
-
-    def _exec_with_logging(self, cmd: str, cmd_description: str = "") -> str:
-        """Execute shell command with automatic pre/post logging.
-
-        Args:
-            cmd: Command to execute
-            cmd_description: Optional description for logging (defaults to cmd)
-
-        Returns:
-            str: Command output
-        """
-        log_cmd = cmd_description if cmd_description else cmd
-        self._logger.debug(f"{LogMsg.CMD_EXECUTING.value}: '{log_cmd}'")
-        result = self._ssh.exec_shell_command(cmd)
-        self._logger.debug(f"{LogMsg.CMD_RESULT.value}:\n{result}")
-        return result
+        self._ssh: SshConnection | None = None
+        self._scanner: SlxEyeScanner | None = None
 
     def connect(self) -> bool:
         """Establish SSH connection and setup SLX environment.
-
-        Connects via jump host, opens shell, enters Linux shell mode,
-        and elevates to root user. Stays in Linux shell for cmsh commands.
 
         Returns:
             bool: True if connection successful, False otherwise
@@ -272,339 +226,38 @@ class SlxEyeScanner:
         try:
             self._logger.info(f"Connecting to SLX host: {self._cfg.slx_host}")
             self._logger.debug(f"Using jump host: {self._cfg.jump_host}")
-            self._ssh = _create_ssh_connection(self._cfg, "slx")
+            self._ssh = _create_ssh_connection(self._cfg, HostType.SLX)
 
             if not self._ssh.connect():
                 self._logger.error(LogMsg.SSH_CONN_FAILED.value)
                 return False
-            self._logger.debug("SSH connection established")
+            self._logger.debug(LogMsg.MAIN_SSH_ESTABLISHED.value)
 
-            if not self._ssh.open_shell():
-                self._logger.error(LogMsg.SHELL_OPEN_FAILED.value)
-                return False
-            self._logger.debug("Shell opened successfully")
-
-            # --------------------- Setup shell environment on SLX OS -------------------- #
-
-            # Enter Linux shell
-            self._exec_with_logging("start-shell")
-
-            # Switch to root user
-            self._exec_with_logging("su root")
-
-            # Provide password
-            self._logger.debug("Providing sudo password")
-            result = self._exec_with_logging(self._cfg.slx_sudo_pass, "password")
-            self._logger.debug(f"Password authentication result: {result}")
-
-            # Don't enter fbr-CLI yet - need to run cmsh first from Linux shell
-            self._logger.info(f"{LogMsg.SSH_CONN_SUCCESS.value} (in Linux shell)")
-            return True  # noqa: TRY300
+            self._scanner = SlxEyeScanner(self._ssh, self._logger)
+            return self._scanner.setup_shell(self._cfg.slx_sudo_pass)
         except Exception:
-            self._logger.exception("Connection failed")
+            self._logger.exception(LogMsg.MAIN_CONN_FAILED.value)
             return False
 
-    def get_port_id(self, interface: str) -> str | None:
-        """Extract port ID from cmsh output.
-
-        Runs cmsh command in Linux shell to query interface database.
-        Parses output to extract numeric port ID.
-
-        Args:
-            interface: Interface name (e.g., 'enp1s0f0')
-
-        Returns:
-            str | None: Port ID string if found, None otherwise
-        """
-        if not self._ssh:
-            self._logger.error(LogMsg.SSH_NO_CONN.value)
-            return None
-
-        # cmsh must run from Linux shell, not fbr-CLI
-        cmd = f"cmsh -e 'hsl ifm show localdb' | grep {interface}"
-
-        try:
-            result = self._exec_with_logging(cmd, f"cmsh for interface '{interface}'")
-
-            # Pattern: interface_name 0xHEX number port_id
-            pattern = rf"{re.escape(interface)}\s+0x[0-9a-fA-F]+\s+\d+\s+(\d+)"
-            self._logger.debug(f"Searching with pattern: '{pattern}'")
-            match = re.search(pattern, result)
-
-            if match:
-                port_id = match.group(1)
-                self._logger.info(
-                    f"{LogMsg.PORT_ID_FOUND.value} '{port_id}' for interface: '{interface}'"
-                )
-                return port_id
-            self._logger.warning(f"{LogMsg.PORT_ID_NOT_FOUND.value} '{interface}'")
-            return None  # noqa: TRY300
-        except Exception:
-            self._logger.exception(f"Failed to get port ID for '{interface}'")
-            return None
-
-    def _enter_fbr_cli(self, purpose: str = "") -> None:
-        """Enter fbr-CLI from Linux shell.
-
-        Args:
-            purpose: Optional description of why entering fbr-CLI (for logging)
-        """
-        if purpose:
-            self._logger.info(f"{LogMsg.FBR_ENTERING.value} {purpose}")
-        else:
-            self._logger.info(LogMsg.FBR_ENTERING.value)
-        self._logger.debug(f"{LogMsg.CMD_EXECUTING.value}: 'fbr-CLI'")
-        self._ssh.exec_shell_command("fbr-CLI")
-        time.sleep(0.5)  # Allow prompt to stabilize
-
-        # Read and log the fbr-CLI welcome message from buffer
-        welcome_msg = self._ssh.exec_shell_command("")
-        self._logger.debug(f"{LogMsg.CMD_RESULT.value}:\n{welcome_msg}")
-        self._logger.info("Entered fbr-CLI successfully")
-
-    def _exit_fbr_cli(self) -> None:
-        """Exit fbr-CLI back to Linux shell using Ctrl+C.
-
-        Sends Ctrl+C character to exit fbr-CLI and return to Linux shell.
-        """
-        self._logger.info("Sending 'Ctrl+C' to exit fbr-CLI")
-        self._exec_with_logging("\x03", "Ctrl+C")  # Send Ctrl+C
-        time.sleep(0.3)
-        self._logger.info(LogMsg.FBR_EXITED.value)
-
-    def get_interface_name(self, port_id: str) -> str | None:
-        """Find interface name by port ID in fbr-CLI.
-
-        Enters fbr-CLI, runs 'ps' command, parses output for interface mapping,
-        then exits back to Linux shell.
-
-        Args:
-            port_id: Port identifier from cmsh
-
-        Returns:
-            str | None: Interface name (e.g., 'xe1') if found, None otherwise
-
-        Example:
-            ps output: "xe1(10)" -> returns 'xe1'
-        """
-        if not self._ssh:
-            self._logger.error(LogMsg.SSH_NO_CONN.value)
-            return None
-
-        try:
-            # Enter fbr-CLI from Linux shell
-            self._enter_fbr_cli(f"to find interface for port {port_id}")
-
-            # Run ps command in fbr-CLI
-            ps_result = self._exec_with_logging("ps")
-
-            # Exit fbr-CLI back to Linux shell
-            self._exit_fbr_cli()
-
-            # Pattern matches: interface_name(port_id)
-            # Example: xe1(10) captures 'xe1'
-            pattern = rf"(\w+)\(\s*{re.escape(port_id)}\s*\)"
-            self._logger.debug(f"Searching with pattern: '{pattern}'")
-            match = re.search(pattern, ps_result)
-
-            if match:
-                interface_name = match.group(1)
-                self._logger.info(
-                    f"{LogMsg.INTERFACE_FOUND.value} '{interface_name}' for port: '{port_id}'"
-                )
-                return interface_name
-            self._logger.warning(f"{LogMsg.INTERFACE_NOT_FOUND.value}: '{port_id}'")
-            return None  # noqa: TRY300
-        except Exception:
-            self._logger.exception(f"Failed to get interface name for port: '{port_id}'")
-            return None
-
-    def enable_interface(self, port_name: str) -> None:
-        """Enable interface via fbr-CLI port command.
-
-        Args:
-            port_name: Interface name (e.g., 'xe1')
-        """
-        command = f"port {port_name} enable=true"
-        self._execute_toggle(command)
-
-    def disable_interface(self, port_name: str) -> None:
-        """Disable interface via fbr-CLI port command.
-
-        Args:
-            port_name: Interface name (e.g., 'xe1')
-        """
-        command = f"port {port_name} enable=false"
-        self._execute_toggle(command)
-
-    def _execute_toggle(self, cmd: str) -> None:
-        """Execute port toggle command in fbr-CLI.
-
-        Enters fbr-CLI, runs toggle command, exits back to Linux shell,
-        and waits for toggle to take effect.
-
-        Args:
-            cmd: Port toggle command (e.g., 'port xe1 enable=true')
-        """
-        if not self._ssh:
-            self._logger.error(f"{LogMsg.SSH_NO_CONN.value} for toggle")
-            return
-
-        try:
-            # Enter fbr-CLI for toggle command
-            self._enter_fbr_cli("for toggle")
-
-            self._logger.debug(f"{LogMsg.TOGGLE_EXECUTING.value}: '{cmd}'")
-            self._exec_with_logging(cmd)
-
-            # Exit fbr-CLI back to Linux shell
-            self._exit_fbr_cli()
-
-            self._logger.debug(
-                f"{LogMsg.TOGGLE_WAITING.value}: {self._cfg.slx_port_toggle_wait_sec} seconds..."
-            )
-            time.sleep(self._cfg.slx_port_toggle_wait_sec)
-
-        except Exception:
-            self._logger.exception(f"{LogMsg.TOGGLE_FAILED.value} '{cmd}'")
-
-    def run_eye_scan(self, interface: str, port_id: str) -> None:
-        """Execute eye scan with optional interface toggle.
-
-        Optionally toggles port, enters fbr-CLI, runs phy diag eyescan command,
-        collects results, and exits back to Linux shell.
-
-        Args:
-            interface: Interface name (e.g., 'xe1')
-            port_id: Port identifier for logging
-        """
-        if not self._ssh:
-            self._logger.error(f"{LogMsg.SSH_NO_CONN.value} for eye scan")
-            return
-
-        try:
-            self._logger.info(f"{LogMsg.EYE_SCAN_START.value} '{interface}' (Port: '{port_id}')")
-
-            if self._cfg.slx_port_toggle_enabled:
-                self._logger.info(LogMsg.TOGGLE_ENABLED.value)
-                self.disable_interface(interface)
-                self.enable_interface(interface)
-
-            # Enter fbr-CLI for eye scan
-            self._enter_fbr_cli("for eye scan")
-
-            # Clear buffer before eye scan
-            self._logger.info("Clearing buffer before eye scan")
-            self._ssh.clear_shell()
-            self._logger.info("Buffer cleared")
-
-            # Send eye scan command
-            cmd = f"phy diag {interface} eyescan"
-            self._logger.info(f"{LogMsg.CMD_EXECUTING.value} eye scan: '{cmd}'")
-            self._ssh.exec_shell_command(cmd + "\n", until_prompt=False)
-
-            # Wait for eye scan to complete
-            self._logger.info(f"Waiting {self._cfg.slx_port_eyescan_wait_sec}s for eye scan")
-            time.sleep(self._cfg.slx_port_eyescan_wait_sec)
-
-            # Get results
-            result = self._ssh.exec_shell_command("\n")
-
-            self._results.append(EyeScanResult(interface, port_id, result))
-            self._logger.info(
-                f"{LogMsg.EYE_SCAN_COMPLETE.value}: '{interface}' (Port: '{port_id}')"
-            )
-            self._logger.info("=======================================")
-            self._logger.info("\n%s", self._results[-1].result)
-            self._logger.info("=======================================")
-
-            # Exit fbr-CLI back to Linux shell
-            self._exit_fbr_cli()
-
-        except Exception:
-            self._logger.exception(f"{LogMsg.EYE_SCAN_FAILED.value} for '{interface}'")
-
-    def _lookup_interface_mapping(self, interface: str) -> tuple[str, str] | None:
-        """Lookup port ID and interface name for given interface.
-
-        Args:
-            interface: Interface name to lookup
-
-        Returns:
-            tuple[str, str] | None: Tuple of (port_id, interface_name) if found, None otherwise
-        """
-        self._logger.info(f"{LogMsg.INTERFACE_LOOKUP.value} for '{interface}'")
-
-        port_id = self.get_port_id(interface)
-        if not port_id:
-            self._logger.error(
-                f"{LogMsg.PORT_ID_NOT_FOUND.value} '{interface}', {LogMsg.SCAN_SKIPPING.value}"
-            )
-            return None
-
-        interface_name = self.get_interface_name(port_id)
-        if not interface_name:
-            self._logger.error(
-                f"{LogMsg.INTERFACE_NOT_FOUND.value} '{port_id}', {LogMsg.SCAN_SKIPPING.value}"
-            )
-            return None
-
-        return (port_id, interface_name)
-
     def scan_interfaces(self, interfaces: list[str]) -> bool:
-        """Complete eye scan workflow for multiple interfaces.
-
-        For each interface:
-        1. Check cache for interface mapping
-        2. If not cached, lookup port ID and interface name
-        3. Execute eye scan
-        4. Cache successful mappings
+        """Scan interfaces using SlxEyeScanner.
 
         Args:
             interfaces: List of interface names to scan
 
         Returns:
-            bool: True if at least one scan succeeded, False otherwise
+            bool: True if at least one scan succeeded
         """
-        self._logger.debug(f"Scan interfaces called with: {interfaces}")
-        if not interfaces:
-            self._logger.warning(LogMsg.SCAN_NO_INTERFACES.value)
-            return True
+        if not self._scanner:
+            self._logger.error("Scanner not initialized")
+            return False
 
-        self._logger.info(f"{LogMsg.SCAN_START.value}: {len(interfaces)} interfaces: {interfaces}")
-        success_count = 0
-
-        for interface in interfaces:
-            self._logger.debug(f"{LogMsg.SCAN_PROCESSING.value}: '{interface}'")
-            try:
-                # Check cache first
-                if interface in self._interface_cache:
-                    port_id, interface_name = self._interface_cache[interface]
-                    self._logger.debug(
-                        f"{LogMsg.CACHE_HIT.value}: '{interface}' -> '{interface_name}' (Port: '{port_id}')"
-                    )
-                else:
-                    # First time lookup
-                    mapping = self._lookup_interface_mapping(interface)
-                    if not mapping:
-                        continue
-
-                    port_id, interface_name = mapping
-                    # Cache the mapping
-                    self._interface_cache[interface] = (port_id, interface_name)
-                    self._logger.info(
-                        f"{LogMsg.CACHE_MISS.value}: '{interface}' -> '{interface_name}' (Port: '{port_id}')"
-                    )
-
-                self.run_eye_scan(interface_name, port_id)
-                success_count += 1
-
-            except Exception:
-                self._logger.exception(f"Failed to scan interface '{interface}'")
-                continue
-
-        self._logger.info(f"{LogMsg.SCAN_COMPLETE.value}: {success_count}/{len(interfaces)}")
-        return success_count > 0
+        return self._scanner.scan_interfaces(
+            interfaces,
+            toggle_enabled=bool(self._cfg.slx_port_toggle_enabled),
+            toggle_wait_sec=self._cfg.slx_port_toggle_wait_sec,
+            scan_wait_sec=self._cfg.slx_port_eyescan_wait_sec,
+        )
 
     def disconnect(self) -> None:
         """Clean up connection."""
@@ -617,7 +270,7 @@ class SlxEyeScanner:
         Returns:
             int: Number of eye scans collected
         """
-        return len(self._results)
+        return self._scanner.scans_collected() if self._scanner else 0
 
     def run_eye_scan_loop(self, cfg: Config) -> int:
         """Run continuous eye scan loop.
@@ -650,9 +303,9 @@ class SlxEyeScanner:
                         time.sleep(1)
 
             except Exception:
-                self._logger.exception("Scan iteration failed")
+                self._logger.exception(LogMsg.MAIN_SCAN_ITERATION_FAILED.value)
                 if not shutdown_event.is_set():
-                    self._logger.info("Waiting 5 seconds before retry...")
+                    self._logger.info(LogMsg.MAIN_RETRY_WAIT.value)
                     time.sleep(5)
 
         return scan_count
@@ -712,25 +365,25 @@ class SutSystemScanner:
         """
         try:
             if self._cfg.sut_connect_type == ConnectType.LOCAL:
-                self._logger.info("Using local command execution (no SSH)")
+                self._logger.info(LogMsg.MAIN_LOCAL_EXEC.value)
                 self._ssh = LocalConnection(
                     host=self._cfg.sut_host, sudo_pass=self._cfg.sut_sudo_pass
                 )
             else:
                 self._logger.info(f"Connecting to host: {self._cfg.sut_host}")
                 self._logger.debug(f"Using jump host: {self._cfg.jump_host}")
-                self._ssh = _create_ssh_connection(self._cfg, "sut")
+                self._ssh = _create_ssh_connection(self._cfg, HostType.SUT)
 
             if not self._ssh.connect():
                 self._logger.error(LogMsg.SSH_CONN_FAILED.value)
                 return False
 
             if self._cfg.sut_connect_type == ConnectType.LOCAL:
-                self._logger.debug("Local connection established")
+                self._logger.debug(LogMsg.MAIN_LOCAL_CONN_ESTABLISHED.value)
             else:
-                self._logger.debug("SSH connection established")
+                self._logger.debug(LogMsg.MAIN_SSH_ESTABLISHED.value)
                 # Shell not needed for system scanner - using execute_command instead
-                self._logger.debug("Skipping shell opening (using exec_cmd instead)")
+                self._logger.debug(LogMsg.MAIN_SHELL_SKIP.value)
 
             # Test connection with simple commands
             test_commands = ["whoami", "pwd"]
@@ -745,8 +398,24 @@ class SutSystemScanner:
             self._logger.info(LogMsg.SSH_CONN_SUCCESS.value)
             return True  # noqa: TRY300
         except Exception:
-            self._logger.exception("Connection failed")
+            self._logger.exception(LogMsg.MAIN_CONN_FAILED.value)
             return False
+
+    def _ensure_software_manager(self) -> bool:
+        """Ensure software manager is initialized.
+
+        Returns:
+            bool: True if initialized, False on error
+        """
+        if not self._software_manager:
+            try:
+                self._logger.debug(LogMsg.MAIN_SW_MGR_INIT.value)
+                self._software_manager = SoftwareManager(self._ssh)
+                self._logger.debug(LogMsg.SW_MGR_INIT.value)
+            except Exception:
+                self._logger.exception(LogMsg.SW_MGR_INIT_FAILED.value)
+                return False
+        return True
 
     def install_required_software(self) -> bool:
         """Install required software packages via software manager.
@@ -754,25 +423,19 @@ class SutSystemScanner:
         Returns:
             bool: True if installation successful, False otherwise
         """
-        if not self._software_manager:
-            try:
-                self._logger.debug("Initializing software manager")
-                self._software_manager = SoftwareManager(self._ssh)
-                self._logger.debug(LogMsg.SW_MGR_INIT.value)
-            except Exception:
-                self._logger.exception(LogMsg.SW_MGR_INIT_FAILED.value)
-                return False
+        if not self._ensure_software_manager():
+            return False
 
         try:
-            self._logger.info(LogMsg.SW_INSTALL_START.value)
+            self._logger.info(LogMsg.MAIN_SW_INSTALL_START.value)
             self._logger.debug(f"Packages to install: {self._cfg.sut_required_software_packages}")
             result = self._software_manager.install_required_packages(
                 self._cfg.sut_required_software_packages
             )
-            self._logger.info(f"{LogMsg.SW_INSTALL_COMPLETE.value}: {result}")
+            self._logger.info(f"Software installation complete: {result}")
             return result  # noqa: TRY300
         except Exception:
-            self._logger.exception(LogMsg.SW_INSTALL_FAILED.value)
+            self._logger.exception(LogMsg.MAIN_SW_INSTALL_FAILED.value)
             return False
 
     def log_required_software_versions(self) -> bool:
@@ -781,23 +444,18 @@ class SutSystemScanner:
         Returns:
             bool: True if logging successful, False otherwise
         """
-        if not self._software_manager:
-            try:
-                self._logger.debug("Initializing software manager")
-                self._software_manager = SoftwareManager(self._ssh)
-                self._logger.debug(LogMsg.SW_MGR_INIT.value)
-            except Exception:
-                self._logger.exception(LogMsg.SW_MGR_INIT_FAILED.value)
-                return False
+        if not self._ensure_software_manager():
+            return False
+
         try:
-            self._logger.info(LogMsg.SW_VERSION_LOG.value)
+            self._logger.info(LogMsg.SW_PKG_VERSION_CHECK.value)
             self._logger.debug(f"Packages to check: {self._cfg.sut_required_software_packages}")
             self._software_manager.log_required_package_versions(
                 self._cfg.sut_required_software_packages
             )
             return True  # noqa: TRY300
         except Exception:
-            self._logger.exception(LogMsg.SW_VERSION_FAILED.value)
+            self._logger.exception(LogMsg.MAIN_SW_VERSION_FAILED.value)
             return False
 
     def log_system_info(self, logger: logging.Logger) -> None:
@@ -852,7 +510,6 @@ class SutSystemScanner:
             skip_mlxlink = ShowPartType.NO_MLXLINK in cfg.sut_show_parts
             skip_mtemp = ShowPartType.NO_MTEMP in cfg.sut_show_parts
             skip_dmesg = ShowPartType.NO_DMESG in cfg.sut_show_parts
-            skip_eye_scan = ShowPartType.NO_EYE_SCAN in cfg.sut_show_parts
 
             worker_count = 0
             for interface in cfg.sut_scan_interfaces:
@@ -876,11 +533,6 @@ class SutSystemScanner:
                     if not skip_dmesg:
                         self._create_dmesg_worker(interface)
                         worker_count += 1
-
-            # Eye scan worker (runs once per scan cycle, not per interface)
-            if is_local and not skip_eye_scan:
-                self._create_eye_scan_worker(cfg)
-                worker_count += 1
 
             self._logger.info(f"Created {worker_count} worker(s)")
             return True  # noqa: TRY300
@@ -956,21 +608,6 @@ class SutSystemScanner:
 
         self._add_worker_to_manager(worker_cfg)
 
-    def _create_eye_scan_worker(self, cfg: Config) -> None:
-        """Create eye scan worker.
-
-        Args:
-            cfg: Configuration with eye scan settings
-        """
-        worker_cfg = WorkerConfig()
-        worker_cfg.command = "eye_scan"  # Placeholder command
-        worker_cfg.parser = None
-        worker_cfg.logger = slx_eye_logger
-        worker_cfg.scan_interval_ms = cfg.slx_scan_interval_sec * 1000
-        worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
-
-        self._add_worker_to_manager(worker_cfg)
-
     def _add_worker_to_manager(self, worker_cfg: WorkerConfig) -> None:
         self._logger.debug(f"Worker command: '{worker_cfg.command}'")
         shared_state = self._worker_manager.get_shared_flap_state()
@@ -1000,12 +637,12 @@ class SutSystemScanner:
             self._ssh.disconnect()
 
 
-def _create_ssh_connection(cfg: Config, host_type: str) -> SshConnection:
+def _create_ssh_connection(cfg: Config, host_type: HostType) -> SshConnection:
     """Create SSH connection with jump host.
 
     Args:
         cfg: Configuration object
-        host_type: Either 'slx' or 'sut' to determine which host to connect to
+        host_type: Host type (SLX or SUT) to determine which host to connect to
 
     Returns:
         SshConnection: Configured SshConnection object (not yet connected)
@@ -1016,7 +653,7 @@ def _create_ssh_connection(cfg: Config, host_type: str) -> SshConnection:
         password=cfg.jump_pass,
     )
 
-    if host_type == "slx":
+    if host_type == HostType.SLX:
         return SshConnection(
             host=cfg.slx_host,
             username=cfg.slx_user,
@@ -1058,9 +695,9 @@ def main():  # noqa: PLR0912, PLR0915
         _logger.exception(LogMsg.CONFIG_FAILED.value)
         return
 
-    _logger.debug("Initializing scanners")
+    _logger.debug(LogMsg.SCANNER_INIT.value)
 
-    slx_eye_scanner = SlxEyeScanner(cfg, slx_eye_logger)
+    slx_eye_scanner = SlxEyeScannerWrapper(cfg, slx_eye_logger)
     sut_system_scanner = SutSystemScanner(cfg, main_logger)
 
     try:
@@ -1078,21 +715,19 @@ def main():  # noqa: PLR0912, PLR0915
 
         if is_local and not skip_sys_info:
             if not sut_system_scanner.install_required_software():
-                _logger.warning("Failed to install required software, continuing anyway")
+                _logger.warning(LogMsg.MAIN_SW_INSTALL_WARN.value)
 
             if not sut_system_scanner.log_required_software_versions():
-                _logger.warning("Failed to log installed software versions")
+                _logger.warning(LogMsg.MAIN_SW_VERSION_WARN.value)
 
             # ---------------------------------------------------------------------------- #
             #                            Log system information                            #
             # ---------------------------------------------------------------------------- #
 
-            _logger.info("Start system information scan")
-
-            if not sut_system_scanner.log_system_info(sut_system_info_logger):
-                _logger.warning("Failed to log system information")
+            _logger.info(LogMsg.MAIN_SYS_INFO_START.value)
+            sut_system_scanner.log_system_info(sut_system_info_logger)
         else:
-            _logger.info("Skipping system information scan (not in local mode or disabled)")
+            _logger.info(LogMsg.MAIN_SYS_INFO_SKIP.value)
 
         # ---------------------------------------------------------------------------- #
         #                         Start system scanning threads                        #
@@ -1101,147 +736,155 @@ def main():  # noqa: PLR0912, PLR0915
         _logger.info(f"Scanning interfaces: {cfg.sut_scan_interfaces}")
 
         if not sut_system_scanner.run_scanners(cfg):
-            _logger.warning("System scanning failed to start")
+            _logger.warning(LogMsg.MAIN_SCAN_FAILED_START.value)
 
     except Exception:
-        _logger.exception("System scanner failed")
+        _logger.exception(LogMsg.MAIN_SCANNER_FAILED.value)
 
     # ---------------------------------------------------------------------------- #
     #                              Start eye scanning                              #
     # ---------------------------------------------------------------------------- #
 
-    _logger.info("Start eye scan automation")
-    _logger.info(f"Scanning ports: {cfg.slx_scan_ports}")
-    _logger.info("Press Ctrl+C for immediate exit")
+    skip_eye_scan = ShowPartType.NO_EYE_SCAN in cfg.sut_show_parts
 
-    try:
-        if not slx_eye_scanner.connect():
-            _logger.error("Failed to connect to SLX eye scanner")
-            return
+    if not skip_eye_scan:
+        _logger.info(LogMsg.MAIN_EYE_SCAN_START.value)
+        _logger.info(f"Scanning ports: {cfg.slx_scan_ports}")
+        _logger.info(LogMsg.MAIN_EXIT_PROMPT.value)
 
-        # Start eye scan loop in background thread
-        scan_thread = threading.Thread(
-            target=slx_eye_scanner.run_eye_scan_loop, args=(cfg,), daemon=True
-        )
-        scan_thread.start()
-        scan_thread.join()
+        try:
+            if not slx_eye_scanner.connect():
+                _logger.error(LogMsg.MAIN_SLX_CONN_FAILED.value)
+                return
 
-        # Log shutdown signal
-        _logger.info(LogMsg.SHUTDOWN_SIGNAL.value)
+            # Start eye scan loop in background thread
+            scan_thread = threading.Thread(
+                target=slx_eye_scanner.run_eye_scan_loop, args=(cfg,), daemon=True
+            )
+            scan_thread.start()
+            scan_thread.join()
+        except Exception:
+            _logger.exception(LogMsg.MAIN_EXEC_FAILED.value)
+    else:
+        _logger.info("Eye scan skipped (NO_EYE_SCAN flag set)")
+        # Keep main thread alive until Ctrl+C
+        try:
+            while not shutdown_event.is_set():
+                time.sleep(1)
+        except Exception:
+            _logger.exception(LogMsg.MAIN_EXEC_FAILED.value)
 
-        # Pause logging and show worker shutdown countdown
-        logging.disable(logging.CRITICAL)
-        sys.stderr.write("\nWaiting for all threads to complete...\n")
+    # Log shutdown signal
+    _logger.info(LogMsg.SHUTDOWN_SIGNAL.value)
 
-        workers = sut_system_scanner.worker_manager.get_workers_in_pool()
-        total_workers = len(workers)
-        sys.stderr.write(f"\nStopping {total_workers} workers...\n")
+    # Pause logging and show worker shutdown countdown
+    logging.disable(logging.CRITICAL)
+    sys.stderr.write("\nWaiting for all threads to complete...\n")
 
-        for idx, w in enumerate(workers, 1):
-            w.close()
-            sys.stderr.write(f"\rWorkers stopped: {idx}/{total_workers}")
-            sys.stderr.flush()
+    workers = sut_system_scanner.worker_manager.get_workers_in_pool()
+    total_workers = len(workers)
+    sys.stderr.write(f"\nStopping {total_workers} workers...\n")
 
-        sys.stderr.write("\n\nWaiting for workers to finish...\n")
-        for idx, w in enumerate(workers, 1):
-            w.join()
-            sys.stderr.write(f"\rWorkers finished: {idx}/{total_workers}")
-            sys.stderr.flush()
+    for idx, w in enumerate(workers, 1):
+        w.close()
+        sys.stderr.write(f"\rWorkers stopped: {idx}/{total_workers}")
+        sys.stderr.flush()
 
-        sys.stderr.write("\n")
-        logging.disable(logging.NOTSET)
+    sys.stderr.write("\n\nWaiting for workers to finish...\n")
+    for idx, w in enumerate(workers, 1):
+        w.join()
+        sys.stderr.write(f"\rWorkers finished: {idx}/{total_workers}")
+        sys.stderr.flush()
 
-    except Exception:
-        _logger.exception("Main execution failed")
-    finally:
-        _logger.info("=" * 60)
-        _logger.info(LogMsg.SHUTDOWN_START.value)
-        _logger.info("=" * 60)
+    sys.stderr.write("\n")
+    logging.disable(logging.NOTSET)
 
-        _logger.info(LogMsg.SHUTDOWN_EYE_SCANNER.value)
-        slx_eye_scanner.disconnect()
-        _logger.debug("Eye scanner disconnected")
+    frame = PrettyFrame()
+    shutdown_msg = frame.build("SHUTDOWN", ["Starting shutdown sequence..."])
+    _logger.info(f"\n{shutdown_msg}")
 
-        _logger.info(LogMsg.WORKER_EXTRACT.value)
-        workers = sut_system_scanner.worker_manager.get_workers_in_pool()
-        _logger.debug(f"Found {len(workers)} workers to extract samples from")
-        for w in workers:
-            w.extract_all_samples()
+    _logger.info(LogMsg.SHUTDOWN_EYE_SCANNER.value)
+    slx_eye_scanner.disconnect()
+    _logger.debug(LogMsg.MAIN_EYE_DISCONNECTED.value)
 
-        # Build matrix with smallest list determining rows
-        all_samples = [w.get_extracted_samples() for w in workers]
-        min_rows = min(len(samples) for samples in all_samples) if all_samples else 0
+    _logger.info(LogMsg.WORKER_EXTRACT.value)
+    workers = sut_system_scanner.worker_manager.get_workers_in_pool()
+    _logger.debug(f"Found {len(workers)} workers to extract samples from")
+    for w in workers:
+        w.extract_all_samples()
 
-        if min_rows > 0:
-            # CSV headers - begin_timestamp first
-            headers = [
-                "begin_timestamp",
-                "temperature",
-                "voltage",
-                "bias_current",
-                "rx_power",
-                "tx_power",
-                "time_since_last_clear",
-                "effective_physical_errors",
-                "effective_physical_ber",
-                "raw_physical_errors_per_lane",
-                "raw_physical_ber",
-                "m_temp_nic",
-                "link_status",
-                "link_status_timestamp",
-            ]
-            headers_str = [",".join(headers)]
+    # Build matrix with smallest list determining rows
+    all_samples = [w.get_extracted_samples() for w in workers]
+    min_rows = min(len(samples) for samples in all_samples) if all_samples else 0
 
-            # mlxlink attributes (excluding begin - we add it first)
-            mlxlink_attrs = [
-                "temperature",
-                "voltage",
-                "bias_current",
-                "rx_power",
-                "tx_power",
-                "time_since_last_clear",
-                "effective_physical_errors",
-                "effective_physical_ber",
-                "raw_physical_errors_per_lane",
-                "raw_physical_ber",
-            ]
+    if min_rows > 0:
+        # CSV headers - begin_timestamp first
+        headers = [
+            "begin_timestamp",
+            "temperature",
+            "voltage",
+            "bias_current",
+            "rx_power",
+            "tx_power",
+            "time_since_last_clear",
+            "effective_physical_errors",
+            "effective_physical_ber",
+            "raw_physical_errors_per_lane",
+            "raw_physical_ber",
+            "m_temp_nic",
+            "link_status",
+            "link_status_timestamp",
+        ]
+        headers_str = [",".join(headers)]
 
-            for i in range(min_rows):
-                row = []
-                for worker_idx, samples in enumerate(all_samples):
-                    sample = samples[i]
-                    if worker_idx == 0:  # Worker 1: mlxlink
-                        # Add begin timestamp first (from Sample, not snapshot)
-                        # Format: YYYY-MM-DD HH:MM:SS.mmm
-                        timestamp = (
-                            sample.begin.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-                            if sample.begin
-                            else ""
-                        )
-                        row.append(timestamp)
-                        # Add all other mlxlink metrics
-                        row.extend(get_attr_value(sample.snapshot, attr) for attr in mlxlink_attrs)
-                    elif worker_idx == 1:  # Worker 2: NIC temp
-                        row.append(str(sample.snapshot) if hasattr(sample, "snapshot") else "")
-                    elif worker_idx == 2:  # Worker 3: dmesg link status
-                        dmesg_output = str(sample.snapshot) if hasattr(sample, "snapshot") else ""
-                        parser = DmesgFlapParser(dmesg_output)
-                        link_status, link_ts = parser.get_most_recent_status()
-                        row.extend([link_status, link_ts])
-                headers_str.append(",".join(row))
+        # mlxlink attributes (excluding begin - we add it first)
+        mlxlink_attrs = [
+            "temperature",
+            "voltage",
+            "bias_current",
+            "rx_power",
+            "tx_power",
+            "time_since_last_clear",
+            "effective_physical_errors",
+            "effective_physical_ber",
+            "raw_physical_errors_per_lane",
+            "raw_physical_ber",
+        ]
 
-            _logger.info("\n%s\n", "\n".join(headers_str))
+        for i in range(min_rows):
+            row = []
+            for worker_idx, samples in enumerate(all_samples):
+                sample = samples[i]
+                if worker_idx == 0:  # Worker 1: mlxlink
+                    # Add begin timestamp first (from Sample, not snapshot)
+                    # Format: YYYY-MM-DD HH:MM:SS.mmm
+                    timestamp = (
+                        sample.begin.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] if sample.begin else ""
+                    )
+                    row.append(timestamp)
+                    # Add all other mlxlink metrics
+                    row.extend(get_attr_value(sample.snapshot, attr) for attr in mlxlink_attrs)
+                elif worker_idx == 1:  # Worker 2: NIC temp
+                    row.append(str(sample.snapshot) if hasattr(sample, "snapshot") else "")
+                elif worker_idx == 2:  # Worker 3: dmesg link status
+                    dmesg_output = str(sample.snapshot) if hasattr(sample, "snapshot") else ""
+                    parser = DmesgFlapParser(dmesg_output)
+                    link_status, link_ts = parser.get_most_recent_status()
+                    row.extend([link_status, link_ts])
+            headers_str.append(",".join(row))
 
-        _logger.info(LogMsg.WORKER_SHUTDOWN.value)
+        _logger.info("\n%s\n", "\n".join(headers_str))
 
-        _logger.debug("Disconnecting system scanner")
-        sut_system_scanner.disconnect()
+    _logger.info(LogMsg.WORKER_SHUTDOWN.value)
 
-        stats_summary = sut_system_scanner.worker_manager.get_statistics_summary()
-        _logger.info(f"\n{stats_summary}")
-        _logger.info(f"Total eye scans completed: {slx_eye_scanner.scans_collected()}")
-        _logger.info("Shutdown complete")
-        _logger.info("Logs saved to logs/ directory")
+    _logger.debug(LogMsg.MAIN_SCANNER_DISCONNECT.value)
+    sut_system_scanner.disconnect()
+
+    stats_summary = sut_system_scanner.worker_manager.get_statistics_summary()
+    _logger.info(f"\n{stats_summary}")
+    _logger.info(f"Total eye scans completed: {slx_eye_scanner.scans_collected()}")
+    _logger.info(LogMsg.MAIN_SHUTDOWN_COMPLETE.value)
+    _logger.info(LogMsg.MAIN_LOGS_SAVED.value)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ import logging
 import re
 from typing import ClassVar
 
+from src.core.cli import PrettyFrame
 from src.core.connect import SshConnection
 from src.core.enums.messages import LogMsg
 from src.interfaces.software import IPackageManager, Package
@@ -604,12 +605,24 @@ class SoftwareManager:
             f"{LogMsg.SW_PKG_VERSION_COMPLETE.value} for {len(version_info)} packages"
         )
 
-        table_cfg = self._calculate_table_dimensions(version_info)
+        frame = PrettyFrame(width=80)
+        rows = []
+
+        # Separate packages by status
         installed_packages, missing_packages = self._separate_packages_by_status(version_info)
 
-        self._log_table_header(table_cfg)
-        self._log_package_rows(installed_packages, missing_packages, table_cfg)
-        self._log_table_footer(table_cfg)
+        # Add installed packages
+        for pkg, version in installed_packages:
+            rows.append(f"{pkg}: {version}")
+            rows.append("  Status: INSTALLED")
+
+        # Add missing packages
+        for pkg, version in missing_packages:
+            rows.append(f"{pkg}: {version}")
+            rows.append("  Status: MISSING")
+
+        # Log the framed table
+        self._logger.info(frame.build("Software Installation Verification", rows))
         self._log_summary_statistics(version_info)
 
     def _calculate_table_dimensions(self, version_info: dict[str, str]) -> dict[str, int]:

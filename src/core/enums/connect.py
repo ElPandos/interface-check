@@ -10,6 +10,13 @@ class ConnectType(str, Enum):
     REMOTE = "remote"
 
 
+class HostType(str, Enum):
+    """Host type for SSH connection creation."""
+
+    SLX = "slx"
+    SUT = "sut"
+
+
 class ShowPartType(str, Enum):
     """Parts to show/skip in system scanning."""
 

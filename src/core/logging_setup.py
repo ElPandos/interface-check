@@ -86,29 +86,29 @@ def setup_component_loggers(log_dir: Path, log_level: int) -> dict[str, logging.
         dict[str, logging.Logger]: Dictionary of configured loggers
     """
     logger_configs = [
-        (LogName.MAIN.value, None),
-        (LogName.MEMORY.value, "memory.log"),
-        (LogName.SUT_SYSTEM_INFO.value, "sut_system_info.log"),
-        (LogName.SUT_MXLINK.value, "sut_mxlink.log"),
-        (LogName.SUT_MTEMP.value, "sut_mtemp.log"),
-        (LogName.SUT_LINK_FLAP.value, "sut_link_flap.log"),
-        (LogName.SLX_EYE.value, "slx_eye.log"),
+        (LogName.MAIN, None),
+        (LogName.MEMORY, "memory.log"),
+        (LogName.SUT_SYSTEM_INFO, "sut_system_info.log"),
+        (LogName.SUT_MXLINK, "sut_mxlink.log"),
+        (LogName.SUT_MTEMP, "sut_mtemp.log"),
+        (LogName.SUT_LINK_FLAP, "sut_link_flap.log"),
+        (LogName.SLX_EYE, "slx_eye.log"),
     ]
 
     loggers = {}
-    for logger_name, log_file in logger_configs:
-        logger = logging.getLogger(logger_name)
+    for logger_enum, log_file in logger_configs:
+        logger = logging.getLogger(logger_enum.value)
         logger.setLevel(log_level)
 
         if log_file:
             logger.propagate = False
             handler = logging.FileHandler(log_dir / log_file)
-            handler.setFormatter(create_formatter(logger_name))
+            handler.setFormatter(create_formatter(logger_enum.value))
             logger.addHandler(handler)
         else:
             logger.propagate = True
 
-        loggers[logger_name] = logger
+        loggers[logger_enum] = logger
 
     return loggers
 
@@ -129,11 +129,11 @@ def initialize_logging() -> dict[str, logging.Logger]:
     loggers = setup_component_loggers(log_dir, log_level)
 
     return {
-        "main": loggers[LogName.MAIN.value],
-        "memory": loggers[LogName.MEMORY.value],
-        "sut_system_info": loggers[LogName.SUT_SYSTEM_INFO.value],
-        "sut_mxlink": loggers[LogName.SUT_MXLINK.value],
-        "sut_mtemp": loggers[LogName.SUT_MTEMP.value],
-        "sut_link_flap": loggers[LogName.SUT_LINK_FLAP.value],
-        "slx_eye": loggers[LogName.SLX_EYE.value],
+        "main": loggers[LogName.MAIN],
+        "memory": loggers[LogName.MEMORY],
+        "sut_system_info": loggers[LogName.SUT_SYSTEM_INFO],
+        "sut_mxlink": loggers[LogName.SUT_MXLINK],
+        "sut_mtemp": loggers[LogName.SUT_MTEMP],
+        "sut_link_flap": loggers[LogName.SUT_LINK_FLAP],
+        "slx_eye": loggers[LogName.SLX_EYE],
     }
