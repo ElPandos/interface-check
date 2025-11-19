@@ -10,7 +10,7 @@ from typing import Any
 
 from src.platform.enums.log import LogName
 
-logger = logging.getLogger(LogName.CORE_MAIN.value)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 class PowerState(Enum):

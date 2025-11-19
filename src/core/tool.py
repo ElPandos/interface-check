@@ -71,7 +71,7 @@ class Tool:
         self._ssh = ssh
         self._results: dict[str, CmdResult] = {}
 
-        self._logger = logging.getLogger(LogName.CORE_MAIN.value)
+        self._logger = logging.getLogger(LogName.MAIN.value)
 
     def _exec(self, cmd: str) -> CmdResult:
         """Execute command and return result.
@@ -89,7 +89,7 @@ class Tool:
         try:
             cmd_result = self._ssh.exec_cmd(cmd)
             if cmd_result.success:
-                self._logger.debug(f"Succesfully executed command: {cmd}")
+                self._logger.debug(f"{LogMsg.TOOL_CMD_SUCCESS.value}: '{cmd}'")
             else:
                 cmd_result = CmdResult.error(cmd, cmd_result.stderr)
         except (OSError, TimeoutError) as e:

@@ -22,6 +22,7 @@ import re
 from typing import ClassVar
 
 from src.core.connect import SshConnection
+from src.core.enums.messages import LogMsg
 from src.interfaces.software import IPackageManager, Package
 from src.platform.enums.log import LogName
 from src.platform.enums.software import PackageManagerType
@@ -64,7 +65,7 @@ class AptManager(IPackageManager):
         self._ssh = ssh
 
         self._logger = logging.getLogger(LogName.SUT_SYSTEM_INFO.value)
-        self._logger.debug("Initialized APT package manager")
+        self._logger.debug(LogMsg.SW_MGR_APT_INIT.value)
 
     def install(self, package: str) -> bool:
         """Install a package using apt-get.
@@ -79,15 +80,15 @@ class AptManager(IPackageManager):
             self._logger.error("No SSH connection available for package installation")
             return False
 
-        self._logger.info(f"Installing package '{package}' using APT")
+        self._logger.info(f"{LogMsg.SW_PKG_INSTALL.value} '{package}' using APT")
 
         # Use echo to pipe password to sudo for non-interactive installation
         result = self._ssh.exec_cmd(f"apt install -y {package}")
 
         if result.success:
-            self._logger.info(f"Successfully installed package '{package}'")
+            self._logger.info(f"{LogMsg.SW_PKG_INSTALL_SUCCESS.value}: {package}")
         else:
-            self._logger.error(f"Failed to install package '{package}': {result.stderr}")
+            self._logger.error(f"{LogMsg.SW_PKG_INSTALL_FAIL.value}: {package} - {result.stderr}")
 
         return result.success
 
@@ -108,15 +109,15 @@ class AptManager(IPackageManager):
             self._logger.warning("No package name provided for removal")
             return False
 
-        self._logger.info(f"Removing package '{package}' using APT")
+        self._logger.info(f"{LogMsg.SW_PKG_REMOVE.value} '{package}' using APT")
 
         # Execute apt-get remove with -y flag for non-interactive removal
         result = self._ssh.exec_cmd(f"apt-get remove -y {package}")
 
         if result.success:
-            self._logger.info(f"Successfully removed package '{package}'")
+            self._logger.info(f"{LogMsg.SW_PKG_REMOVE_SUCCESS.value}: {package}")
         else:
-            self._logger.error(f"Failed to remove package '{package}'")
+            self._logger.error(f"{LogMsg.SW_PKG_REMOVE_FAIL.value}: {package}")
 
         return result.success
 
@@ -133,7 +134,7 @@ class AptManager(IPackageManager):
             self._logger.error("No SSH connection available for package listing")
             return None
 
-        self._logger.debug("Retrieving list of installed packages using dpkg")
+        self._logger.debug(LogMsg.SW_PKG_LIST.value)
 
         # Use dpkg -l to list all installed packages
         result = self._ssh.exec_cmd(f"dpkg -l {package}")
@@ -141,7 +142,7 @@ class AptManager(IPackageManager):
         if result.success:
             return self._parse_version(result.stdout)
 
-        self._logger.error("Failed to retrieve package list from dpkg")
+        self._logger.error(LogMsg.SW_PKG_LIST_FAIL.value)
         return None
 
     def _parse_version(self, output: str) -> str:
@@ -158,9 +159,9 @@ class AptManager(IPackageManager):
         version = ""
         if match:
             version = match.group(1)
-            self._logger.debug(f"Successfully parsed version: {version}")
+            self._logger.debug(f"{LogMsg.SW_PKG_VERSION_PARSE.value}: {version}")
         else:
-            self._logger.error("Failed to parse version")
+            self._logger.error(LogMsg.SW_PKG_VERSION_PARSE_FAIL.value)
 
         return version
 
@@ -174,15 +175,15 @@ class AptManager(IPackageManager):
             self._logger.debug("No SSH connection available for APT availability check")
             return False
 
-        self._logger.debug("Checking APT availability using 'which apt-get'")
+        self._logger.debug(LogMsg.SW_MGR_APT_CHECK.value)
 
         # Check if apt-get command exists in PATH
         result = self._ssh.exec_cmd("which apt-get")
 
         if result.success:
-            self._logger.info("Detected APT package manager (Debian/Ubuntu system)")
+            self._logger.info(LogMsg.SW_MGR_APT_FOUND.value)
         else:
-            self._logger.debug("APT package manager is not available")
+            self._logger.debug(LogMsg.SW_MGR_APT_NOT_FOUND.value)
 
         return result.success
 
@@ -210,7 +211,7 @@ class YumManager(IPackageManager):
         self._ssh = ssh
 
         self._logger = logging.getLogger(LogName.SUT_SYSTEM_INFO.value)
-        self._logger.debug("Initialized YUM package manager")
+        self._logger.debug(LogMsg.SW_MGR_YUM_INIT.value)
 
     def install(self, package: str) -> bool:
         """Install a package using yum.
@@ -225,15 +226,15 @@ class YumManager(IPackageManager):
             self._logger.error("No SSH connection available for package installation")
             return False
 
-        self._logger.info(f"Installing package '{package}' using YUM")
+        self._logger.info(f"{LogMsg.SW_PKG_INSTALL.value} '{package}' using YUM")
 
         # Use echo to pipe password to sudo for non-interactive installation
         result = self._ssh.exec_cmd(f"yum install -y {package}")
 
         if result.success:
-            self._logger.info(f"Successfully installed package '{package}'")
+            self._logger.info(f"{LogMsg.SW_PKG_INSTALL_SUCCESS.value}: {package}")
         else:
-            self._logger.error(f"Failed to install package '{package}': {result.stderr}")
+            self._logger.error(f"{LogMsg.SW_PKG_INSTALL_FAIL.value}: {package} - {result.stderr}")
 
         return result.success
 
@@ -254,15 +255,15 @@ class YumManager(IPackageManager):
             self._logger.warning("No package name provided for removal")
             return False
 
-        self._logger.info(f"Removing package '{package}' using YUM")
+        self._logger.info(f"{LogMsg.SW_PKG_REMOVE.value} '{package}' using YUM")
 
         # Execute yum remove with -y flag for non-interactive removal
         result = self._ssh.exec_cmd(f"yum remove -y {package}")
 
         if result.success:
-            self._logger.info(f"Successfully removed package '{package}'")
+            self._logger.info(f"{LogMsg.SW_PKG_REMOVE_SUCCESS.value}: {package}")
         else:
-            self._logger.error(f"Failed to remove package '{package}'")
+            self._logger.error(f"{LogMsg.SW_PKG_REMOVE_FAIL.value}: {package}")
 
         return result.success
 
@@ -339,15 +340,15 @@ class YumManager(IPackageManager):
             self._logger.debug("No SSH connection available for YUM availability check")
             return False
 
-        self._logger.debug("Checking YUM availability using 'which yum'")
+        self._logger.debug(LogMsg.SW_MGR_YUM_CHECK.value)
 
         # Check if yum command exists in PATH
         result = self._ssh.exec_cmd("which yum")
 
         if result.success:
-            self._logger.info("YUM package manager is available")
+            self._logger.info(LogMsg.SW_MGR_YUM_FOUND.value)
         else:
-            self._logger.debug("YUM package manager is not available")
+            self._logger.debug(LogMsg.SW_MGR_YUM_NOT_FOUND.value)
 
         return result.success
 
@@ -395,7 +396,7 @@ class SoftwareManager:
 
         # Initialize logger first for detection logging
         self._logger = logging.getLogger(LogName.SUT_SYSTEM_INFO.value)
-        self._logger.info("Initializing Software Manager")
+        self._logger.info(LogMsg.SW_MGR_INIT.value)
 
         # Detect and initialize the appropriate package manager
         self._detect_package_manager()
@@ -408,14 +409,14 @@ class SoftwareManager:
         The first available package manager is selected and initialized.
         """
         if not self._ssh:
-            self._logger.error("No SSH connection available for package manager detection")
+            self._logger.error(LogMsg.SW_MGR_NO_SSH.value)
             return
 
-        self._logger.info("Detecting available package manager")
+        self._logger.info(LogMsg.SW_MGR_DETECT.value)
 
         try:
             # Try APT first (Debian/Ubuntu systems)
-            self._logger.debug("Checking for APT package manager")
+            self._logger.debug(LogMsg.SW_MGR_APT_CHECK.value)
             apt_manager = AptManager(self._ssh)
             if apt_manager.is_available():
                 self._package_manager = apt_manager
@@ -425,17 +426,17 @@ class SoftwareManager:
 
         try:
             # Try YUM (RedHat/CentOS systems)
-            self._logger.debug("Checking for YUM package manager")
+            self._logger.debug(LogMsg.SW_MGR_YUM_CHECK.value)
             yum_manager = YumManager(self._ssh)
             if yum_manager.is_available():
                 self._package_manager = yum_manager
-                self._logger.info("Detected YUM package manager (RedHat/CentOS system)")
+                self._logger.info(LogMsg.SW_MGR_YUM_FOUND.value)
                 return
         except Exception as e:
             self._logger.warning(f"Error checking YUM availability: {e}")
 
         # No package manager detected
-        self._logger.warning("No supported package manager detected (APT/YUM)")
+        self._logger.warning(LogMsg.SW_MGR_NO_MANAGER.value)
 
     def _is_connected(self) -> bool:
         """Check if SSH connection is available.
@@ -462,16 +463,16 @@ class SoftwareManager:
             return False, ""
 
         try:
-            self._logger.debug(f"Executing command: {cmd}")
+            self._logger.debug(f"Executing command: '{cmd}'")
             result = self._ssh.exec_cmd(cmd)
             if result.success:
                 self._logger.debug(f"Command executed successfully: {cmd}")
             else:
-                self._logger.warning(f"Command failed: {cmd}")
+                self._logger.warning(f"Command failed: '{cmd}'")
 
             return result.success, result.stdout
         except Exception:
-            self._logger.exception(f"Exception executing command: {cmd}")
+            self._logger.exception(f"Exception executing command: '{cmd}'")
             return False, ""
 
     def get_package_manager_type(self) -> PackageManagerType:
@@ -505,9 +506,7 @@ class SoftwareManager:
         unsupported = [pkg for pkg in required_packages if pkg not in SUPPORTED_PACKAGES]
 
         if unsupported:
-            self._logger.warning(
-                f"Unsupported packages (no version check available): {', '.join(unsupported)}"
-            )
+            self._logger.warning(f"{LogMsg.SW_PKG_VALIDATE.value}: {', '.join(unsupported)}")
 
         return supported, unsupported
 
@@ -524,11 +523,11 @@ class SoftwareManager:
             bool: True if all packages installed successfully, False otherwise
         """
         if not required_packages:
-            self._logger.info("No packages specified for installation")
+            self._logger.info(LogMsg.SW_PKG_NO_PACKAGES.value)
             return True
 
         if not self._package_manager:
-            self._logger.error("Cannot install packages: No package manager available")
+            self._logger.error(LogMsg.SW_PKG_NO_MANAGER.value)
             return False
 
         # Validate package support
@@ -556,10 +555,10 @@ class SoftwareManager:
 
         # Log installation summary
         if success_count == len(supported_packages):
-            self._logger.info(f"All {len(supported_packages)} packages installed successfully")
+            self._logger.info(f"{LogMsg.SW_PKG_INSTALL_SUMMARY.value} ({len(supported_packages)})")
         else:
             self._logger.warning(
-                f"Installed {success_count}/{len(supported_packages)} packages. "
+                f"{LogMsg.SW_PKG_INSTALL_PARTIAL.value}: {success_count}/{len(supported_packages)}. "
                 f"Failed: {', '.join(failed_packages)}"
             )
 
@@ -575,7 +574,7 @@ class SoftwareManager:
             required_packages: Optional list of specific packages to check.
                              If None, checks all SUPPORTED_PACKAGES.
         """
-        self._logger.info("Verifying installed package versions")
+        self._logger.info(LogMsg.SW_PKG_VERSION_CHECK.value)
 
         # If no specific list provided, use all supported commands
         if required_packages is None:
@@ -601,7 +600,9 @@ class SoftwareManager:
         Args:
             version_info: Dictionary mapping package names to version strings
         """
-        self._logger.info(f"Version verification complete for {len(version_info)} packages")
+        self._logger.info(
+            f"{LogMsg.SW_PKG_VERSION_COMPLETE.value} for {len(version_info)} packages"
+        )
 
         table_cfg = self._calculate_table_dimensions(version_info)
         installed_packages, missing_packages = self._separate_packages_by_status(version_info)
@@ -740,16 +741,16 @@ class SoftwareManager:
         failed = total_packages - successful
         success_rate = (successful / total_packages * 100) if total_packages > 0 else 0
 
-        self._logger.info("Software Installation Verification Summary")
-        self._logger.info(f"   Total packages verified: {total_packages}")
-        self._logger.info(f"   Successfully installed: {successful} ({success_rate:.1f}%)")
+        self._logger.info(LogMsg.SW_PKG_TABLE_HEADER.value)
+        self._logger.info(f"   {LogMsg.SW_PKG_TOTAL.value}: {total_packages}")
+        self._logger.info(f"   {LogMsg.SW_PKG_SUCCESS.value}: {successful} ({success_rate:.1f}%)")
         if failed > 0:
-            self._logger.info(f"   Missing or failed: {failed} ({100 - success_rate:.1f}%)")
-            self._logger.warning(
-                "Some required packages are missing. Consider installing them manually."
+            self._logger.info(
+                f"   {LogMsg.SW_PKG_FAILED.value}: {failed} ({100 - success_rate:.1f}%)"
             )
+            self._logger.warning(LogMsg.SW_PKG_MISSING_WARNING.value)
         else:
-            self._logger.info("   All required packages are properly installed!")
+            self._logger.info(f"   {LogMsg.SW_PKG_ALL_INSTALLED.value}")
         self._logger.info("")
 
     # def log_system_info(self, required_packages: list[Package]) -> None:
@@ -770,26 +771,26 @@ class SoftwareManager:
             bool: True if update successful, False otherwise
         """
         if not self._package_manager:
-            self._logger.error("Cannot update package index: No package manager available")
+            self._logger.error(LogMsg.SW_PKG_NO_MANAGER.value)
             return False
 
-        self._logger.info("Updating package index")
+        self._logger.info(LogMsg.SW_PKG_UPDATE.value)
 
         # Use appropriate update command based on package manager type
         if isinstance(self._package_manager, AptManager):
-            self._logger.debug("Updating APT package index")
+            self._logger.debug(LogMsg.SW_PKG_UPDATE_APT.value)
             success, _ = self._exec_cmd("sudo apt update -y")
         elif isinstance(self._package_manager, YumManager):
-            self._logger.debug("Updating YUM package cache")
+            self._logger.debug(LogMsg.SW_PKG_UPDATE_YUM.value)
             success, _ = self._exec_cmd("sudo yum check-update")
         else:
-            self._logger.error("Unknown package manager type for index update")
+            self._logger.error(LogMsg.SW_PKG_UPDATE_UNKNOWN.value)
             return False
 
         if success:
-            self._logger.info("Package index updated successfully")
+            self._logger.info(LogMsg.SW_PKG_UPDATE_SUCCESS.value)
         else:
-            self._logger.error("Failed to update package index")
+            self._logger.error(LogMsg.SW_PKG_UPDATE_FAIL.value)
 
         # await self.log_required_pakages_versions()
 

@@ -13,7 +13,7 @@ from src.models.config import Config
 from src.platform.enums.log import LogName
 from src.ui.tabs.base import BasePanel, BaseTab
 
-logger = logging.getLogger(LogName.CORE_MAIN.value)
+logger = logging.getLogger(LogName.MAIN.value)
 
 NAME = "slx"
 LABEL = "SLX"
@@ -383,7 +383,7 @@ class SlxContent:
         logger.debug("Start show interface status command")
         try:
             # Use execute_shell_command like in main_eye_optimized.py
-            logger.debug("Executing command: show interface status")
+            logger.debug("Executing command: 'show interface status'")
             result = connection.execute_shell_command("show interface status")
             logger.debug(f"Command result length: {len(result)} characters")
             logger.debug(f"First 200 chars of result: {result[:200]}")

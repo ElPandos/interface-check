@@ -4,9 +4,10 @@ import logging
 from typing import Any
 
 from src.core.connect import SshConnection
+from src.core.enums.messages import LogMsg
 from src.platform.enums.log import LogName
 
-logger = logging.getLogger(LogName.CORE_MAIN.value)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 @dataclass(frozen=True)
@@ -66,17 +67,17 @@ class Agent:
             True if started successfully
         """
         if not self._ssh.is_connected():
-            logger.error("Cannot start agent: SSH connection not available")
+            logger.error(LogMsg.AGENT_NO_SSH.value)
             return False
 
         self._running = True
-        logger.info("Network agent started")
+        logger.info(LogMsg.AGENT_STARTED.value)
         return True
 
     def stop(self) -> None:
         """Stop agent."""
         self._running = False
-        logger.info("Network agent stopped")
+        logger.info(LogMsg.AGENT_STOPPED.value)
 
     async def execute_task(self, task: dict[str, Any]) -> dict[str, Any]:
         """Execute diagnostic task with commands and return analysis.
@@ -97,7 +98,7 @@ class Agent:
         task_id = task.get("id", "unknown")
         commands = task.get("commands", [])
 
-        logger.info(f"Executing task {task_id} with {len(commands)} commands")
+        logger.info(f"{LogMsg.AGENT_TASK_EXEC.value} {task_id} with {len(commands)} commands")
 
         results = []
         for command in commands:
@@ -107,7 +108,7 @@ class Agent:
                     TaskResult(command=command, stdout=stdout, stderr=stderr, success=not stderr)
                 )
             except Exception as e:
-                logger.exception(f"Command execution failed: {command}")
+                logger.exception(f"{LogMsg.AGENT_CMD_FAIL.value}: {command}")
                 results.append(TaskResult(command=command, stdout="", stderr=str(e), success=False))
 
         analysis = self._analyze_results(task, results)

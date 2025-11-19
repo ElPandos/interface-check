@@ -6,6 +6,7 @@ from typing import ClassVar
 
 import numpy as np
 
+from src.core.enums.messages import LogMsg
 from src.interfaces.component import IParser
 from src.platform.enums.log import LogName
 
@@ -140,7 +141,7 @@ class MstVersionDevice(ParsedDevice):
             net: Network interface name
             numa: NUMA node
         """
-        ParsedDevice.__init__(self, LogName.CORE_MAIN.value)
+        ParsedDevice.__init__(self, LogName.MAIN.value)
 
         self.device_type = device_type
         self.mst = mst
@@ -172,7 +173,7 @@ class MstStatusVersionParser(IParser):
         Args:
             raw_output: Raw command output
         """
-        IParser.__init__(self, LogName.CORE_MAIN.value)
+        IParser.__init__(self, LogName.MAIN.value)
 
         self._devices: list[MstVersionDevice] = []
         self._raw_data: str | None = None
@@ -287,7 +288,7 @@ class EthtoolModuleDevice(ParsedDevice):
         Args:
             data: Parsed key-value data
         """
-        ParsedDevice.__init__(self, LogName.CORE_MAIN.value)
+        ParsedDevice.__init__(self, LogName.MAIN.value)
 
         self._data = data
 
@@ -382,7 +383,7 @@ class EthtoolModuleParser(IParser):
         Args:
             raw_output: Raw command output
         """
-        IParser.__init__(self, LogName.CORE_MAIN.value)
+        IParser.__init__(self, LogName.MAIN.value)
 
         self._result: dict[str, str] = {}
         self._raw_data: str | None = None
@@ -438,7 +439,7 @@ class MlxlinkDevice(ParsedDevice):
         Args:
             data: Parsed key-value data
         """
-        ParsedDevice.__init__(self, LogName.CORE_MAIN.value)
+        ParsedDevice.__init__(self, LogName.MAIN.value)
 
         self._data = data
 
@@ -678,7 +679,7 @@ class MlxlinkParser(IParser):
         Args:
             raw_output: Raw command output
         """
-        IParser.__init__(self, LogName.CORE_MAIN.value)
+        IParser.__init__(self, LogName.MAIN.value)
 
         self._result: dict[str, str] = {}
         self._raw_data: str | None = None
@@ -798,7 +799,7 @@ class DmesgFlapParser(IParser):
         Args:
             start_time: Only parse events after this time (defaults to epoch)
         """
-        IParser.__init__(self, LogName.CORE_MAIN.value)
+        IParser.__init__(self, LogName.MAIN.value)
 
         self._start_time = start_time if start_time else dt.fromtimestamp(0, tz=UTC)
         # self._start_time = dt(2025, 11, 11, 12, 37, 57, tzinfo=UTC)
@@ -814,7 +815,7 @@ class DmesgFlapParser(IParser):
         try:
             return dt.fromisoformat(ts_str.replace(",", "."))
         except ValueError:
-            self._logger.debug(f"Failed to parse timestamp: {ts_str}")
+            self._logger.debug(f"{LogMsg.PARSER_TIMESTAMP_FAIL.value}: {ts_str}")
             return None
 
     def parse(self, raw_data: str) -> None:

@@ -36,12 +36,12 @@ import time
 
 from src.core.connect import LocalConnection, SshConnection
 from src.core.enums.connect import ConnectType, ShowPartType
+from src.core.enums.messages import LogMsg
 from src.core.helpers import get_attr_value
-from src.core.logging_formatter import DynamicWidthFormatter
+from src.core.logging_setup import initialize_logging
 from src.core.parser import DmesgFlapParser, MlxlinkParser
 from src.core.worker import Worker, WorkerConfig, WorkManager
 from src.models.config import Host
-from src.platform.enums.eye_scan_log import EyeScanLogMsg
 from src.platform.enums.log import LogName
 from src.platform.software_manager import SoftwareManager
 from src.platform.tools import helper
@@ -56,13 +56,12 @@ shutdown_event = threading.Event()
 
 
 def signal_handler(_signum, _frame) -> None:
-    """Handle Ctrl+C signal for graceful shutdown.
+    """Handle Ctrl+C signal for immediate shutdown.
 
-    Sets shutdown event to signal all threads to stop.
-    Uses stderr since logger may not be initialized yet.
+    Exits immediately without cleanup.
     """
-    sys.stderr.write("Ctrl+C pressed. Shutting down gracefully...\n")
-    shutdown_event.set()
+    sys.stderr.write("\nCtrl+C pressed. Exiting immediately...\n")
+    sys.exit(0)
 
 
 # Register signal handler for SIGINT (Ctrl+C)
@@ -72,94 +71,14 @@ signal.signal(signal.SIGINT, signal_handler)
 # Logging Configuration
 # ============================================================================
 
-# Create timestamped log directory
-log_time_stamp = f"{dt.now().strftime('%Y%m%d_%H%M%S')}"
-# Use executable directory for PyInstaller, script directory otherwise
-if getattr(sys, "frozen", False):
-    log_dir = Path(sys.executable).parent / "logs"
-else:
-    log_dir = Path(__file__).parent / "logs"
-log_dir.mkdir(exist_ok=True)
-
-# Define separate log files for different components
-main_log = log_dir / f"{log_time_stamp}_main.log"  # Main execution flow
-memory_log = log_dir / f"{log_time_stamp}_memory.log"
-
-sut_system_info_log = log_dir / f"{log_time_stamp}_sut_system_info.log"  # SUT system info
-sut_mxlink_log = log_dir / f"{log_time_stamp}_sut_mxlink.log"  # SUT metrics
-sut_mtemp_log = log_dir / f"{log_time_stamp}_sut_mtemp.log"  # SUT metrics
-sut_link_flap_log = log_dir / f"{log_time_stamp}_sut_link_flap.log"  # SUT link status
-
-slx_eye_log = log_dir / f"{log_time_stamp}_slx_eye.log"  # SLX eye scan
-
-
-# Log formatter with aligned log levels and logger names
-# Dynamic width adjusts to longest logger name and level seen
-log_format_string = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-# Temporary logger for config loading
-temp_logger = logging.getLogger("temp")
-temp_logger.setLevel(logging.INFO)
-temp_handler = logging.StreamHandler()
-temp_handler.setFormatter(DynamicWidthFormatter(log_format_string))
-temp_logger.addHandler(temp_handler)
-
-# Load config to get log level
-try:
-    if getattr(sys, "frozen", False):
-        config_file = Path(sys.executable).parent / "main_eye_cfg.json"
-    else:
-        config_file = Path(__file__).parent / "main_eye_cfg.json"
-    with config_file.open() as f:
-        config_data = json.load(f)
-    log_level_str = config_data.get("log_level", "info").upper()
-    log_level = getattr(logging, log_level_str, logging.INFO)
-except Exception:
-    log_level = logging.INFO
-
-# Configure root logger with dynamic formatter
-root_file_handler = logging.FileHandler(main_log)
-root_file_handler.setFormatter(DynamicWidthFormatter(log_format_string))
-root_console_handler = logging.StreamHandler()
-root_console_handler.setFormatter(DynamicWidthFormatter(log_format_string))
-
-logging.basicConfig(
-    level=log_level,
-    handlers=[root_file_handler, root_console_handler],
-)
-
-# Create loggers with handlers
-logger_cfgs = [
-    (LogName.CORE_MAIN.value, main_log),
-    (LogName.CORE_MEMORY.value, memory_log),
-    (LogName.SUT_SYSTEM_INFO.value, sut_system_info_log),
-    (LogName.SUT_MXLINK.value, sut_mxlink_log),
-    (LogName.SUT_MTEMP.value, sut_mtemp_log),
-    (LogName.SUT_LINK_FLAP.value, sut_link_flap_log),
-    (LogName.SLX_EYE.value, slx_eye_log),
-]
-
-for logger_name, log_file in logger_cfgs:
-    logger = logging.getLogger(logger_name)
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setFormatter(DynamicWidthFormatter(log_format_string))
-    file_handler.setLevel(log_level)
-    logger.addHandler(file_handler)
-    # Add console handler for terminal output
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(DynamicWidthFormatter(log_format_string))
-    console_handler.setLevel(log_level)
-    logger.addHandler(console_handler)
-    logger.propagate = False
-
-# Reference loggers for use in code
-main_logger = logging.getLogger(LogName.CORE_MAIN.value)
-memory_logger = logging.getLogger(LogName.CORE_MEMORY.value)
-sut_system_info_logger = logging.getLogger(LogName.SUT_SYSTEM_INFO.value)
-sut_mxlink_logger = logging.getLogger(LogName.SUT_MXLINK.value)
-sut_mtemp_logger = logging.getLogger(LogName.SUT_MTEMP.value)
-sut_link_flap_logger = logging.getLogger(LogName.SUT_LINK_FLAP.value)
-slx_eye_logger = logging.getLogger(LogName.SLX_EYE.value)
+loggers = initialize_logging()
+main_logger = loggers[LogName.MAIN.value]
+memory_logger = loggers[LogName.MEMORY.value]
+sut_system_info_logger = loggers[LogName.SUT_SYSTEM_INFO.value]
+sut_mxlink_logger = loggers[LogName.SUT_MXLINK.value]
+sut_mtemp_logger = loggers[LogName.SUT_MTEMP.value]
+sut_link_flap_logger = loggers[LogName.SUT_LINK_FLAP.value]
+slx_eye_logger = loggers[LogName.SLX_EYE.value]
 
 
 @dataclass(frozen=True)
@@ -257,6 +176,8 @@ def load_cfg(logger: logging.Logger) -> Config:
         FileNotFoundError: If config file not found
         json.JSONDecodeError: If config file has invalid JSON
     """
+    logger.debug(LogMsg.CONFIG_START)
+
     # Handle PyInstaller bundled executable
     if getattr(sys, "frozen", False):
         # Running as PyInstaller bundle
@@ -267,6 +188,9 @@ def load_cfg(logger: logging.Logger) -> Config:
     try:
         with config_file.open() as f:
             data = json.load(f)
+
+        logger.info(LogMsg.CONFIG_LOADED.value)
+
         return Config.from_dict(data)
     except FileNotFoundError:
         logger.exception(f"Config file not found: {config_file}")
@@ -331,9 +255,9 @@ class SlxEyeScanner:
             str: Command output
         """
         log_cmd = cmd_description if cmd_description else cmd
-        self._logger.debug(f"{EyeScanLogMsg.CMD_EXECUTING.value}: '{log_cmd}'")
+        self._logger.debug(f"{LogMsg.CMD_EXECUTING.value}: '{log_cmd}'")
         result = self._ssh.exec_shell_command(cmd)
-        self._logger.debug(f"{EyeScanLogMsg.CMD_RESULT.value}:\n{result}")
+        self._logger.debug(f"{LogMsg.CMD_RESULT.value}:\n{result}")
         return result
 
     def connect(self) -> bool:
@@ -351,12 +275,12 @@ class SlxEyeScanner:
             self._ssh = _create_ssh_connection(self._cfg, "slx")
 
             if not self._ssh.connect():
-                self._logger.error(EyeScanLogMsg.SSH_CONN_FAILED.value)
+                self._logger.error(LogMsg.SSH_CONN_FAILED.value)
                 return False
             self._logger.debug("SSH connection established")
 
             if not self._ssh.open_shell():
-                self._logger.error(EyeScanLogMsg.SHELL_OPEN_FAILED.value)
+                self._logger.error(LogMsg.SHELL_OPEN_FAILED.value)
                 return False
             self._logger.debug("Shell opened successfully")
 
@@ -374,7 +298,7 @@ class SlxEyeScanner:
             self._logger.debug(f"Password authentication result: {result}")
 
             # Don't enter fbr-CLI yet - need to run cmsh first from Linux shell
-            self._logger.info(f"{EyeScanLogMsg.SSH_CONN_SUCCESS.value} (in Linux shell)")
+            self._logger.info(f"{LogMsg.SSH_CONN_SUCCESS.value} (in Linux shell)")
             return True  # noqa: TRY300
         except Exception:
             self._logger.exception("Connection failed")
@@ -393,7 +317,7 @@ class SlxEyeScanner:
             str | None: Port ID string if found, None otherwise
         """
         if not self._ssh:
-            self._logger.error(EyeScanLogMsg.SSH_NO_CONN.value)
+            self._logger.error(LogMsg.SSH_NO_CONN.value)
             return None
 
         # cmsh must run from Linux shell, not fbr-CLI
@@ -410,10 +334,10 @@ class SlxEyeScanner:
             if match:
                 port_id = match.group(1)
                 self._logger.info(
-                    f"{EyeScanLogMsg.PORT_ID_FOUND.value} '{port_id}' for interface: '{interface}'"
+                    f"{LogMsg.PORT_ID_FOUND.value} '{port_id}' for interface: '{interface}'"
                 )
                 return port_id
-            self._logger.warning(f"{EyeScanLogMsg.PORT_ID_NOT_FOUND.value} '{interface}'")
+            self._logger.warning(f"{LogMsg.PORT_ID_NOT_FOUND.value} '{interface}'")
             return None  # noqa: TRY300
         except Exception:
             self._logger.exception(f"Failed to get port ID for '{interface}'")
@@ -426,16 +350,16 @@ class SlxEyeScanner:
             purpose: Optional description of why entering fbr-CLI (for logging)
         """
         if purpose:
-            self._logger.info(f"{EyeScanLogMsg.FBR_ENTERING.value} {purpose}")
+            self._logger.info(f"{LogMsg.FBR_ENTERING.value} {purpose}")
         else:
-            self._logger.info(EyeScanLogMsg.FBR_ENTERING.value)
-        self._logger.debug(f"{EyeScanLogMsg.CMD_EXECUTING.value}: 'fbr-CLI'")
+            self._logger.info(LogMsg.FBR_ENTERING.value)
+        self._logger.debug(f"{LogMsg.CMD_EXECUTING.value}: 'fbr-CLI'")
         self._ssh.exec_shell_command("fbr-CLI")
         time.sleep(0.5)  # Allow prompt to stabilize
 
         # Read and log the fbr-CLI welcome message from buffer
         welcome_msg = self._ssh.exec_shell_command("")
-        self._logger.debug(f"{EyeScanLogMsg.CMD_RESULT.value}:\n{welcome_msg}")
+        self._logger.debug(f"{LogMsg.CMD_RESULT.value}:\n{welcome_msg}")
         self._logger.info("Entered fbr-CLI successfully")
 
     def _exit_fbr_cli(self) -> None:
@@ -446,7 +370,7 @@ class SlxEyeScanner:
         self._logger.info("Sending 'Ctrl+C' to exit fbr-CLI")
         self._exec_with_logging("\x03", "Ctrl+C")  # Send Ctrl+C
         time.sleep(0.3)
-        self._logger.info(EyeScanLogMsg.FBR_EXITED.value)
+        self._logger.info(LogMsg.FBR_EXITED.value)
 
     def get_interface_name(self, port_id: str) -> str | None:
         """Find interface name by port ID in fbr-CLI.
@@ -464,7 +388,7 @@ class SlxEyeScanner:
             ps output: "xe1(10)" -> returns 'xe1'
         """
         if not self._ssh:
-            self._logger.error(EyeScanLogMsg.SSH_NO_CONN.value)
+            self._logger.error(LogMsg.SSH_NO_CONN.value)
             return None
 
         try:
@@ -486,10 +410,10 @@ class SlxEyeScanner:
             if match:
                 interface_name = match.group(1)
                 self._logger.info(
-                    f"{EyeScanLogMsg.INTERFACE_FOUND.value} '{interface_name}' for port: '{port_id}'"
+                    f"{LogMsg.INTERFACE_FOUND.value} '{interface_name}' for port: '{port_id}'"
                 )
                 return interface_name
-            self._logger.warning(f"{EyeScanLogMsg.INTERFACE_NOT_FOUND.value}: '{port_id}'")
+            self._logger.warning(f"{LogMsg.INTERFACE_NOT_FOUND.value}: '{port_id}'")
             return None  # noqa: TRY300
         except Exception:
             self._logger.exception(f"Failed to get interface name for port: '{port_id}'")
@@ -523,26 +447,26 @@ class SlxEyeScanner:
             cmd: Port toggle command (e.g., 'port xe1 enable=true')
         """
         if not self._ssh:
-            self._logger.error(f"{EyeScanLogMsg.SSH_NO_CONN.value} for toggle")
+            self._logger.error(f"{LogMsg.SSH_NO_CONN.value} for toggle")
             return
 
         try:
             # Enter fbr-CLI for toggle command
             self._enter_fbr_cli("for toggle")
 
-            self._logger.debug(f"{EyeScanLogMsg.TOGGLE_EXECUTING.value}: '{cmd}'")
+            self._logger.debug(f"{LogMsg.TOGGLE_EXECUTING.value}: '{cmd}'")
             self._exec_with_logging(cmd)
 
             # Exit fbr-CLI back to Linux shell
             self._exit_fbr_cli()
 
             self._logger.debug(
-                f"{EyeScanLogMsg.TOGGLE_WAITING.value}: {self._cfg.slx_port_toggle_wait_sec} seconds..."
+                f"{LogMsg.TOGGLE_WAITING.value}: {self._cfg.slx_port_toggle_wait_sec} seconds..."
             )
             time.sleep(self._cfg.slx_port_toggle_wait_sec)
 
         except Exception:
-            self._logger.exception(f"{EyeScanLogMsg.TOGGLE_FAILED.value} '{cmd}'")
+            self._logger.exception(f"{LogMsg.TOGGLE_FAILED.value} '{cmd}'")
 
     def run_eye_scan(self, interface: str, port_id: str) -> None:
         """Execute eye scan with optional interface toggle.
@@ -555,16 +479,14 @@ class SlxEyeScanner:
             port_id: Port identifier for logging
         """
         if not self._ssh:
-            self._logger.error(f"{EyeScanLogMsg.SSH_NO_CONN.value} for eye scan")
+            self._logger.error(f"{LogMsg.SSH_NO_CONN.value} for eye scan")
             return
 
         try:
-            self._logger.info(
-                f"{EyeScanLogMsg.EYE_SCAN_START.value} '{interface}' (Port: '{port_id}')"
-            )
+            self._logger.info(f"{LogMsg.EYE_SCAN_START.value} '{interface}' (Port: '{port_id}')")
 
             if self._cfg.slx_port_toggle_enabled:
-                self._logger.info(EyeScanLogMsg.TOGGLE_ENABLED.value)
+                self._logger.info(LogMsg.TOGGLE_ENABLED.value)
                 self.disable_interface(interface)
                 self.enable_interface(interface)
 
@@ -578,7 +500,7 @@ class SlxEyeScanner:
 
             # Send eye scan command
             cmd = f"phy diag {interface} eyescan"
-            self._logger.info(f"{EyeScanLogMsg.CMD_EXECUTING.value} eye scan: '{cmd}'")
+            self._logger.info(f"{LogMsg.CMD_EXECUTING.value} eye scan: '{cmd}'")
             self._ssh.exec_shell_command(cmd + "\n", until_prompt=False)
 
             # Wait for eye scan to complete
@@ -590,7 +512,7 @@ class SlxEyeScanner:
 
             self._results.append(EyeScanResult(interface, port_id, result))
             self._logger.info(
-                f"{EyeScanLogMsg.EYE_SCAN_COMPLETE.value}: '{interface}' (Port: '{port_id}')"
+                f"{LogMsg.EYE_SCAN_COMPLETE.value}: '{interface}' (Port: '{port_id}')"
             )
             self._logger.info("=======================================")
             self._logger.info("\n%s", self._results[-1].result)
@@ -600,7 +522,7 @@ class SlxEyeScanner:
             self._exit_fbr_cli()
 
         except Exception:
-            self._logger.exception(f"{EyeScanLogMsg.EYE_SCAN_FAILED.value} for '{interface}'")
+            self._logger.exception(f"{LogMsg.EYE_SCAN_FAILED.value} for '{interface}'")
 
     def _lookup_interface_mapping(self, interface: str) -> tuple[str, str] | None:
         """Lookup port ID and interface name for given interface.
@@ -611,19 +533,19 @@ class SlxEyeScanner:
         Returns:
             tuple[str, str] | None: Tuple of (port_id, interface_name) if found, None otherwise
         """
-        self._logger.info(f"{EyeScanLogMsg.INTERFACE_LOOKUP.value} for '{interface}'")
+        self._logger.info(f"{LogMsg.INTERFACE_LOOKUP.value} for '{interface}'")
 
         port_id = self.get_port_id(interface)
         if not port_id:
             self._logger.error(
-                f"{EyeScanLogMsg.PORT_ID_NOT_FOUND.value} '{interface}', {EyeScanLogMsg.SCAN_SKIPPING.value}"
+                f"{LogMsg.PORT_ID_NOT_FOUND.value} '{interface}', {LogMsg.SCAN_SKIPPING.value}"
             )
             return None
 
         interface_name = self.get_interface_name(port_id)
         if not interface_name:
             self._logger.error(
-                f"{EyeScanLogMsg.INTERFACE_NOT_FOUND.value} '{port_id}', {EyeScanLogMsg.SCAN_SKIPPING.value}"
+                f"{LogMsg.INTERFACE_NOT_FOUND.value} '{port_id}', {LogMsg.SCAN_SKIPPING.value}"
             )
             return None
 
@@ -646,22 +568,20 @@ class SlxEyeScanner:
         """
         self._logger.debug(f"Scan interfaces called with: {interfaces}")
         if not interfaces:
-            self._logger.warning(EyeScanLogMsg.SCAN_NO_INTERFACES.value)
+            self._logger.warning(LogMsg.SCAN_NO_INTERFACES.value)
             return True
 
-        self._logger.info(
-            f"{EyeScanLogMsg.SCAN_START.value}: {len(interfaces)} interfaces: {interfaces}"
-        )
+        self._logger.info(f"{LogMsg.SCAN_START.value}: {len(interfaces)} interfaces: {interfaces}")
         success_count = 0
 
         for interface in interfaces:
-            self._logger.debug(f"{EyeScanLogMsg.SCAN_PROCESSING.value}: '{interface}'")
+            self._logger.debug(f"{LogMsg.SCAN_PROCESSING.value}: '{interface}'")
             try:
                 # Check cache first
                 if interface in self._interface_cache:
                     port_id, interface_name = self._interface_cache[interface]
                     self._logger.debug(
-                        f"{EyeScanLogMsg.CACHE_HIT.value}: '{interface}' -> '{interface_name}' (Port: '{port_id}')"
+                        f"{LogMsg.CACHE_HIT.value}: '{interface}' -> '{interface_name}' (Port: '{port_id}')"
                     )
                 else:
                     # First time lookup
@@ -673,7 +593,7 @@ class SlxEyeScanner:
                     # Cache the mapping
                     self._interface_cache[interface] = (port_id, interface_name)
                     self._logger.info(
-                        f"{EyeScanLogMsg.CACHE_MISS.value}: '{interface}' -> '{interface_name}' (Port: '{port_id}')"
+                        f"{LogMsg.CACHE_MISS.value}: '{interface}' -> '{interface_name}' (Port: '{port_id}')"
                     )
 
                 self.run_eye_scan(interface_name, port_id)
@@ -683,7 +603,7 @@ class SlxEyeScanner:
                 self._logger.exception(f"Failed to scan interface '{interface}'")
                 continue
 
-        self._logger.info(f"{EyeScanLogMsg.SCAN_COMPLETE.value}: {success_count}/{len(interfaces)}")
+        self._logger.info(f"{LogMsg.SCAN_COMPLETE.value}: {success_count}/{len(interfaces)}")
         return success_count > 0
 
     def disconnect(self) -> None:
@@ -698,6 +618,44 @@ class SlxEyeScanner:
             int: Number of eye scans collected
         """
         return len(self._results)
+
+    def run_eye_scan_loop(self, cfg: Config) -> int:
+        """Run continuous eye scan loop.
+
+        Args:
+            cfg: Configuration with scan settings
+
+        Returns:
+            int: Number of successful scans completed
+        """
+        scan_count = 0
+        while not shutdown_event.is_set():
+            try:
+                self._logger.info(f"Start scan iteration #{scan_count + 1}")
+                if self.scan_interfaces(cfg.slx_scan_ports):
+                    scan_count += 1
+                    self._logger.info(f"Completed scan #{scan_count}")
+                else:
+                    self._logger.warning(f"Scan iteration #{scan_count + 1} failed")
+
+                # Wait before next scan (check shutdown every second)
+                if not shutdown_event.is_set():
+                    self._logger.info(
+                        f"Waiting {cfg.slx_scan_interval_sec} seconds before next scan..."
+                    )
+                    for _ in range(cfg.slx_scan_interval_sec):
+                        if shutdown_event.is_set():
+                            self._logger.info(LogMsg.SHUTDOWN_SIGNAL.value)
+                            break
+                        time.sleep(1)
+
+            except Exception:
+                self._logger.exception("Scan iteration failed")
+                if not shutdown_event.is_set():
+                    self._logger.info("Waiting 5 seconds before retry...")
+                    time.sleep(5)
+
+        return scan_count
 
 
 class SutSystemScanner:
@@ -738,9 +696,9 @@ class SutSystemScanner:
         Returns:
             tuple[str, int]: Tuple of (stdout, return_code)
         """
-        logger.debug(f"{EyeScanLogMsg.CMD_EXECUTING.value}: '{cmd}'")
+        logger.debug(f"{LogMsg.CMD_EXECUTING.value}: '{cmd}'")
         result = self._ssh.exec_cmd(cmd)
-        logger.debug(f"{EyeScanLogMsg.CMD_RESULT.value}:\n{result.stdout}")
+        logger.debug(f"{LogMsg.CMD_RESULT.value}:\n{result.stdout}")
         return result.stdout, result.rcode
 
     def connect(self) -> bool:
@@ -764,7 +722,7 @@ class SutSystemScanner:
                 self._ssh = _create_ssh_connection(self._cfg, "sut")
 
             if not self._ssh.connect():
-                self._logger.error(EyeScanLogMsg.SSH_CONN_FAILED.value)
+                self._logger.error(LogMsg.SSH_CONN_FAILED.value)
                 return False
 
             if self._cfg.sut_connect_type == ConnectType.LOCAL:
@@ -784,16 +742,7 @@ class SutSystemScanner:
                     result = self._ssh.exec_cmd(cmd)
                     self._logger.warning(f"Command '{cmd}' failed (rc={rcode}): {result.stderr}")
 
-            # Initialize software manager
-            try:
-                self._logger.debug("Initializing software manager")
-                self._software_manager = SoftwareManager(self._ssh)
-                self._logger.debug(EyeScanLogMsg.SW_MGR_INIT.value)
-            except Exception:
-                self._logger.exception(EyeScanLogMsg.SW_MGR_INIT_FAILED.value)
-                self._software_manager = None
-
-            self._logger.info(EyeScanLogMsg.SSH_CONN_SUCCESS.value)
+            self._logger.info(LogMsg.SSH_CONN_SUCCESS.value)
             return True  # noqa: TRY300
         except Exception:
             self._logger.exception("Connection failed")
@@ -806,19 +755,24 @@ class SutSystemScanner:
             bool: True if installation successful, False otherwise
         """
         if not self._software_manager:
-            self._logger.error(EyeScanLogMsg.SW_MGR_NOT_INIT.value)
-            return False
+            try:
+                self._logger.debug("Initializing software manager")
+                self._software_manager = SoftwareManager(self._ssh)
+                self._logger.debug(LogMsg.SW_MGR_INIT.value)
+            except Exception:
+                self._logger.exception(LogMsg.SW_MGR_INIT_FAILED.value)
+                return False
 
         try:
-            self._logger.info(EyeScanLogMsg.SW_INSTALL_START.value)
+            self._logger.info(LogMsg.SW_INSTALL_START.value)
             self._logger.debug(f"Packages to install: {self._cfg.sut_required_software_packages}")
             result = self._software_manager.install_required_packages(
                 self._cfg.sut_required_software_packages
             )
-            self._logger.info(f"{EyeScanLogMsg.SW_INSTALL_COMPLETE.value}: {result}")
+            self._logger.info(f"{LogMsg.SW_INSTALL_COMPLETE.value}: {result}")
             return result  # noqa: TRY300
         except Exception:
-            self._logger.exception(EyeScanLogMsg.SW_INSTALL_FAILED.value)
+            self._logger.exception(LogMsg.SW_INSTALL_FAILED.value)
             return False
 
     def log_required_software_versions(self) -> bool:
@@ -828,17 +782,22 @@ class SutSystemScanner:
             bool: True if logging successful, False otherwise
         """
         if not self._software_manager:
-            self._logger.error(EyeScanLogMsg.SW_MGR_NOT_INIT.value)
-            return False
+            try:
+                self._logger.debug("Initializing software manager")
+                self._software_manager = SoftwareManager(self._ssh)
+                self._logger.debug(LogMsg.SW_MGR_INIT.value)
+            except Exception:
+                self._logger.exception(LogMsg.SW_MGR_INIT_FAILED.value)
+                return False
         try:
-            self._logger.info(EyeScanLogMsg.SW_VERSION_LOG.value)
+            self._logger.info(LogMsg.SW_VERSION_LOG.value)
             self._logger.debug(f"Packages to check: {self._cfg.sut_required_software_packages}")
             self._software_manager.log_required_package_versions(
                 self._cfg.sut_required_software_packages
             )
             return True  # noqa: TRY300
         except Exception:
-            self._logger.exception(EyeScanLogMsg.SW_VERSION_FAILED.value)
+            self._logger.exception(LogMsg.SW_VERSION_FAILED.value)
             return False
 
     def log_system_info(self, logger: logging.Logger) -> None:
@@ -851,7 +810,7 @@ class SutSystemScanner:
             logger: Logger instance for tool output
         """
         try:
-            self._logger.info(EyeScanLogMsg.SYS_INFO_LOG.value)
+            self._logger.info(LogMsg.SYS_INFO_LOG.value)
             available_tools = ToolFactory.get_available_tools()
             self._logger.debug(f"Available tools: {available_tools}")
 
@@ -866,7 +825,7 @@ class SutSystemScanner:
                 tool.log(logger)
                 self._logger.debug(f"Tool {tool_type} completed")
         except Exception:
-            self._logger.exception(EyeScanLogMsg.SYS_INFO_FAILED.value)
+            self._logger.exception(LogMsg.SYS_INFO_FAILED.value)
 
     def run_scanners(self, cfg: Config) -> bool:
         """Start background worker threads for metrics collection.
@@ -883,7 +842,7 @@ class SutSystemScanner:
             bool: True if workers started successfully, False otherwise
         """
         try:
-            self._logger.info(EyeScanLogMsg.WORKER_START.value)
+            self._logger.info(LogMsg.WORKER_START.value)
             self._logger.debug(f"Creating workers for interfaces: {cfg.sut_scan_interfaces}")
             self._logger.debug(f"Show parts config: {cfg.sut_show_parts}")
 
@@ -893,6 +852,7 @@ class SutSystemScanner:
             skip_mlxlink = ShowPartType.NO_MLXLINK in cfg.sut_show_parts
             skip_mtemp = ShowPartType.NO_MTEMP in cfg.sut_show_parts
             skip_dmesg = ShowPartType.NO_DMESG in cfg.sut_show_parts
+            skip_eye_scan = ShowPartType.NO_EYE_SCAN in cfg.sut_show_parts
 
             worker_count = 0
             for interface in cfg.sut_scan_interfaces:
@@ -917,10 +877,15 @@ class SutSystemScanner:
                         self._create_dmesg_worker(interface)
                         worker_count += 1
 
-            self._logger.info(f"Created {worker_count} workers")
+            # Eye scan worker (runs once per scan cycle, not per interface)
+            if is_local and not skip_eye_scan:
+                self._create_eye_scan_worker(cfg)
+                worker_count += 1
+
+            self._logger.info(f"Created {worker_count} worker(s)")
             return True  # noqa: TRY300
         except Exception:
-            self._logger.exception(EyeScanLogMsg.WORKER_FAILED.value)
+            self._logger.exception(LogMsg.WORKER_FAILED.value)
             return False
 
     def _create_mlxlink_worker(self, pci_id: str) -> None:
@@ -988,6 +953,21 @@ class SutSystemScanner:
         worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_low_res_ms
         worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
         worker_cfg.is_flap_logger = True
+
+        self._add_worker_to_manager(worker_cfg)
+
+    def _create_eye_scan_worker(self, cfg: Config) -> None:
+        """Create eye scan worker.
+
+        Args:
+            cfg: Configuration with eye scan settings
+        """
+        worker_cfg = WorkerConfig()
+        worker_cfg.command = "eye_scan"  # Placeholder command
+        worker_cfg.parser = None
+        worker_cfg.logger = slx_eye_logger
+        worker_cfg.scan_interval_ms = cfg.slx_scan_interval_sec * 1000
+        worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
 
         self._add_worker_to_manager(worker_cfg)
 
@@ -1071,12 +1051,11 @@ def main():  # noqa: PLR0912, PLR0915
     _logger = main_logger
 
     try:
-        _logger.debug("Loading configuration from file")
         cfg = load_cfg(_logger)
-        _logger.info(EyeScanLogMsg.CONFIG_LOADED.value)
+
         _logger.debug(f"SLX host: {cfg.slx_host}, SUT host: {cfg.sut_host}")
     except Exception:
-        _logger.exception(EyeScanLogMsg.CONFIG_FAILED.value)
+        _logger.exception(LogMsg.CONFIG_FAILED.value)
         return
 
     _logger.debug("Initializing scanners")
@@ -1085,9 +1064,9 @@ def main():  # noqa: PLR0912, PLR0915
     sut_system_scanner = SutSystemScanner(cfg, main_logger)
 
     try:
-        _logger.info(EyeScanLogMsg.SCANNER_INIT.value)
+        _logger.info(LogMsg.SCANNER_INIT.value)
         if not sut_system_scanner.connect():
-            _logger.error(EyeScanLogMsg.SCANNER_CONN_FAILED.value)
+            _logger.error(LogMsg.SCANNER_CONN_FAILED.value)
             return
 
         # ---------------------------------------------------------------------------- #
@@ -1108,7 +1087,7 @@ def main():  # noqa: PLR0912, PLR0915
             #                            Log system information                            #
             # ---------------------------------------------------------------------------- #
 
-            logger.info(f"Start system information scan. Logs saved to: {sut_system_info_log}")
+            _logger.info("Start system information scan")
 
             if not sut_system_scanner.log_system_info(sut_system_info_logger):
                 _logger.warning("Failed to log system information")
@@ -1131,55 +1110,59 @@ def main():  # noqa: PLR0912, PLR0915
     #                              Start eye scanning                              #
     # ---------------------------------------------------------------------------- #
 
-    _logger.info(f"Start eye scan automation. Logs saved to: {slx_eye_log}")
+    _logger.info("Start eye scan automation")
     _logger.info(f"Scanning ports: {cfg.slx_scan_ports}")
-    _logger.info("Press Ctrl+C to stop the program")
+    _logger.info("Press Ctrl+C for immediate exit")
 
     try:
         if not slx_eye_scanner.connect():
             _logger.error("Failed to connect to SLX eye scanner")
             return
 
-        scan_count = 0
-        while not shutdown_event.is_set():
-            try:
-                _logger.info(f"Start scan iteration #{scan_count + 1}")
-                # Scan ports in config
-                if slx_eye_scanner.scan_interfaces(cfg.slx_scan_ports):
-                    scan_count += 1
-                    _logger.info(f"Completed scan #{scan_count}")
-                else:
-                    _logger.warning(f"Scan iteration #{scan_count + 1} failed")
+        # Start eye scan loop in background thread
+        scan_thread = threading.Thread(
+            target=slx_eye_scanner.run_eye_scan_loop, args=(cfg,), daemon=True
+        )
+        scan_thread.start()
+        scan_thread.join()
 
-                # Wait before next scan (check shutdown every second for responsiveness)
-                if not shutdown_event.is_set():
-                    _logger.info(f"Waiting {cfg.slx_scan_interval_sec} seconds before next scan...")
-                    for _ in range(cfg.slx_scan_interval_sec):
-                        if shutdown_event.is_set():
-                            _logger.info(EyeScanLogMsg.SHUTDOWN_SIGNAL.value)
-                            break
-                        time.sleep(1)
+        # Log shutdown signal
+        _logger.info(LogMsg.SHUTDOWN_SIGNAL.value)
 
-            except Exception:
-                _logger.exception("Scan iteration failed")
-                if not shutdown_event.is_set():
-                    _logger.info("Waiting 5 seconds before retry...")
-                    time.sleep(5)  # Brief pause before retry
+        # Pause logging and show worker shutdown countdown
+        logging.disable(logging.CRITICAL)
+        sys.stderr.write("\nWaiting for all threads to complete...\n")
 
-    except KeyboardInterrupt:
-        _logger.info("Keyboard interrupt received in main loop")
+        workers = sut_system_scanner.worker_manager.get_workers_in_pool()
+        total_workers = len(workers)
+        sys.stderr.write(f"\nStopping {total_workers} workers...\n")
+
+        for idx, w in enumerate(workers, 1):
+            w.close()
+            sys.stderr.write(f"\rWorkers stopped: {idx}/{total_workers}")
+            sys.stderr.flush()
+
+        sys.stderr.write("\n\nWaiting for workers to finish...\n")
+        for idx, w in enumerate(workers, 1):
+            w.join()
+            sys.stderr.write(f"\rWorkers finished: {idx}/{total_workers}")
+            sys.stderr.flush()
+
+        sys.stderr.write("\n")
+        logging.disable(logging.NOTSET)
+
     except Exception:
         _logger.exception("Main execution failed")
     finally:
         _logger.info("=" * 60)
-        _logger.info(EyeScanLogMsg.SHUTDOWN_START.value)
+        _logger.info(LogMsg.SHUTDOWN_START.value)
         _logger.info("=" * 60)
 
-        _logger.info(EyeScanLogMsg.SHUTDOWN_EYE_SCANNER.value)
+        _logger.info(LogMsg.SHUTDOWN_EYE_SCANNER.value)
         slx_eye_scanner.disconnect()
         _logger.debug("Eye scanner disconnected")
 
-        _logger.info(EyeScanLogMsg.WORKER_EXTRACT.value)
+        _logger.info(LogMsg.WORKER_EXTRACT.value)
         workers = sut_system_scanner.worker_manager.get_workers_in_pool()
         _logger.debug(f"Found {len(workers)} workers to extract samples from")
         for w in workers:
@@ -1249,26 +1232,16 @@ def main():  # noqa: PLR0912, PLR0915
 
             _logger.info("\n%s\n", "\n".join(headers_str))
 
-        _logger.info(EyeScanLogMsg.WORKER_SHUTDOWN.value)
-
-        _logger.debug("Stopping all workers")
-        sut_system_scanner.worker_manager.stop_all()
+        _logger.info(LogMsg.WORKER_SHUTDOWN.value)
 
         _logger.debug("Disconnecting system scanner")
         sut_system_scanner.disconnect()
 
-    _logger.info("\n" + sut_system_scanner.worker_manager.get_statistics_summary())
-    _logger.info(f"Total eye scans completed: {slx_eye_scanner.scans_collected()}")
-    _logger.info("Logs saved to:")
-    for label, path in [
-        ("Main", main_log),
-        ("System info", sut_system_info_log),
-        ("mxlink scan", sut_mxlink_log),
-        ("m_temp scan", sut_mtemp_log),
-        ("link_status scan", sut_link_flap_log),
-        ("SLX eye scan", slx_eye_log),
-    ]:
-        _logger.info(f"{label:20s} {path}")
+        stats_summary = sut_system_scanner.worker_manager.get_statistics_summary()
+        _logger.info(f"\n{stats_summary}")
+        _logger.info(f"Total eye scans completed: {slx_eye_scanner.scans_collected()}")
+        _logger.info("Shutdown complete")
+        _logger.info("Logs saved to logs/ directory")
 
 
 if __name__ == "__main__":

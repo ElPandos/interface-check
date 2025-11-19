@@ -10,7 +10,7 @@ from pydantic import SecretStr
 
 from src.platform.enums.log import LogName
 
-logger = logging.getLogger(LogName.CORE_MAIN.value)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 class Json:
@@ -122,8 +122,6 @@ class Json:
             Parsed data
         """
         return json.loads(json_string.strip())
-
-
 
     @classmethod
     def backup_and_save(cls, data: Any, file_path: Path, *, max_backups: int = 5) -> None:

@@ -3,8 +3,8 @@
 from enum import Enum
 
 
-class EyeScanLogMsg(str, Enum):
-    """Common log messages for eye scan operations."""
+class LogMsg(str, Enum):
+    """Common log messages for operations."""
 
     # Connection messages
     SSH_CONN_FAILED = "Failed to establish SSH connection"
@@ -71,6 +71,7 @@ class EyeScanLogMsg(str, Enum):
     WORKER_SHUTDOWN = "Shutting down system value scanner"
 
     # Main execution
+    CONFIG_START = "Start configuration initialization"
     CONFIG_LOADED = "Configuration loaded successfully"
     CONFIG_FAILED = "Failed to load configuration"
     SCANNER_INIT = "Start system scanner initialization"

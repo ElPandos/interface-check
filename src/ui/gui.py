@@ -23,7 +23,7 @@ from src.ui.tabs.system import SystemPanel, SystemTab
 from src.ui.tabs.toolbox import ToolboxPanel, ToolboxTab
 from src.ui.themes.style import apply_global_theme
 
-logger = logging.getLogger(LogName.CORE_MAIN.value)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 class Gui:

@@ -13,7 +13,7 @@ from src.core.json import Json
 from src.platform import Hardware, Health, Power, Software, Statistics
 from src.platform.enums.log import LogName
 
-logger = logging.getLogger(LogName.CORE_MAIN.value)
+logger = logging.getLogger(LogName.MAIN.value)
 
 # ---------------------------------------------------------------------------- #
 #                                  Interfaces                                  #

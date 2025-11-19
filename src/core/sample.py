@@ -1,6 +1,7 @@
 from datetime import datetime as dt
 
 from src.core.connect import SshConnection
+from src.core.enums.messages import LogMsg
 from src.core.tool import Tool
 from src.interfaces.component import ITime
 from src.models.config import Config
@@ -54,7 +55,7 @@ class Sample(Tool, ITime):
         if result.success:
             self._snapshot = result.stdout
         else:
-            self._logger.exception("Command execution failed")
+            self._logger.exception(LogMsg.SAMPLE_CMD_FAIL.value)
 
         self.stop_timer()
 

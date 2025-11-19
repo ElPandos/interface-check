@@ -18,8 +18,10 @@ from typing import Any
 from pympler import asizeof
 
 from src.core.connect import SshConnection
+from src.core.enums.messages import LogMsg
 from src.core.helpers import get_attr_value
 from src.core.json import Json
+from src.core.logging import create_formatter
 from src.core.sample import Sample
 from src.core.statistics import WorkerStatistics
 from src.interfaces.component import ITime
@@ -62,21 +64,19 @@ class Worker(Thread, ITime):
         worker_cfg: WorkerConfig,
         cfg: Config,
         ssh: SshConnection,
-        name: str = "Worker",
         shared_flap_state: dict | None = None,
         statistics: WorkerStatistics | None = None,
     ) -> None:
         """Initialize worker thread.
 
         Args:
-            worker_command: Command configuration to execute
-            config: Application configuration
+            worker_cfg: Command configuration to execute
+            cfg: Application configuration
             ssh: SSH connection for command execution
-            name: Thread name for identification
             shared_flap_state: Shared dictionary for flap detection across workers
             statistics: Shared statistics tracker for command durations
         """
-        Thread.__init__(self, name=name, daemon=True)  # daemon=True prevents blocking app exit
+        Thread.__init__(self, daemon=True)  # daemon=True prevents blocking app exit
         ITime.__init__(self)
 
         self.MAX_RECONNECT = 10
@@ -120,7 +120,7 @@ class Worker(Thread, ITime):
                 # Check reconnection limit
                 if reconnect > self.MAX_RECONNECT:
                     self._logger.info(
-                        f"Reconnect failed {self.MAX_RECONNECT} times. Exiting worker thread: {self.name}"
+                        f"{LogMsg.WORKER_RECONNECT_FAIL.value} {self.MAX_RECONNECT} times. Exiting worker thread: {self.name}"
                     )
                     break
 
@@ -129,9 +129,9 @@ class Worker(Thread, ITime):
                 sample = Sample(self._cfg, self._ssh).collect(self._worker_cfg)
                 cmd_duration_ms = (time.time() - cmd_start) * 1000
                 self._logger.debug(f"Command execution took: {cmd_duration_ms:.1f} ms")
-                
+
                 # Record duration in statistics (if statistics object provided)
-                if hasattr(self, '_statistics') and self._statistics:
+                if hasattr(self, "_statistics") and self._statistics:
                     self._statistics.record_duration(self._worker_cfg.command, cmd_duration_ms)
 
                 # Parse output if parser provided
@@ -175,10 +175,6 @@ class Worker(Thread, ITime):
                 # Check log size and rotate if needed
                 self._check_and_rotate_log()
 
-                # Log collected mem usage, can t check size on queue
-                # if self._worker_config.mem_logger is not None:
-                #    self._log_mem_size(self._collected_samples)
-
                 reconnect = 0  # Reset counter on success
                 sleep_time_ms = self._worker_cfg.scan_interval_ms
                 total_cycle_ms = cmd_duration_ms + sleep_time_ms
@@ -188,23 +184,23 @@ class Worker(Thread, ITime):
                 time.sleep(float(sleep_time_ms / 1000))
 
             except KeyboardInterrupt:
-                self._logger.info(f"User pressed 'ctrl+c' - Exiting worker thread: {self.name}")
+                self._logger.info(f"{LogMsg.WORKER_USER_EXIT.value}: {self.name}")
                 break
             except Exception:
-                self._logger.exception("Worker thread stopped unexpectedly")
+                self._logger.exception(LogMsg.WORKER_STOPPED.value)
                 reconnect += 1
 
                 # Attempt reconnection
                 try:
                     if self._ssh.connect():
-                        self._logger.info("Reconnect was established successfully")
+                        self._logger.info(LogMsg.WORKER_RECONNECT_SUCCESS.value)
                         reconnect = 0  # Reset on successful reconnect
                     else:
                         self._logger.exception(
-                            f"Failed to reconnect to host ({reconnect}/{self.MAX_RECONNECT})"
+                            f"{LogMsg.WORKER_RECONNECT_ATTEMPT.value} ({reconnect}/{self.MAX_RECONNECT})"
                         )
                 except Exception:
-                    self._logger.exception("Failed to reconnect to host")
+                    self._logger.exception(LogMsg.WORKER_RECONNECT_ATTEMPT.value)
 
         self.stop_timer()
 
@@ -239,7 +235,7 @@ class Worker(Thread, ITime):
     def clear(self) -> None:
         """Clear extracted samples."""
         self._extracted_samples.clear()
-        self._logger.debug("Clearing extracted samples")
+        self._logger.debug(LogMsg.WORKER_CLEAR_SAMPLES.value)
 
     def _check_and_rotate_log(self) -> None:
         """Check log file size and rotate if needed."""
@@ -269,7 +265,7 @@ class Worker(Thread, ITime):
                 self._clear_log_keep_header(log_file)
                 self._shared_flap_state["flaps_detected"] = False
                 self._has_rotated_since_flap = False
-                self._logger.debug("Cleared log and reset flap flag after one rotation cycle")
+                self._logger.debug(LogMsg.WORKER_LOG_CLEARED.value)
             else:
                 # First rotation since flap detected
                 self._rotate_to_new_file(log_file)
@@ -303,9 +299,7 @@ class Worker(Thread, ITime):
 
         # Create new handler with new file
         new_handler = logging.FileHandler(new_log_file)
-        new_handler.setFormatter(
-            logging.Formatter("%(asctime)s - %(name)-30s - %(levelname)-8s - %(message)s")
-        )
+        new_handler.setFormatter(create_formatter(self._logger.name))
         new_handler.setLevel(self._logger.level)
         self._logger.addHandler(new_handler)
 
@@ -332,7 +326,7 @@ class Worker(Thread, ITime):
                         header = line
                         break
         except Exception:
-            self._logger.exception("Failed to read header from log file")
+            self._logger.exception(LogMsg.WORKER_LOG_HEADER_FAIL.value)
             return
 
         if not header:
@@ -349,13 +343,11 @@ class Worker(Thread, ITime):
             with log_file.open("w") as f:
                 f.write(header)
         except Exception:
-            self._logger.exception("Failed to clear log file")
+            self._logger.exception(LogMsg.WORKER_LOG_CLEAR_FAIL.value)
 
         # Reopen handler
         new_handler = logging.FileHandler(log_file)
-        new_handler.setFormatter(
-            logging.Formatter("%(asctime)s - %(name)-30s - %(levelname)-8s - %(message)s")
-        )
+        new_handler.setFormatter(create_formatter(self._logger.name))
         new_handler.setLevel(self._logger.level)
         self._logger.addHandler(new_handler)
 
@@ -462,7 +454,7 @@ class WorkManager:
         self._shared_flap_state = {"flaps_detected": False, "workers_rotated": set()}
         self._statistics = WorkerStatistics()
 
-        self._logger = logging.getLogger(LogName.CORE_MAIN.value)
+        self._logger = logging.getLogger(LogName.MAIN.value)
 
     def add(self, worker: Worker) -> None:
         """Add worker to pool and start execution.
@@ -476,19 +468,19 @@ class WorkManager:
             self._work_pool.append(worker)
         else:
             old_worker.start()
-            self._logger.debug(f"Worker already exists for command: {worker.command}")
-    
+            self._logger.debug(f"{LogMsg.WORKER_ALREADY_EXISTS.value}: {worker.command}")
+
     def get_statistics_summary(self) -> str:
         """Get statistics summary for all workers.
-        
+
         Returns:
             Formatted statistics summary
         """
         return self._statistics.get_summary()
-    
+
     def get_statistics(self) -> WorkerStatistics:
         """Get statistics object.
-        
+
         Returns:
             WorkerStatistics instance
         """
@@ -504,25 +496,29 @@ class WorkManager:
 
     def clear(self) -> None:
         """Clear worker pool."""
-        self._logger.debug(f"Clearing {len(self._work_pool)} workers from pool")
+        self._logger.debug(
+            f"{LogMsg.WORKER_POOL_CLEAR.value} {len(self._work_pool)} workers from pool"
+        )
         self._work_pool.clear()
-        self._logger.debug("Work pool cleared")
+        self._logger.debug(LogMsg.WORKER_POOL_CLEARED.value)
 
     def stop_all(self) -> None:
         """Stop all workers in pool and wait for completion."""
-        self._logger.debug(f"Stopping all {len(self._work_pool)} workers in pool")
+        self._logger.debug(
+            f"{LogMsg.WORKER_POOL_STOP.value} {len(self._work_pool)} workers in pool"
+        )
         for w in self._work_pool:
             w.close_and_wait()
-            self._logger.debug(f"Worker '{w.name}' stopped")
+            self._logger.debug(f"{LogMsg.WORKER_STOPPED_NAME.value} '{w.name}'")
             w.join()
-            self._logger.debug(f"Worker '{w.name}' joined")
+            self._logger.debug(f"{LogMsg.WORKER_JOINED_NAME.value} '{w.name}'")
 
     def reset(self) -> None:
         """Reset work manager."""
-        self._logger.debug("Reset work manager")
+        self._logger.debug(LogMsg.WORKER_RESET.value)
         self.stop_all()
         self.clear()
-        self._logger.debug("Work manager has been resetted")
+        self._logger.debug(LogMsg.WORKER_RESET_DONE.value)
 
     def get_worker(self, command: str) -> Worker | None:
         """Get worker by command.
@@ -535,9 +531,9 @@ class WorkManager:
         """
         for w in self._work_pool:
             if w.command == command:
-                self._logger.debug(f"Found worker: {w.command}")
+                self._logger.debug(f"{LogMsg.WORKER_FOUND.value}: {w.command}")
                 return w
-        self._logger.debug(f"Did not find any old worker for interface: {command}")
+        self._logger.debug(f"{LogMsg.WORKER_NOT_FOUND.value}: {command}")
         return None
 
     def get_workers_in_pool(self) -> list[Worker]:

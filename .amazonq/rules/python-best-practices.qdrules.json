@@ -1,0 +1,118 @@
+{
+  "$schema": "https://amazon-q-developer.amazonaws.com/schemas/2024-05/ruleset.json",
+  "version": "1.0",
+  "rules": [
+    {
+      "id": "PY001",
+      "title": "Require Pydantic for config & data validation",
+      "description": "Enforces the use of Pydantic BaseModel classes for structured data, configs and schemas to improve validation, type safety, and security.",
+      "recommendation": {
+        "text": "Use Pydantic models instead of raw dictionaries for configurations or external input parsing."
+      },
+      "patterns": [
+        {
+          "severity": "warning",
+          "message": "Raw dictionaries detected in config-like structures. Use Pydantic BaseModel for validation and type safety.",
+          "regex": "(config|settings)\\s*=\\s*\\{"
+        }
+      ]
+    },
+
+    {
+      "id": "PY002",
+      "title": "Enforce Dependency Injection",
+      "description": "Encourages decoupled design by avoiding direct instantiation inside business logic.",
+      "recommendation": {
+        "text": "Inject dependencies through constructors or factory functions rather than creating them inside methods."
+      },
+      "patterns": [
+        {
+          "severity": "info",
+          "message": "Consider dependency injection to improve testability and separation of concerns.",
+          "regex": "=\\s*(.+)\\("
+        }
+      ]
+    },
+
+    {
+      "id": "PY003",
+      "title": "Prefer pathlib over os.path",
+      "description": "Ensures safer filesystem handling and more readable code using pathlib.",
+      "recommendation": {
+        "text": "Use pathlib.Path for validating, reading, writing, and manipulating file paths."
+      },
+      "patterns": [
+        {
+          "severity": "warning",
+          "message": "Use pathlib.Path over os.path for better readability and security.",
+          "regex": "os\\.path"
+        }
+      ]
+    },
+
+    {
+      "id": "PY004",
+      "title": "Secure defaults for subprocess",
+      "description": "Avoids shell=True to prevent shell injection vulnerabilities.",
+      "recommendation": {
+        "text": "Use subprocess.run([...], shell=False, check=True) to avoid security issues.",
+        "link": "https://docs.python.org/3/library/subprocess.html#security-considerations"
+      },
+      "patterns": [
+        {
+          "severity": "error",
+          "message": "Avoid subprocess with shell=True — it introduces command injection risk.",
+          "regex": "subprocess\\.(run|Popen)\\([^)]*shell\\s*=\\s*True"
+        }
+      ]
+    },
+
+    {
+      "id": "PY005",
+      "title": "Enforce typing and type hints",
+      "description": "Promotes strong typing for reliability, maintainability, and tool support.",
+      "recommendation": {
+        "text": "Add return types and argument type hints to all functions, following PEP 484."
+      },
+      "patterns": [
+        {
+          "severity": "info",
+          "message": "Functions should include explicit type hints.",
+          "regex": "def\\s+\\w+\\(.*\\)(?!\\s*->)"
+        }
+      ]
+    },
+
+    {
+      "id": "PY006",
+      "title": "Require dataclasses for simple data containers",
+      "description": "Encourages dataclasses where objects are used only as plain data holders.",
+      "recommendation": {
+        "text": "Use @dataclass instead of manually writing __init__ when class holds only attributes."
+      },
+      "patterns": [
+        {
+          "severity": "info",
+          "message": "This class looks like a data container — consider using @dataclass.",
+          "regex": "class\\s+\\w+\\([^)]*object[^)]*\\):"
+        }
+      ]
+    },
+
+    {
+      "id": "PY007",
+      "title": "Logging instead of print",
+      "description": "Ensures production-grade observability using the logging module.",
+      "recommendation": {
+        "text": "Use the built-in logging module instead of print statements."
+      },
+      "patterns": [
+        {
+          "severity": "warning",
+          "message": "Replace print() with logging for production-grade logging.",
+          "regex": "\\bprint\\("
+        }
+      ]
+    }
+  ]
+}

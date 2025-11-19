@@ -8,7 +8,7 @@ from src.core.parser import MstStatusVersionParser
 from src.core.result import CmdResult
 from src.platform.enums.log import LogName
 
-logger = logging.getLogger(LogName.CORE_MAIN.value)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 def get_pci_id(ssh: SshConnection, interface: str) -> str | None:

@@ -16,6 +16,35 @@ from src.models.config import Host, Route
 from src.platform.enums.log import LogName
 
 
+def _log_exec_time(
+    logger: logging.Logger,
+    exec_time: float,
+    exit_code: int,
+    send_time: float | None = None,
+    read_time: float | None = None,
+) -> None:
+    """Log command execution time.
+
+    Args:
+        logger: Logger instance
+        exec_time: Total execution time in seconds
+        exit_code: Command exit code
+        send_time: Optional send time in milliseconds
+        read_time: Optional read time in milliseconds
+    """
+    exec_ms = exec_time * 1000
+    if send_time is not None and read_time is not None:
+        logger.debug(
+            "Command completed in %.1f ms (send: %.1f ms, read: %.1f ms) with exit status: %d",
+            exec_ms,
+            send_time,
+            read_time,
+            exit_code,
+        )
+    else:
+        logger.debug("Command completed in %.1f ms with exit status: %d", exec_ms, exit_code)
+
+
 class SshConnection(IConnection):
     """SSH connection with jump host and keepalive support.
 
@@ -86,8 +115,7 @@ class SshConnection(IConnection):
         self._shell = None
         self._prompt_pattern = re.compile(self._PROMPT_PATTERN, re.MULTILINE)
 
-        # Logger with host-specific name
-        self._logger = logging.getLogger(f"{LogName.CORE_MAIN.value}.{host}")
+        self._logger = logging.getLogger(LogName.MAIN.value)
 
     # ========================================================================
     # Context Manager Support
@@ -187,7 +215,7 @@ class SshConnection(IConnection):
         except paramiko.SSHException:
             self._logger.exception("%s%s", LogMsg.CON_PROTOCOL_FAIL.value, self._host)
         except Exception:
-            self._logger.exception("Connection failed to host: %s", self._host)
+            self._logger.exception("%s%s", LogMsg.CON_HOST_FAIL.value, self._host)
 
         self.disconnect()
         return False
@@ -266,7 +294,8 @@ class SshConnection(IConnection):
         exec_cmd = cmd
         if self._sudo_pass:
             exec_cmd = f"echo '{self._sudo_pass}' | sudo -S {cmd}"
-        self._logger.debug("Executing command: '%s' (timeout: %s s)", exec_cmd, timeout)
+        timeout_str = f" (timeout: {timeout} s)" if timeout is not None else ""
+        self._logger.debug("Executing command: '%s'%s", exec_cmd, timeout_str)
 
         try:
             start_time = time.perf_counter()
@@ -283,13 +312,7 @@ class SshConnection(IConnection):
 
             execution_time = time.perf_counter() - start_time
 
-            self._logger.debug(
-                "Command completed in %.1fms (send: %.1f ms, read: %.1f ms) with exit status: %d",
-                execution_time * 1000,
-                cmd_sent_time,
-                read_time,
-                rcode,
-            )
+            _log_exec_time(self._logger, execution_time, rcode, cmd_sent_time, read_time)
             if rcode != 0:
                 self._logger.warning("Command stderr: %s", stderr_data[:200])
 
@@ -302,7 +325,7 @@ class SshConnection(IConnection):
             )
 
         except Exception as e:
-            self._logger.exception("Cmd execution failed: %s", cmd)
+            self._logger.exception("%s%s", LogMsg.AGENT_CMD_FAIL.value, cmd)
             return CmdResult(exec_cmd, "", f"Error: {e}", -1)
 
     def _clean(self, data: str) -> str:
@@ -762,7 +785,7 @@ class LocalConnection(IConnection):
         self._host = host
         self._sudo_pass = sudo_pass
 
-        self._logger = logging.getLogger(f"{LogName.CORE_MAIN.value}.{host}")
+        self._logger = logging.getLogger(f"{LogName.MAIN.value}.{host}")
 
     def __enter__(self) -> "LocalConnection":
         """Enter context manager."""
@@ -824,11 +847,7 @@ class LocalConnection(IConnection):
 
             execution_time = time.perf_counter() - start_time
 
-            self._logger.debug(
-                "Command completed in %.1f ms with exit status: %d",
-                execution_time * 1000,
-                result.returncode,
-            )
+            _log_exec_time(self._logger, execution_time, result.returncode)
 
             if result.returncode != 0:
                 self._logger.warning("Command stderr: %s", result.stderr[:200])

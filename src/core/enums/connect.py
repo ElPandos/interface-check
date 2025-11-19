@@ -19,3 +19,4 @@ class ShowPartType(str, Enum):
     NO_MLXLINK = "no_mlxlink"
     NO_MTEMP = "no_mtemp"
     NO_DMESG = "no_dmesg"
+    NO_EYE_SCAN = "no_eye_scan"

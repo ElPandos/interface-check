@@ -4,12 +4,14 @@ from pathlib import Path
 
 from nicegui import ui
 
+from src.core.enums.messages import LogMsg
+from src.core.logging import create_formatter
 from src.models.config import Config
 from src.platform import platform
 from src.platform.enums.log import LogName
 from src.platform.platform import create_dir
 
-logger = logging.getLogger(LogName.CORE_MAIN.value)
+logger = logging.getLogger(LogName.MAIN.value)
 
 
 class Configure:
@@ -18,9 +20,9 @@ class Configure:
     Manages application configuration files and logging setup.
     """
 
-    _cfg_DIR = Path.home() / ".interface-check"
-    _cfg_FILE = _cfg_DIR / "ssh_cfg.json"
-    _LOG_FILE = _cfg_DIR / "main.log"
+    _cfg_dir = Path.home() / ".interface-check"
+    _cfg_file = _cfg_dir / "ssh_cfg.json"
+    _log_file = _cfg_dir / "main.log"
     _NOISY_LOGGERS = ("paramiko", "asyncio", "matplotlib")
 
     _initialized = False
@@ -41,9 +43,9 @@ class Configure:
         """
         create_dir(self._cfg_DIR)
 
-        if not self._cfg_FILE.exists():
-            platform.save_json(Config().model_dump(), self._cfg_FILE)
-            logger.debug(f"Config created: {self._cfg_FILE}")
+        if not self._cfg_file.exists():
+            platform.save_json(Config().model_dump(), self._cfg_file)
+            logger.debug(f"{LogMsg.CONFIG_CREATED.value}: {self._cfg_file}")
 
     # ---------------------------------------------------------------------------- #
     #                                  Public API                                  #
@@ -56,7 +58,7 @@ class Configure:
         Returns:
             Path to configuration file
         """
-        return self._cfg_FILE
+        return self._cfg_file
 
     @property
     def log_path(self) -> Path:
@@ -65,7 +67,7 @@ class Configure:
         Returns:
             Path to log file
         """
-        return self._LOG_FILE
+        return self._log_file
 
     def save(self, cfg: Config) -> None:
         """Save config to file with UI notification.
@@ -74,11 +76,11 @@ class Configure:
             cfg: Configuration object to save
         """
         try:
-            platform.save_json(cfg.model_dump(), self._cfg_FILE)
-            ui.notify("Configuration saved", type="positive")
+            platform.save_json(cfg.model_dump(), self._cfg_file)
+            ui.notify(LogMsg.CONFIG_LOADED.value, type="positive")
         except Exception as e:
-            ui.notify(f"Save failed: {e}", type="negative")
-            logger.exception("Config save error")
+            ui.notify(f"{LogMsg.CONFIG_FAILED.value}: {e}", type="negative")
+            logger.exception(LogMsg.CONFIG_FAILED.value)
 
     def load(self, external: dict | None = None) -> Config:
         """Load config from file or external dict.
@@ -93,10 +95,10 @@ class Configure:
             return Config.model_validate(external)
 
         try:
-            data = platform.load_json(self._cfg_FILE)
+            data = platform.load_json(self._cfg_file)
             return Config.model_validate(data)
         except (FileNotFoundError, ValueError) as e:
-            logger.warning(f"Config issue: {e}. Using defaults.")
+            logger.warning(f"{LogMsg.CONFIG_FAILED.value}: {e}")
             default = Config()
             self.save(default)
             return default
@@ -107,13 +109,11 @@ class Configure:
         Args:
             level: Logging level (default: INFO)
         """
-        formatter = logging.Formatter(
-            "[%(asctime)s] %(levelname)-8s [%(name)-30s.%(funcName)s():%(lineno)d]: %(message)s"
-        )
+        formatter = create_formatter("config")
 
         handlers = [
             RotatingFileHandler(
-                self._LOG_FILE, maxBytes=20 * 1024 * 1024, backupCount=5, encoding="utf-8"
+                self._log_file, maxBytes=20 * 1024 * 1024, backupCount=5, encoding="utf-8"
             ),
             logging.StreamHandler(),
         ]
@@ -130,7 +130,7 @@ class Configure:
         for name in self._NOISY_LOGGERS:
             logging.getLogger(name).setLevel(logging.WARNING)
 
-        logger.debug(f"Logging initialized: {logging.getLevelName(level)}")
+        logger.debug(f"{LogMsg.CONFIG_START.value}: {logging.getLevelName(level)}")
 
 
 def setup_logging(level: int = logging.INFO) -> None:
