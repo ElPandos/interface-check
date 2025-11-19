@@ -1,7 +1,8 @@
-"""SSH connection with multi-jump support and keepalive."""
+"""SSH and local connection management."""
 
 import logging
 import re
+import subprocess
 import threading
 import time
 from typing import Any, ClassVar
@@ -265,7 +266,7 @@ class SshConnection(IConnection):
         exec_cmd = cmd
         if self._sudo_pass:
             exec_cmd = f"echo '{self._sudo_pass}' | sudo -S {cmd}"
-        self._logger.debug("Executing command: '%s' (timeout: %ss)", exec_cmd, timeout)
+        self._logger.debug("Executing command: '%s' (timeout: %s s)", exec_cmd, timeout)
 
         try:
             start_time = time.perf_counter()
@@ -283,7 +284,7 @@ class SshConnection(IConnection):
             execution_time = time.perf_counter() - start_time
 
             self._logger.debug(
-                "Command completed in %.1fms (send: %.1f ms, read: %.1f ms) with exit status %d",
+                "Command completed in %.1fms (send: %.1f ms, read: %.1f ms) with exit status: %d",
                 execution_time * 1000,
                 cmd_sent_time,
                 read_time,
@@ -741,3 +742,108 @@ class SshConnection(IConnection):
             self._logger.debug("Buffer cleared")
         except Exception:
             self._logger.exception("Error clearing shell buffer")
+
+
+class LocalConnection(IConnection):
+    """Local command execution without SSH overhead.
+
+    Executes commands directly on the local system using subprocess.
+    """
+
+    __slots__ = ("_host", "_logger", "_sudo_pass")
+
+    def __init__(self, host: str = "localhost", sudo_pass: str = ""):
+        """Initialize local connection.
+
+        Args:
+            host: Host identifier for logging (default: localhost)
+            sudo_pass: Optional sudo password for privileged commands
+        """
+        self._host = host
+        self._sudo_pass = sudo_pass
+
+        self._logger = logging.getLogger(f"{LogName.CORE_MAIN.value}.{host}")
+
+    def __enter__(self) -> "LocalConnection":
+        """Enter context manager."""
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit context manager."""
+        self.disconnect()
+
+    def connect(self) -> bool:
+        """Establish local connection (always succeeds).
+
+        Returns:
+            True
+        """
+        self._logger.debug("Using local command execution (no SSH)")
+        return True
+
+    def disconnect(self) -> None:
+        """Disconnect (no-op for local execution)."""
+        self._logger.debug("Local connection closed")
+
+    def is_connected(self) -> bool:
+        """Check if connection is active.
+
+        Returns:
+            True (always connected for local execution)
+        """
+        return True
+
+    def exec_cmd(self, cmd: str, timeout: int | None = None) -> CmdResult:
+        """Execute command locally.
+
+        Args:
+            cmd: Command to execute
+            timeout: Optional timeout in seconds
+
+        Returns:
+            Command execution result
+        """
+        exec_cmd = cmd
+        if self._sudo_pass:
+            exec_cmd = f"echo '{self._sudo_pass}' | sudo -S {cmd}"
+
+        self._logger.debug("Executing local command: '%s' (timeout: %s s)", exec_cmd, timeout)
+
+        try:
+            start_time = time.perf_counter()
+
+            result = subprocess.run(
+                exec_cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+
+            execution_time = time.perf_counter() - start_time
+
+            self._logger.debug(
+                "Command completed in %.1f ms with exit status: %d",
+                execution_time * 1000,
+                result.returncode,
+            )
+
+            if result.returncode != 0:
+                self._logger.warning("Command stderr: %s", result.stderr[:200])
+
+            return CmdResult(
+                cmd=exec_cmd,
+                stdout=result.stdout,
+                stderr=result.stderr,
+                exec_time=execution_time,
+                rcode=result.returncode,
+            )
+
+        except subprocess.TimeoutExpired:
+            self._logger.exception("Command timeout: %s", cmd)
+            return CmdResult(exec_cmd, "", "Timeout", -1)
+        except Exception as e:
+            self._logger.exception("Command execution failed: %s", cmd)
+            return CmdResult(exec_cmd, "", f"Error: {e}", -1)

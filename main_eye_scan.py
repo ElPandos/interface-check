@@ -34,8 +34,10 @@ import sys
 import threading
 import time
 
-from src.core.connect import SshConnection
+from src.core.connect import LocalConnection, SshConnection
+from src.core.enums.connect import ConnectType, ShowPartType
 from src.core.helpers import get_attr_value
+from src.core.logging_formatter import DynamicWidthFormatter
 from src.core.parser import DmesgFlapParser, MlxlinkParser
 from src.core.worker import Worker, WorkerConfig, WorkManager
 from src.models.config import Host
@@ -72,7 +74,11 @@ signal.signal(signal.SIGINT, signal_handler)
 
 # Create timestamped log directory
 log_time_stamp = f"{dt.now().strftime('%Y%m%d_%H%M%S')}"
-log_dir = Path(__file__).parent / "logs"
+# Use executable directory for PyInstaller, script directory otherwise
+if getattr(sys, "frozen", False):
+    log_dir = Path(sys.executable).parent / "logs"
+else:
+    log_dir = Path(__file__).parent / "logs"
 log_dir.mkdir(exist_ok=True)
 
 # Define separate log files for different components
@@ -87,23 +93,39 @@ sut_link_flap_log = log_dir / f"{log_time_stamp}_sut_link_flap.log"  # SUT link 
 slx_eye_log = log_dir / f"{log_time_stamp}_slx_eye.log"  # SLX eye scan
 
 
-###########################
-#
-log_level = logging.INFO
-#
-###########################
-
 # Log formatter with aligned log levels and logger names
-log_format_string = "%(asctime)s - %(name)-30s - %(levelname)-8s - %(message)s"
+# Dynamic width adjusts to longest logger name and level seen
+log_format_string = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-# Configure root logger
+# Temporary logger for config loading
+temp_logger = logging.getLogger("temp")
+temp_logger.setLevel(logging.INFO)
+temp_handler = logging.StreamHandler()
+temp_handler.setFormatter(DynamicWidthFormatter(log_format_string))
+temp_logger.addHandler(temp_handler)
+
+# Load config to get log level
+try:
+    if getattr(sys, "frozen", False):
+        config_file = Path(sys.executable).parent / "main_eye_cfg.json"
+    else:
+        config_file = Path(__file__).parent / "main_eye_cfg.json"
+    with config_file.open() as f:
+        config_data = json.load(f)
+    log_level_str = config_data.get("log_level", "info").upper()
+    log_level = getattr(logging, log_level_str, logging.INFO)
+except Exception:
+    log_level = logging.INFO
+
+# Configure root logger with dynamic formatter
+root_file_handler = logging.FileHandler(main_log)
+root_file_handler.setFormatter(DynamicWidthFormatter(log_format_string))
+root_console_handler = logging.StreamHandler()
+root_console_handler.setFormatter(DynamicWidthFormatter(log_format_string))
+
 logging.basicConfig(
     level=log_level,
-    format=log_format_string,
-    handlers=[
-        logging.FileHandler(main_log),
-        logging.StreamHandler(),
-    ],
+    handlers=[root_file_handler, root_console_handler],
 )
 
 # Create loggers with handlers
@@ -119,10 +141,15 @@ logger_cfgs = [
 
 for logger_name, log_file in logger_cfgs:
     logger = logging.getLogger(logger_name)
-    handler = logging.FileHandler(log_file)
-    handler.setFormatter(logging.Formatter(log_format_string))
-    handler.setLevel(log_level)
-    logger.addHandler(handler)
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(DynamicWidthFormatter(log_format_string))
+    file_handler.setLevel(log_level)
+    logger.addHandler(file_handler)
+    # Add console handler for terminal output
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(DynamicWidthFormatter(log_format_string))
+    console_handler.setLevel(log_level)
+    logger.addHandler(console_handler)
     logger.propagate = False
 
 # Reference loggers for use in code
@@ -150,6 +177,8 @@ class Config:
         sut_*: SUT system settings (host, interfaces, packages, intervals)
     """
 
+    log_level: str
+
     jump_host: str
     jump_user: str
     jump_pass: str
@@ -169,7 +198,8 @@ class Config:
     sut_pass: str
     sut_sudo_pass: str
     sut_scan_interfaces: list[str]
-    sut_info_dump_level: int
+    sut_connect_type: ConnectType
+    sut_show_parts: list[ShowPartType]
     sut_required_software_packages: list[str]
     sut_scan_interval_low_res_ms: int
     sut_scan_interval_high_res_ms: int
@@ -187,6 +217,7 @@ class Config:
         """
         j, slx, sut = data["jump"], data["slx"], data["sut"]
         return cls(
+            log_level=data.get("log_level", "info"),
             jump_host=j["host"],
             jump_user=j["user"],
             jump_pass=j["pass"],
@@ -204,7 +235,8 @@ class Config:
             sut_pass=sut["pass"],
             sut_sudo_pass=sut["sudo_pass"],
             sut_scan_interfaces=sut["scan_interfaces"],
-            sut_info_dump_level=sut["info_dump_level"],
+            sut_connect_type=ConnectType(sut.get("connect_type", "remote")),
+            sut_show_parts=[ShowPartType(p) for p in sut.get("show_parts", ["local"])],
             sut_required_software_packages=sut["required_software_packages"],
             sut_scan_interval_low_res_ms=sut["scan_interval_low_res_ms"],
             sut_scan_interval_high_res_ms=sut["scan_interval_high_res_ms"],
@@ -721,17 +753,26 @@ class SutSystemScanner:
             bool: True if connection successful, False otherwise
         """
         try:
-            self._logger.info(f"Connecting to host: {self._cfg.sut_host}")
-            self._logger.debug(f"Using jump host: {self._cfg.jump_host}")
-            self._ssh = _create_ssh_connection(self._cfg, "sut")
+            if self._cfg.sut_connect_type == ConnectType.LOCAL:
+                self._logger.info("Using local command execution (no SSH)")
+                self._ssh = LocalConnection(
+                    host=self._cfg.sut_host, sudo_pass=self._cfg.sut_sudo_pass
+                )
+            else:
+                self._logger.info(f"Connecting to host: {self._cfg.sut_host}")
+                self._logger.debug(f"Using jump host: {self._cfg.jump_host}")
+                self._ssh = _create_ssh_connection(self._cfg, "sut")
 
             if not self._ssh.connect():
                 self._logger.error(EyeScanLogMsg.SSH_CONN_FAILED.value)
                 return False
-            self._logger.debug("SSH connection established")
 
-            # Shell not needed for system scanner - using execute_command instead
-            self._logger.debug("Skipping shell opening (using exec_cmd instead)")
+            if self._cfg.sut_connect_type == ConnectType.LOCAL:
+                self._logger.debug("Local connection established")
+            else:
+                self._logger.debug("SSH connection established")
+                # Shell not needed for system scanner - using execute_command instead
+                self._logger.debug("Skipping shell opening (using exec_cmd instead)")
 
             # Test connection with simple commands
             test_commands = ["whoami", "pwd"]
@@ -830,7 +871,7 @@ class SutSystemScanner:
     def run_scanners(self, cfg: Config) -> bool:
         """Start background worker threads for metrics collection.
 
-        Creates 3 workers per interface:
+        Creates workers per interface based on show_parts configuration:
         1. mlxlink - Network metrics (temp, voltage, power, BER)
         2. mget_temp - NIC temperature
         3. dmesg - Link flap detection
@@ -844,17 +885,39 @@ class SutSystemScanner:
         try:
             self._logger.info(EyeScanLogMsg.WORKER_START.value)
             self._logger.debug(f"Creating workers for interfaces: {cfg.sut_scan_interfaces}")
+            self._logger.debug(f"Show parts config: {cfg.sut_show_parts}")
 
+            # Determine which workers to create based on show_parts
+            is_remote = ShowPartType.REMOTE in cfg.sut_show_parts
+            is_local = ShowPartType.LOCAL in cfg.sut_show_parts
+            skip_mlxlink = ShowPartType.NO_MLXLINK in cfg.sut_show_parts
+            skip_mtemp = ShowPartType.NO_MTEMP in cfg.sut_show_parts
+            skip_dmesg = ShowPartType.NO_DMESG in cfg.sut_show_parts
+
+            worker_count = 0
             for interface in cfg.sut_scan_interfaces:
                 self._logger.debug(f"Setting up workers for interface: '{interface}'")
                 pci_id = helper.get_pci_id(self._ssh, interface)
                 self._logger.debug(f"PCI ID for '{interface}': '{pci_id}'")
 
-                self._create_mlxlink_worker(pci_id)
-                self._create_mtemp_worker(pci_id)
-                self._create_dmesg_worker(interface)
+                # Remote: only dmesg
+                if is_remote:
+                    if not skip_dmesg:
+                        self._create_dmesg_worker(interface)
+                        worker_count += 1
+                # Local: all workers (unless explicitly skipped)
+                elif is_local:
+                    if not skip_mlxlink:
+                        self._create_mlxlink_worker(pci_id)
+                        worker_count += 1
+                    if not skip_mtemp:
+                        self._create_mtemp_worker(pci_id)
+                        worker_count += 1
+                    if not skip_dmesg:
+                        self._create_dmesg_worker(interface)
+                        worker_count += 1
 
-            self._logger.info(f"Created {len(cfg.sut_scan_interfaces) * 3} workers")
+            self._logger.info(f"Created {worker_count} workers")
             return True  # noqa: TRY300
         except Exception:
             self._logger.exception(EyeScanLogMsg.WORKER_FAILED.value)
@@ -931,8 +994,15 @@ class SutSystemScanner:
     def _add_worker_to_manager(self, worker_cfg: WorkerConfig) -> None:
         self._logger.debug(f"Worker command: '{worker_cfg.command}'")
         shared_state = self._worker_manager.get_shared_flap_state()
+        statistics = self._worker_manager.get_statistics()
         self._worker_manager.add(
-            Worker(worker_cfg, self._cfg, self._ssh, shared_flap_state=shared_state)
+            Worker(
+                worker_cfg,
+                self._cfg,
+                self._ssh,
+                shared_flap_state=shared_state,
+                statistics=statistics,
+            )
         )
 
     @property
@@ -1024,20 +1094,26 @@ def main():  # noqa: PLR0912, PLR0915
         #                           Install required software                          #
         # ---------------------------------------------------------------------------- #
 
-        # if not sut_system_scanner.install_required_software():
-        #    _logger.warning("Failed to install required software, continuing anyway")
+        skip_sys_info = ShowPartType.NO_SYS_INFO in cfg.sut_show_parts
+        is_local = ShowPartType.LOCAL in cfg.sut_show_parts
 
-        # if not sut_system_scanner.log_required_software_versions():
-        #    _logger.warning("Failed to log installed software versions")
+        if is_local and not skip_sys_info:
+            if not sut_system_scanner.install_required_software():
+                _logger.warning("Failed to install required software, continuing anyway")
 
-        # ---------------------------------------------------------------------------- #
-        #                            Log system information                            #
-        # ---------------------------------------------------------------------------- #
+            if not sut_system_scanner.log_required_software_versions():
+                _logger.warning("Failed to log installed software versions")
 
-        logger.info(f"Start system information scan. Logs saved to: {sut_system_info_log}")
+            # ---------------------------------------------------------------------------- #
+            #                            Log system information                            #
+            # ---------------------------------------------------------------------------- #
 
-        # if not sut_system_scanner.log_system_info(sut_system_info_logger):
-        #    _logger.warning("Failed to log system information")
+            logger.info(f"Start system information scan. Logs saved to: {sut_system_info_log}")
+
+            if not sut_system_scanner.log_system_info(sut_system_info_logger):
+                _logger.warning("Failed to log system information")
+        else:
+            _logger.info("Skipping system information scan (not in local mode or disabled)")
 
         # ---------------------------------------------------------------------------- #
         #                         Start system scanning threads                        #
@@ -1181,6 +1257,7 @@ def main():  # noqa: PLR0912, PLR0915
         _logger.debug("Disconnecting system scanner")
         sut_system_scanner.disconnect()
 
+    _logger.info("\n" + sut_system_scanner.worker_manager.get_statistics_summary())
     _logger.info(f"Total eye scans completed: {slx_eye_scanner.scans_collected()}")
     _logger.info("Logs saved to:")
     for label, path in [
@@ -1191,7 +1268,7 @@ def main():  # noqa: PLR0912, PLR0915
         ("link_status scan", sut_link_flap_log),
         ("SLX eye scan", slx_eye_log),
     ]:
-        _logger.info(f"{label}: {path}")
+        _logger.info(f"{label:20s} {path}")
 
 
 if __name__ == "__main__":

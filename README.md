@@ -89,6 +89,17 @@ uv run main_eye_scan.py
 
 ## Development
 
+### Compile binary
+
+```bash
+pyinstaller \
+    --onefile \
+    --clean \
+    --noconfirm \
+    --name interop_check \
+    main_eye_scan.py
+```
+
 ### Code Quality
 
 ```bash

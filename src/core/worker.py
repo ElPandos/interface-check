@@ -21,6 +21,7 @@ from src.core.connect import SshConnection
 from src.core.helpers import get_attr_value
 from src.core.json import Json
 from src.core.sample import Sample
+from src.core.statistics import WorkerStatistics
 from src.interfaces.component import ITime
 from src.models.config import Config
 from src.platform.enums.log import LogName
@@ -63,6 +64,7 @@ class Worker(Thread, ITime):
         ssh: SshConnection,
         name: str = "Worker",
         shared_flap_state: dict | None = None,
+        statistics: WorkerStatistics | None = None,
     ) -> None:
         """Initialize worker thread.
 
@@ -72,6 +74,7 @@ class Worker(Thread, ITime):
             ssh: SSH connection for command execution
             name: Thread name for identification
             shared_flap_state: Shared dictionary for flap detection across workers
+            statistics: Shared statistics tracker for command durations
         """
         Thread.__init__(self, name=name, daemon=True)  # daemon=True prevents blocking app exit
         ITime.__init__(self)
@@ -86,6 +89,7 @@ class Worker(Thread, ITime):
             "workers_rotated": set(),
         }
         self._worker_id = id(self)  # Unique worker identifier
+        self._statistics = statistics
 
         self._stop_event = Event()  # Signal for graceful shutdown
 
@@ -125,6 +129,10 @@ class Worker(Thread, ITime):
                 sample = Sample(self._cfg, self._ssh).collect(self._worker_cfg)
                 cmd_duration_ms = (time.time() - cmd_start) * 1000
                 self._logger.debug(f"Command execution took: {cmd_duration_ms:.1f} ms")
+                
+                # Record duration in statistics (if statistics object provided)
+                if hasattr(self, '_statistics') and self._statistics:
+                    self._statistics.record_duration(self._worker_cfg.command, cmd_duration_ms)
 
                 # Parse output if parser provided
                 if self._worker_cfg.parser is not None:
@@ -452,6 +460,7 @@ class WorkManager:
         """Initialize empty worker pool."""
         self._work_pool: list[Worker] = []
         self._shared_flap_state = {"flaps_detected": False, "workers_rotated": set()}
+        self._statistics = WorkerStatistics()
 
         self._logger = logging.getLogger(LogName.CORE_MAIN.value)
 
@@ -468,6 +477,22 @@ class WorkManager:
         else:
             old_worker.start()
             self._logger.debug(f"Worker already exists for command: {worker.command}")
+    
+    def get_statistics_summary(self) -> str:
+        """Get statistics summary for all workers.
+        
+        Returns:
+            Formatted statistics summary
+        """
+        return self._statistics.get_summary()
+    
+    def get_statistics(self) -> WorkerStatistics:
+        """Get statistics object.
+        
+        Returns:
+            WorkerStatistics instance
+        """
+        return self._statistics
 
     def get_shared_flap_state(self) -> dict:
         """Get shared flap detection state.

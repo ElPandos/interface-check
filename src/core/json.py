@@ -6,7 +6,6 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from nicegui import ui
 from pydantic import SecretStr
 
 from src.platform.enums.log import LogName
@@ -124,26 +123,7 @@ class Json:
         """
         return json.loads(json_string.strip())
 
-    @classmethod
-    def export_download(
-        cls, data: Any, filename_prefix: str, *, success_message: str | None = None
-    ) -> None:
-        """Export data as downloadable JSON file with UI notification.
 
-        Args:
-            data: Data to export
-            filename_prefix: Prefix for generated filename
-            success_message: Custom success message
-        """
-        try:
-            json_data = cls.dump_to_string(data)
-            timestamp = dt.now(UTC).strftime("%Y%m%d_%H%M%S")
-            filename = f"{filename_prefix}_{timestamp}.json"
-
-            ui.download(json_data.encode("utf-8"), filename)
-            ui.notify(success_message or f"Exported {filename}", color="positive")
-        except Exception as e:
-            ui.notify(f"Export failed: {e}", color="negative")
 
     @classmethod
     def backup_and_save(cls, data: Any, file_path: Path, *, max_backups: int = 5) -> None:
