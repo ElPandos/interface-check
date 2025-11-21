@@ -19,7 +19,7 @@ dependencies = [
     "pympler>=1.1",
     "pandas>=2.3.3",
     "pyinstaller>=6.16.0",
-    "uv>=0.9.10",
+    "uv>=0.9.11",
     "pyinstall>=0.1.4",
 ]
 

@@ -15,14 +15,37 @@ class WorkerStats:
 
     command: str
     durations: deque[float] = field(default_factory=lambda: deque(maxlen=20))
+    send_times: deque[float] = field(default_factory=lambda: deque(maxlen=20))
+    read_times: deque[float] = field(default_factory=lambda: deque(maxlen=20))
+    cycle_times: deque[float] = field(default_factory=lambda: deque(maxlen=20))
+    parsed_times: deque[float] = field(default_factory=lambda: deque(maxlen=20))
 
-    def add_duration(self, duration_ms: float) -> None:
+    def add_duration(
+        self,
+        duration_ms: float,
+        send_ms: float = 0.0,
+        read_ms: float = 0.0,
+        cycle_ms: float = 0.0,
+        parsed_ms: float = 0.0,
+    ) -> None:
         """Add command duration to rolling window.
 
         Args:
             duration_ms: Command execution duration in milliseconds
+            send_ms: Time to send command in milliseconds
+            read_ms: Time to read response in milliseconds
+            cycle_ms: Total cycle time in milliseconds
+            parsed_ms: Parsed execution time from time command in milliseconds
         """
         self.durations.append(duration_ms)
+        if send_ms > 0:
+            self.send_times.append(send_ms)
+        if read_ms > 0:
+            self.read_times.append(read_ms)
+        if cycle_ms > 0:
+            self.cycle_times.append(cycle_ms)
+        if parsed_ms > 0:
+            self.parsed_times.append(parsed_ms)
 
     def get_min(self) -> float:
         """Get minimum duration in rolling window.
@@ -56,6 +79,26 @@ class WorkerStats:
         """
         return len(self.durations)
 
+    def get_median(self) -> float:
+        """Calculate median of durations in rolling window.
+
+        For even-length lists, returns mean of two center values.
+
+        Returns:
+            Median duration in milliseconds, or 0.0 if no data
+        """
+        if not self.durations:
+            return 0.0
+
+        sorted_durations = sorted(self.durations)
+        n = len(sorted_durations)
+
+        if n % 2 == 1:
+            return sorted_durations[n // 2]
+        mid1 = sorted_durations[n // 2 - 1]
+        mid2 = sorted_durations[n // 2]
+        return (mid1 + mid2) / 2.0
+
 
 class WorkerStatistics:
     """Aggregate statistics for all workers."""
@@ -66,16 +109,28 @@ class WorkerStatistics:
         """Initialize statistics tracker."""
         self._stats: dict[str, WorkerStats] = {}
 
-    def record_duration(self, command: str, duration_ms: float) -> None:
+    def record_duration(
+        self,
+        command: str,
+        duration_ms: float,
+        send_ms: float = 0.0,
+        read_ms: float = 0.0,
+        cycle_ms: float = 0.0,
+        parsed_ms: float = 0.0,
+    ) -> None:
         """Record command execution duration.
 
         Args:
             command: Command that was executed
             duration_ms: Execution duration in milliseconds
+            send_ms: Time to send command in milliseconds
+            read_ms: Time to read response in milliseconds
+            cycle_ms: Total cycle time in milliseconds
+            parsed_ms: Parsed execution time from time command in milliseconds
         """
         if command not in self._stats:
             self._stats[command] = WorkerStats(command)
-        self._stats[command].add_duration(duration_ms)
+        self._stats[command].add_duration(duration_ms, send_ms, read_ms, cycle_ms, parsed_ms)
 
     def get_summary(self) -> str:
         """Generate summary report of all worker statistics.
@@ -92,15 +147,30 @@ class WorkerStatistics:
         for cmd, stats in self._stats.items():
             min_dur = stats.get_min()
             mean = stats.get_mean()
+            median = stats.get_median()
             max_dur = stats.get_max()
             count = stats.get_count()
 
-            # Command row
-            cmd_preview = cmd[:74] + "..." if len(cmd) > 74 else cmd
-            rows.append(cmd_preview)
+            # Calculate averages
+            send_avg = sum(stats.send_times) / len(stats.send_times) if stats.send_times else 0.0
+            read_avg = sum(stats.read_times) / len(stats.read_times) if stats.read_times else 0.0
+            cycle_avg = (
+                sum(stats.cycle_times) / len(stats.cycle_times) if stats.cycle_times else 0.0
+            )
+            parsed_avg = (
+                sum(stats.parsed_times) / len(stats.parsed_times) if stats.parsed_times else 0.0
+            )
+            delay = cycle_avg - mean if cycle_avg > 0 else 0.0
 
-            # Stats row
-            stats_line = f"  Count: {count:2d} │ Min: {min_dur:6.1f}ms │ Avg: {mean:6.1f}ms │ Max: {max_dur:6.1f}ms"
-            rows.append(stats_line)
+            # Command header
+            cmd_preview = f"'{cmd[:72]}...'" if len(cmd) > 72 else f"'{cmd}'"
+            rows.append(f"Command: {cmd_preview}")
+            rows.append("---")
+            rows.append(f"Avg count no: {count}, Manual delay: {delay} ms")
+            rows.append("---")
+            rows.append(f"Min:  {min_dur:10.3f} ms │ Max:  {max_dur:10.3f} ms")
+            rows.append(f"Avg:  {mean:10.3f} ms │ Median: {median:8.3f} ms")
+            rows.append(f"Send: {send_avg:10.3f} ms │ Read: {read_avg:10.3f} ms")
+            rows.append(f"Cycle: {cycle_avg:9.3f} ms │ Time:   {parsed_avg:8.3f} ms")
 
         return frame.build("Worker Command Duration Statistics", rows)

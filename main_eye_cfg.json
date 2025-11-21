@@ -1,5 +1,5 @@
 {
-    "log_level": "debug",
+    "log_level": "info",
     "jump": {
         "host": "137.58.231.134",
         "user": "emvekta",
@@ -14,7 +14,7 @@
             "0/25:1"
         ],
         "scan_interval_sec": 20,
-        "port_toggling_enabled": 1,
+        "port_toggling_enabled": true,
         "port_toggle_wait_sec": 5,
         "port_eye_scan_wait_sec": 20
     },
@@ -28,6 +28,7 @@
         ],
         "connect_type": "remote",
         "show_parts": ["remote"],
+        "time_cmd": true,
         "required_software_packages": [
             "pciutils",
             "ethtool",

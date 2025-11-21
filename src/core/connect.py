@@ -586,7 +586,7 @@ class SshConnection(IConnection):
 
         buffer = b""
         start = time.time()
-        self._logger.debug("Reading until prompt (timeout: %.1fs)", timeout)
+        self._logger.debug("Reading until prompt (timeout: %.1f s)", timeout)
         last_activity = start
         stable_count = 0
 

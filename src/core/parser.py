@@ -725,6 +725,61 @@ class MlxlinkParser(IParser):
 
 
 # ---------------------------------------------------------------------------- #
+#                              Time command parser                              #
+# ---------------------------------------------------------------------------- #
+
+
+class TimeCommandParser(IParser):
+    """Parser for 'time' command output to extract real execution time."""
+
+    _time_pattern: ClassVar[re.Pattern] = re.compile(
+        r"^real\s+(\d+)m([\d.]+)s$", re.MULTILINE
+    )
+
+    def __init__(self):
+        """Initialize parser."""
+        IParser.__init__(self, LogName.MAIN.value)
+        self._real_time_ms: float = 0.0
+        self._raw_data: str | None = None
+
+    @property
+    def name(self) -> str:
+        """Get parser name.
+
+        Returns:
+            Parser identifier
+        """
+        return "time_command"
+
+    def parse(self, raw_data: str) -> None:
+        """Parse time command output and extract real time.
+
+        Args:
+            raw_data: Raw command output including time statistics
+        """
+        self._raw_data = raw_data
+        self._real_time_ms = 0.0
+
+        match = self._time_pattern.search(raw_data)
+        if match:
+            minutes = int(match.group(1))
+            seconds = float(match.group(2))
+            self._real_time_ms = (minutes * 60 + seconds) * 1000
+
+    def get_result(self) -> float:
+        """Get parsed real time in milliseconds.
+
+        Returns:
+            Real execution time in milliseconds
+        """
+        return self._real_time_ms
+
+    def log(self) -> None:
+        """Log parsed time."""
+        self._logger.debug(f"Real time: {self._real_time_ms:.3f} ms")
+
+
+# ---------------------------------------------------------------------------- #
 #                           Dmesg - Link flap parser                           #
 # ---------------------------------------------------------------------------- #
 
