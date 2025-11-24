@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
-"""Test TimeCommandParser."""
+"""Test TimeCommandParser with both bash and zsh formats."""
 
 from src.core.parser import TimeCommandParser
 
-# Sample output from 'time ls -Fal'
-sample_output = """total 100
-drwxr-x--- 9 hts  hts   4096 Nov 21 07:15 ./
-drwxr-xr-x 3 root root  4096 Oct 16 14:35 ../
--rw------- 1 hts  hts     55 Nov 21 07:15 .Xauthority
-
-real	0m0.002s
-user	0m0.000s
-sys	0m0.002s"""
+# Test bash format
+bash_output = """real\t0m0.002s
+user\t0m0.000s
+sys\t0m0.002s"""
 
 parser = TimeCommandParser()
-parser.parse(sample_output)
-result_ms = parser.get_result()
+parser.parse(bash_output)
+bash_result = parser.get_result()
 
-print(f"Parsed real time: {result_ms:.3f} ms")
-print(f"Expected: 2.000 ms")
-print(f"Match: {abs(result_ms - 2.0) < 0.001}")
+print(f"Bash format: {bash_result:.3f} ms (expected: 2.000 ms)")
+assert abs(bash_result - 2.0) < 0.001, "Bash parsing failed"
+
+# Test zsh format
+zsh_output = """bash -c   0,01s user 0,01s system 75% cpu 0,027 total"""
+
+parser2 = TimeCommandParser()
+parser2.parse(zsh_output)
+zsh_result = parser2.get_result()
+
+print(f"Zsh format: {zsh_result:.3f} ms (expected: 27.000 ms)")
+assert abs(zsh_result - 27.0) < 0.001, "Zsh parsing failed"
+
+print("\n✅ Both formats parsed successfully!")

@@ -3,7 +3,8 @@
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime as dt
 import logging
-from typing import TYPE_CHECKING, Any
+import re
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from src.core.result import CmdResult
 
@@ -17,6 +18,8 @@ class IParser(ABC):
     Provides base functionality for parsing command output into structured data.
     """
 
+    _ansi_escape: ClassVar[re.Pattern] = re.compile(r"\x1b\[[0-9;]*m")
+
     def __init__(self, log_name: str):
         """Initialize parser with logger.
 
@@ -25,7 +28,18 @@ class IParser(ABC):
         """
         self._logger = logging.getLogger(log_name)
 
-    @property
+    def _log_parse(self, raw_data: str) -> None:
+        """Common parse logging for all parsers.
+
+        Args:
+            raw_data: Raw input data being parsed
+        """
+        clean_data = self._ansi_escape.sub("", raw_data)
+        preview = clean_data[:200] if len(clean_data) > 200 else clean_data
+        self._logger.debug(
+            f"[{self.name}] Parsing:\n{preview}{'...' if len(clean_data) > 200 else ''}"
+        )
+
     @abstractmethod
     def name(self) -> str:
         """Get parser name identifier.

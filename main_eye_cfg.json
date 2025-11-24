@@ -1,5 +1,5 @@
 {
-    "log_level": "info",
+    "log_level": "debug",
     "jump": {
         "host": "137.58.231.134",
         "user": "emvekta",
@@ -22,12 +22,12 @@
         "host": "172.16.227.1",
         "user": "hts",
         "pass": "hts",
-        "sudo_pass": "Mattias1981!",
+        "sudo_pass": "hts",
         "scan_interfaces": [
             "ens3f0np0"
         ],
         "connect_type": "remote",
-        "show_parts": ["remote"],
+        "show_parts": ["remote", "no_eye_scan"],
         "time_cmd": true,
         "required_software_packages": [
             "pciutils",

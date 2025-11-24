@@ -21,6 +21,7 @@ class Sample(Tool, ITime):
 
         self._snapshot: str = ""
         self._cfg = cfg
+        self._cmd_result = None
 
     @property
     def snapshot(self) -> "Sample":
@@ -51,7 +52,12 @@ class Sample(Tool, ITime):
         """
         self.start_timer()
 
-        result = self._exec(worker_command.command)
+        # Check if time command should be used
+        time_cmd = hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd
+
+        result = self._exec(worker_command.command, time_cmd=time_cmd)
+        self._cmd_result = result
+
         if result.success:
             self._snapshot = result.stdout
         else:
@@ -60,6 +66,15 @@ class Sample(Tool, ITime):
         self.stop_timer()
 
         return self
+
+    @property
+    def cmd_result(self):
+        """Get command result with timing data.
+
+        Returns:
+            CmdResult instance
+        """
+        return self._cmd_result
 
 
 class PlotSampleData:

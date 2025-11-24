@@ -74,6 +74,7 @@ class EyeScanParser(IParser):
         Returns:
             List of voltage/pattern dictionaries
         """
+        self._log_parse(raw_data)
         self._raw_data = raw_data
 
         rows = []
@@ -87,6 +88,7 @@ class EyeScanParser(IParser):
                         "pattern": pattern.rstrip(),
                     }
                 )
+        self._logger.debug(f"[{self.name()}] Parsed {len(rows)} voltage rows")
         return rows
 
     def get_result(self) -> tuple[np.ndarray, list[int], list[int]]:
@@ -188,6 +190,7 @@ class MstStatusVersionParser(IParser):
 
     def parse(self, raw_data: str) -> None:
         """Parse MST status output."""
+        self._log_parse(raw_data)
         self._raw_data = raw_data
 
         lines = self._raw_data.splitlines()
@@ -224,6 +227,8 @@ class MstStatusVersionParser(IParser):
             numa = parts[mst_index + 4] if len(parts) > mst_index + 4 else None
 
             self._devices.append(MstVersionDevice(device_type, mst, pci, rdma, net, numa))
+
+        self._logger.debug(f"[{self.name()}] Parsed {len(self._devices)} MST devices")
 
     def get_result(self) -> list[MstVersionDevice]:
         """Get parsed devices.
@@ -398,12 +403,15 @@ class EthtoolModuleParser(IParser):
 
     def parse(self, raw_data: str) -> None:
         """Parse key-value pairs from ethtool -m output."""
+        self._log_parse(raw_data)
         self._raw_data = raw_data
 
         for line in self._raw_data.splitlines():
             if ":" in line:
                 key, value = line.split(":", 1)
                 self._result[key.strip()] = value.strip()
+
+        self._logger.debug(f"[{self.name()}] Parsed {len(self._result)} key-value pairs")
 
     def get_result(self) -> EthtoolModuleDevice:
         """Return parsed module device.
@@ -695,13 +703,15 @@ class MlxlinkParser(IParser):
 
     def parse(self, raw_data: str) -> None:
         """Parse key-value pairs from mlxlink output."""
-        self._raw_data = raw_data
+        self._log_parse(raw_data)
 
         if self._raw_data is not None:
             for line in self._raw_data.splitlines():
                 if ":" in line and not line.strip().endswith(":"):
                     key, value = line.split(":", 1)
                     self._result[key.strip()] = value.strip()
+
+        self._logger.debug(f"[{self.name}] Parsed {len(self._result)} key-value pairs")
 
     def get_result(self) -> MlxlinkDevice:
         """Return parsed mlxlink device.
@@ -725,20 +735,26 @@ class MlxlinkParser(IParser):
 
 
 # ---------------------------------------------------------------------------- #
-#                              Time command parser                              #
+#                          Time - Exec time parser                             #
 # ---------------------------------------------------------------------------- #
 
 
 class TimeCommandParser(IParser):
-    """Parser for 'time' command output to extract real execution time."""
+    """Parser for 'time' command output to extract real execution time.
 
-    _time_pattern: ClassVar[re.Pattern] = re.compile(
-        r"^real\s+(\d+)m([\d.]+)s$", re.MULTILINE
-    )
+    Supports both bash and zsh formats:
+    - bash: real 0m0.002s
+    - zsh: 0,01s user 0,01s system 75% cpu 0,027 total
+    """
+
+    _bash_pattern: ClassVar[re.Pattern] = re.compile(r"^real\s+(\d+)m([\d.,]+)s$", re.MULTILINE)
+    _zsh_pattern: ClassVar[re.Pattern] = re.compile(r"cpu\s+([\d.,]+)\s+total$", re.MULTILINE)
+    _gnu_pattern: ClassVar[re.Pattern] = re.compile(r"(\d+):(\d+)\.([\d]+)elapsed", re.MULTILINE)
 
     def __init__(self):
         """Initialize parser."""
         IParser.__init__(self, LogName.MAIN.value)
+
         self._real_time_ms: float = 0.0
         self._raw_data: str | None = None
 
@@ -754,17 +770,50 @@ class TimeCommandParser(IParser):
     def parse(self, raw_data: str) -> None:
         """Parse time command output and extract real time.
 
+        Handles both bash and zsh time output formats.
+
         Args:
             raw_data: Raw command output including time statistics
         """
+        self._log_parse(raw_data)
         self._raw_data = raw_data
         self._real_time_ms = 0.0
 
-        match = self._time_pattern.search(raw_data)
+        # Try bash format first
+        match = self._bash_pattern.search(raw_data)
         if match:
             minutes = int(match.group(1))
-            seconds = float(match.group(2))
+            seconds = float(match.group(2).replace(",", "."))
             self._real_time_ms = (minutes * 60 + seconds) * 1000
+            self._logger.debug(
+                f"[{self.name}] Bash format: {minutes}m{seconds}s -> {self._real_time_ms:.3f}ms"
+            )
+            return
+
+        # Try zsh format
+        match = self._zsh_pattern.search(raw_data)
+        if match:
+            seconds = float(match.group(1).replace(",", "."))
+            self._real_time_ms = seconds * 1000
+            self._logger.debug(
+                f"[{self.name}] Zsh format: {seconds}s -> {self._real_time_ms:.3f}ms"
+            )
+            return
+
+        # Try GNU time format (0:00.10elapsed)
+        match = self._gnu_pattern.search(raw_data)
+        if match:
+            minutes = int(match.group(1))
+            seconds = int(match.group(2))
+            subseconds = float(f"0.{match.group(3)}")
+            total_seconds = minutes * 60 + seconds + subseconds
+            self._real_time_ms = total_seconds * 1000
+            self._logger.debug(
+                f"[{self.name}] GNU format: {minutes}:{seconds}.{match.group(3)} -> {self._real_time_ms:.3f}ms"
+            )
+            return
+
+        self._logger.debug(f"[{self.name}] No match found")
 
     def get_result(self) -> float:
         """Get parsed real time in milliseconds.
@@ -875,6 +924,7 @@ class DmesgFlapParser(IParser):
 
     def parse(self, raw_data: str) -> None:
         """Parse dmesg output and extract link flaps after start_time."""
+        self._log_parse(raw_data)
         self._raw_data = raw_data
         self._result.clear()  # Clear previous results
 
@@ -910,6 +960,8 @@ class DmesgFlapParser(IParser):
                     i += 2
                 else:
                     i += 1
+
+        self._logger.debug(f"[{self.name}] Parsed {len(self._result)} link flaps")
 
     def get_result(self) -> DmesgFlapResult:
         """Get all detected link flaps and update start_time to latest up_timestamp."""

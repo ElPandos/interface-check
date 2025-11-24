@@ -120,6 +120,7 @@ class Config:
     sut_scan_interfaces: list[str]
     sut_connect_type: ConnectType
     sut_show_parts: list[ShowPartType]
+    sut_time_cmd: bool
     sut_required_software_packages: list[str]
     sut_scan_interval_low_res_ms: int
     sut_scan_interval_high_res_ms: int
@@ -157,6 +158,7 @@ class Config:
             sut_scan_interfaces=sut["scan_interfaces"],
             sut_connect_type=ConnectType(sut.get("connect_type", "remote")),
             sut_show_parts=[ShowPartType(p) for p in sut.get("show_parts", ["local"])],
+            sut_time_cmd=sut.get("time_cmd", False),
             sut_required_software_packages=sut["required_software_packages"],
             sut_scan_interval_low_res_ms=sut["scan_interval_low_res_ms"],
             sut_scan_interval_high_res_ms=sut["scan_interval_high_res_ms"],

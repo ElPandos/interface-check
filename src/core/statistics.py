@@ -2,6 +2,7 @@
 
 from collections import deque
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 from src.core.cli import PrettyFrame
 
@@ -19,6 +20,8 @@ class WorkerStats:
     read_times: deque[float] = field(default_factory=lambda: deque(maxlen=20))
     cycle_times: deque[float] = field(default_factory=lambda: deque(maxlen=20))
     parsed_times: deque[float] = field(default_factory=lambda: deque(maxlen=20))
+    timestamps: deque[float] = field(default_factory=lambda: deque(maxlen=20))
+    max_samples: int = 20
 
     def add_duration(
         self,
@@ -27,6 +30,7 @@ class WorkerStats:
         read_ms: float = 0.0,
         cycle_ms: float = 0.0,
         parsed_ms: float = 0.0,
+        timestamp: float = 0.0,
     ) -> None:
         """Add command duration to rolling window.
 
@@ -36,6 +40,7 @@ class WorkerStats:
             read_ms: Time to read response in milliseconds
             cycle_ms: Total cycle time in milliseconds
             parsed_ms: Parsed execution time from time command in milliseconds
+            timestamp: Unix timestamp when measurement was taken
         """
         self.durations.append(duration_ms)
         if send_ms > 0:
@@ -46,6 +51,8 @@ class WorkerStats:
             self.cycle_times.append(cycle_ms)
         if parsed_ms > 0:
             self.parsed_times.append(parsed_ms)
+        if timestamp > 0:
+            self.timestamps.append(timestamp)
 
     def get_min(self) -> float:
         """Get minimum duration in rolling window.
@@ -117,6 +124,7 @@ class WorkerStatistics:
         read_ms: float = 0.0,
         cycle_ms: float = 0.0,
         parsed_ms: float = 0.0,
+        timestamp: float = 0.0,
     ) -> None:
         """Record command execution duration.
 
@@ -127,10 +135,13 @@ class WorkerStatistics:
             read_ms: Time to read response in milliseconds
             cycle_ms: Total cycle time in milliseconds
             parsed_ms: Parsed execution time from time command in milliseconds
+            timestamp: Unix timestamp when measurement was taken
         """
         if command not in self._stats:
             self._stats[command] = WorkerStats(command)
-        self._stats[command].add_duration(duration_ms, send_ms, read_ms, cycle_ms, parsed_ms)
+        self._stats[command].add_duration(
+            duration_ms, send_ms, read_ms, cycle_ms, parsed_ms, timestamp
+        )
 
     def get_summary(self) -> str:
         """Generate summary report of all worker statistics.
@@ -166,11 +177,40 @@ class WorkerStatistics:
             cmd_preview = f"'{cmd[:72]}...'" if len(cmd) > 72 else f"'{cmd}'"
             rows.append(f"Command: {cmd_preview}")
             rows.append("---")
-            rows.append(f"Avg count no: {count}, Manual delay: {delay} ms")
+            rows.append(f"Max avg. count no: {count} │ Manual delay: {delay:7.3f} ms")
             rows.append("---")
             rows.append(f"Min:  {min_dur:10.3f} ms │ Max:  {max_dur:10.3f} ms")
             rows.append(f"Avg:  {mean:10.3f} ms │ Median: {median:8.3f} ms")
             rows.append(f"Send: {send_avg:10.3f} ms │ Read: {read_avg:10.3f} ms")
             rows.append(f"Cycle: {cycle_avg:9.3f} ms │ Time:   {parsed_avg:8.3f} ms")
+            rows.append("---")
+
+        # Add metric descriptions once at the end
+        rows.append("Metric Descriptions:")
+        rows.append("  Max avg. count no: Number of samples in rolling window")
+        rows.append("  Manual delay: Sleep time between executions (Cycle - Avg)")
+        rows.append("  Min/Max: Fastest and slowest command execution times")
+        rows.append("  Avg: Mean execution time across all samples")
+        rows.append("  Median: Middle value of sorted execution times")
+        rows.append("  Send: Average time to send command over SSH connection")
+        rows.append("  Read: Average time to read response from SSH connection")
+        rows.append("  Cycle: Total time per iteration (Avg + Manual delay)")
+        rows.append("  Time: Real execution time on remote system (from 'time' cmd)")
+        rows.append("---")
+        rows.append("Max Duration Analysis:")
+        for cmd, stats in self._stats.items():
+            if not stats.durations:
+                continue
+            max_val = stats.get_max()
+            max_idx = list(stats.durations).index(max_val)
+            cmd_preview = f"'{cmd[:60]}...'" if len(cmd) > 60 else f"'{cmd}'"
+            rows.append(f"  {cmd_preview}")
+            rows.append(f"    Max: {max_val:.3f} ms")
+            if stats.timestamps and max_idx < len(stats.timestamps):
+                ts = list(stats.timestamps)[max_idx]
+                dt = datetime.fromtimestamp(ts, tz=UTC).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                rows.append(f"    Timestamp: {dt}")
+            if stats.parsed_times and max_idx < len(stats.parsed_times):
+                rows.append(f"    Parsed time at max: {list(stats.parsed_times)[max_idx]:.3f} ms")
 
         return frame.build("Worker Command Duration Statistics", rows)

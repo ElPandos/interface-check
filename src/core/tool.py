@@ -73,11 +73,12 @@ class Tool:
 
         self._logger = logging.getLogger(LogName.MAIN.value)
 
-    def _exec(self, cmd: str) -> CmdResult:
+    def _exec(self, cmd: str, time_cmd: bool = False) -> CmdResult:
         """Execute command and return result.
 
         Args:
             cmd: CLI command to execute
+            time_cmd: Wrap command with 'time' for execution timing
 
         Returns:
             Command result
@@ -87,7 +88,8 @@ class Tool:
             return self._ssh.get_cr_msg_connection(cmd, LogMsg.EXEC_CMD_FAIL)
 
         try:
-            cmd_result = self._ssh.exec_cmd(cmd)
+            cmd_result = self._ssh.exec_cmd(cmd, time_cmd=time_cmd)
+
             if cmd_result.success:
                 self._logger.debug(f"{LogMsg.TOOL_CMD_SUCCESS.value}: '{cmd}'")
             else:

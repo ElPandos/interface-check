@@ -22,6 +22,7 @@ from src.core.enums.messages import LogMsg
 from src.core.helpers import get_attr_value
 from src.core.json import Json
 from src.core.logging import create_formatter
+from src.core.parser import TimeCommandParser
 from src.core.sample import Sample
 from src.core.statistics import WorkerStatistics
 from src.interfaces.component import ITime
@@ -128,11 +129,34 @@ class Worker(Thread, ITime):
                 cmd_start = time.time()
                 sample = Sample(self._cfg, self._ssh).collect(self._worker_cfg)
                 cmd_duration_ms = (time.time() - cmd_start) * 1000
-                self._logger.debug(f"Command execution took: {cmd_duration_ms:.1f} ms")
+
+                # Extract timing data from command result (parsing done in Sample.collect)
+                send_ms = 0.0
+                read_ms = 0.0
+                parsed_ms = 0.0
+                if sample.cmd_result:
+                    send_ms = sample.cmd_result.send_ms
+                    read_ms = sample.cmd_result.read_ms
+                    parsed_ms = sample.cmd_result.parsed_ms
+
+                    # Parse time command output if time_cmd enabled (time writes to stderr)
+                    if hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd:
+                        time_parser = TimeCommandParser()
+                        time_parser.parse(sample.cmd_result.stderr)
+                        parsed_ms = time_parser.get_result()
 
                 # Record duration in statistics (if statistics object provided)
                 if hasattr(self, "_statistics") and self._statistics:
-                    self._statistics.record_duration(self._worker_cfg.command, cmd_duration_ms)
+                    cycle_ms = cmd_duration_ms + self._worker_cfg.scan_interval_ms
+                    self._statistics.record_duration(
+                        self._worker_cfg.command,
+                        cmd_duration_ms,
+                        send_ms=send_ms,
+                        read_ms=read_ms,
+                        cycle_ms=cycle_ms,
+                        parsed_ms=parsed_ms,
+                        timestamp=cmd_start,
+                    )
 
                 # Parse output if parser provided
                 if self._worker_cfg.parser is not None:
@@ -177,10 +201,6 @@ class Worker(Thread, ITime):
 
                 reconnect = 0  # Reset counter on success
                 sleep_time_ms = self._worker_cfg.scan_interval_ms
-                total_cycle_ms = cmd_duration_ms + sleep_time_ms
-                self._logger.debug(
-                    f"Sleeping {sleep_time_ms} ms (Total cycle: {total_cycle_ms:.1f} ms)"
-                )
                 time.sleep(float(sleep_time_ms / 1000))
 
             except KeyboardInterrupt:
