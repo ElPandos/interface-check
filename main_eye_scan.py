@@ -109,7 +109,7 @@ class Config:
     slx_sudo_pass: str
     slx_scan_ports: list[str]
     slx_scan_interval_sec: int
-    slx_port_toggle_enabled: int
+    slx_port_toggle_enabled: bool
     slx_port_toggle_wait_sec: int
     slx_port_eyescan_wait_sec: int
 
@@ -256,7 +256,7 @@ class SlxEyeScannerWrapper:
 
         return self._scanner.scan_interfaces(
             interfaces,
-            toggle_enabled=bool(self._cfg.slx_port_toggle_enabled),
+            toggle_enabled=self._cfg.slx_port_toggle_enabled,
             toggle_wait_sec=self._cfg.slx_port_toggle_wait_sec,
             scan_wait_sec=self._cfg.slx_port_eyescan_wait_sec,
         )
@@ -480,6 +480,7 @@ class SutSystemScanner:
                     tool_type=tool_type,
                     ssh=self._ssh,
                     interfaces=self._cfg.sut_scan_interfaces,
+                    logger=logger,
                 )
                 tool.execute()
                 tool.log(logger)
@@ -875,8 +876,6 @@ def main():  # noqa: PLR0912, PLR0915
                     row.extend([link_status, link_ts])
             headers_str.append(",".join(row))
 
-        _logger.info("\n%s\n", "\n".join(headers_str))
-
     _logger.info(LogMsg.WORKER_SHUTDOWN.value)
 
     _logger.debug(LogMsg.MAIN_SCANNER_DISCONNECT.value)
@@ -884,6 +883,8 @@ def main():  # noqa: PLR0912, PLR0915
 
     stats_summary = sut_system_scanner.worker_manager.get_statistics_summary()
     _logger.info(f"\n{stats_summary}")
+
+    # _logger.info("\n%s\n", "\n".join(headers_str))
     _logger.info(f"Total eye scans completed: {slx_eye_scanner.scans_collected()}")
     _logger.info(LogMsg.MAIN_SHUTDOWN_COMPLETE.value)
     _logger.info(LogMsg.MAIN_LOGS_SAVED.value)

@@ -127,8 +127,12 @@ class Worker(Thread, ITime):
 
                 # Collect sample by executing command
                 cmd_start = time.time()
-                sample = Sample(self._cfg, self._ssh).collect(self._worker_cfg)
+                sample = Sample(self._cfg, self._ssh).collect(self._worker_cfg, logger=self._logger)
                 cmd_duration_ms = (time.time() - cmd_start) * 1000
+
+                # Skip interrupted samples (Ctrl+C during collection)
+                if self._stop_event.is_set():
+                    break
 
                 # Extract timing data from command result (parsing done in Sample.collect)
                 send_ms = 0.0
@@ -141,7 +145,7 @@ class Worker(Thread, ITime):
 
                     # Parse time command output if time_cmd enabled (time writes to stderr)
                     if hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd:
-                        time_parser = TimeCommandParser()
+                        time_parser = TimeCommandParser(self._logger.name)
                         time_parser.parse(sample.cmd_result.stderr)
                         parsed_ms = time_parser.get_result()
 
@@ -160,6 +164,9 @@ class Worker(Thread, ITime):
 
                 # Parse output if parser provided
                 if self._worker_cfg.parser is not None:
+                    # Set parser logger to worker logger if it has _logger attribute
+                    if hasattr(self._worker_cfg.parser, "_logger"):
+                        self._worker_cfg.parser._logger = self._logger
                     self._worker_cfg.parser.parse(sample.snapshot)
                     sample.snapshot = self._worker_cfg.parser.get_result()
                 elif sample.snapshot is not None:

@@ -704,12 +704,12 @@ class MlxlinkParser(IParser):
     def parse(self, raw_data: str) -> None:
         """Parse key-value pairs from mlxlink output."""
         self._log_parse(raw_data)
+        self._raw_data = raw_data
 
-        if self._raw_data is not None:
-            for line in self._raw_data.splitlines():
-                if ":" in line and not line.strip().endswith(":"):
-                    key, value = line.split(":", 1)
-                    self._result[key.strip()] = value.strip()
+        for line in self._raw_data.splitlines():
+            if ":" in line and not line.strip().endswith(":"):
+                key, value = line.split(":", 1)
+                self._result[key.strip()] = value.strip()
 
         self._logger.debug(f"[{self.name}] Parsed {len(self._result)} key-value pairs")
 
@@ -751,9 +751,13 @@ class TimeCommandParser(IParser):
     _zsh_pattern: ClassVar[re.Pattern] = re.compile(r"cpu\s+([\d.,]+)\s+total$", re.MULTILINE)
     _gnu_pattern: ClassVar[re.Pattern] = re.compile(r"(\d+):(\d+)\.([\d]+)elapsed", re.MULTILINE)
 
-    def __init__(self):
-        """Initialize parser."""
-        IParser.__init__(self, LogName.MAIN.value)
+    def __init__(self, logger_name: str = LogName.MAIN.value):
+        """Initialize parser.
+
+        Args:
+            logger_name: Logger name for this parser
+        """
+        IParser.__init__(self, logger_name)
 
         self._real_time_ms: float = 0.0
         self._raw_data: str | None = None
@@ -906,7 +910,6 @@ class DmesgFlapParser(IParser):
         IParser.__init__(self, LogName.MAIN.value)
 
         self._start_time = start_time if start_time else dt.fromtimestamp(0, tz=UTC)
-        # self._start_time = dt(2025, 11, 11, 12, 37, 57, tzinfo=UTC)
         self._result: list[DmesgFlapDevice] = []
         self._raw_data: str | None = None
 

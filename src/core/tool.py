@@ -62,36 +62,44 @@ class Tool:
         _logger: Logger instance for this tool
     """
 
-    def __init__(self, ssh: SshConnection):
+    def __init__(self, ssh: SshConnection, logger: logging.Logger | None = None):
         """Initialize tool with SSH connection.
 
         Args:
             ssh: Active SSH connection for command execution
+            logger: Optional logger for command execution
         """
         self._ssh = ssh
         self._results: dict[str, CmdResult] = {}
 
-        self._logger = logging.getLogger(LogName.MAIN.value)
+        self._logger = logger or logging.getLogger(LogName.MAIN.value)
+        self._exec_logger = logger  # Logger to pass to exec_cmd
 
-    def _exec(self, cmd: str, time_cmd: bool = False) -> CmdResult:
+    def _exec(
+        self, cmd: str, use_time_cmd: bool = False, logger: logging.Logger | None = None
+    ) -> CmdResult:
         """Execute command and return result.
 
         Args:
             cmd: CLI command to execute
-            time_cmd: Wrap command with 'time' for execution timing
+            use_time_cmd: Wrap command with 'time' for execution timing
+            logger: Optional logger to pass to connection
 
         Returns:
             Command result
         """
+        log = logger or self._logger
         cmd_result = None
         if not self._ssh.is_connected():
             return self._ssh.get_cr_msg_connection(cmd, LogMsg.EXEC_CMD_FAIL)
 
         try:
-            cmd_result = self._ssh.exec_cmd(cmd, time_cmd=time_cmd)
+            # Use exec_logger if no logger passed
+            exec_log = logger or self._exec_logger
+            cmd_result = self._ssh.exec_cmd(cmd, use_time_cmd=use_time_cmd, logger=exec_log)
 
             if cmd_result.success:
-                self._logger.debug(f"{LogMsg.TOOL_CMD_SUCCESS.value}: '{cmd}'")
+                log.debug(f"{LogMsg.TOOL_CMD_SUCCESS.value}: '{cmd}'")
             else:
                 cmd_result = CmdResult.error(cmd, cmd_result.stderr)
         except (OSError, TimeoutError) as e:

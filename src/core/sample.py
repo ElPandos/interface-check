@@ -41,11 +41,12 @@ class Sample(Tool, ITime):
         """
         self._snapshot = value
 
-    def collect(self, worker_command: str) -> "Sample":
+    def collect(self, worker_command: str, logger=None) -> "Sample":
         """Collect sample by executing command.
 
         Args:
             worker_command: Command to execute
+            logger: Optional logger to use for command execution
 
         Returns:
             Self with collected data
@@ -55,7 +56,7 @@ class Sample(Tool, ITime):
         # Check if time command should be used
         time_cmd = hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd
 
-        result = self._exec(worker_command.command, time_cmd=time_cmd)
+        result = self._exec(worker_command.command, use_time_cmd=time_cmd, logger=logger)
         self._cmd_result = result
 
         if result.success:

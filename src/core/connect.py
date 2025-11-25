@@ -17,7 +17,7 @@ from src.models.config import Host, Route
 from src.platform.enums.log import LogName
 
 
-def _log_exec_time(
+def _log_exec_time(  # noqa: PLR0913
     logger: logging.Logger,
     exec_time: float,
     exit_code: int,
@@ -80,7 +80,7 @@ class SshConnection(IConnection):
         rb"SLX#\s*$|\[.*@.*\][$#]\s*$|.*[$#]\s*$|Password:\s*$|password for.*:\s*$|FBR\.\d+>\s*$|.*@.*:.*[$#]\s*$|Shell>\s*$|.*>\s*$"
     )
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         host: str,
         username: str,
@@ -282,13 +282,20 @@ class SshConnection(IConnection):
     # Command Execution
     # ========================================================================
 
-    def exec_cmd(self, cmd: str, timeout: int | None = None, time_cmd: bool = False) -> CmdResult:
+    def exec_cmd(
+        self,
+        cmd: str,
+        timeout: int | None = 20,
+        use_time_cmd: bool = False,
+        logger: logging.Logger | None = None,
+    ) -> CmdResult:
         """Execute command via SSH.
 
         Args:
             cmd: Command to execute
-            timeout: Optional timeout in seconds
-            time_cmd: Wrap command with 'time' for execution timing
+            timeout: Timeout in seconds (default: 20)
+            use_time_cmd: Wrap command with 'time' for execution timing
+            logger: Optional logger to use instead of default
 
         Returns:
             Command execution result
@@ -296,10 +303,11 @@ class SshConnection(IConnection):
         if not self.is_connected():
             return self.get_cr_msg_connection(cmd, LogMsg.CMD_CON)
 
+        log = logger or self._logger
         exec_cmd = cmd
 
         # Wrap with time command if requested
-        if time_cmd:
+        if use_time_cmd:
             if self._sudo_pass:
                 escaped_cmd = cmd.replace("'", "'\"'\"'")
                 exec_cmd = f"time bash -c 'echo \"{self._sudo_pass}\" | sudo -S {escaped_cmd}'"
@@ -310,14 +318,13 @@ class SshConnection(IConnection):
             exec_cmd = f'echo "{self._sudo_pass}" | sudo -S {cmd}'
 
         timeout_str = f" (timeout: {timeout} s)" if timeout is not None else ""
-        self._logger.debug("Executing command: '%s'%s", exec_cmd, timeout_str)
+        log.debug("Executing command: '%s'%s", exec_cmd, timeout_str)
 
         try:
             start_time = time.perf_counter()
 
             _, stdout, stderr = self._ssh_client.exec_command(exec_cmd, timeout=timeout)
             cmd_sent_time = (time.perf_counter() - start_time) * 1000
-            self._logger.debug("Command sent in %.1f ms", cmd_sent_time)
 
             read_start = time.perf_counter()
             stdout_data = self._clean(stdout.read().decode())
@@ -329,13 +336,13 @@ class SshConnection(IConnection):
 
             # Parse time command output if present in stderr
             parsed_ms = 0.0
-            if stderr_data and "real" in stderr_data:
-                time_parser = TimeCommandParser()
+            if stderr_data and ("real" in stderr_data or "elapsed" in stderr_data):
+                time_parser = TimeCommandParser(log.name)
                 time_parser.parse(stderr_data)
                 parsed_ms = time_parser.get_result()
 
             _log_exec_time(
-                self._logger,
+                log,
                 execution_time,
                 rcode,
                 cmd_sent_time,
@@ -343,7 +350,7 @@ class SshConnection(IConnection):
                 parsed_ms if parsed_ms > 0 else None,
             )
             if rcode != 0:
-                self._logger.warning("Command stderr: %s", stderr_data[:200])
+                log.warning("Command stderr: %s", stderr_data[:200])
 
             return CmdResult(
                 cmd=exec_cmd,
@@ -849,21 +856,29 @@ class LocalConnection(IConnection):
         """
         return True
 
-    def exec_cmd(self, cmd: str, timeout: int | None = None, time_cmd: bool = False) -> CmdResult:
+    def exec_cmd(
+        self,
+        cmd: str,
+        timeout: int | None = 20,
+        use_time_cmd: bool = False,
+        logger: logging.Logger | None = None,
+    ) -> CmdResult:
         """Execute command locally.
 
         Args:
             cmd: Command to execute
-            timeout: Optional timeout in seconds
-            time_cmd: Wrap command with 'time' for execution timing
+            timeout: Timeout in seconds (default: 20)
+            use_time_cmd: Wrap command with 'time' for execution timing
+            logger: Optional logger to use instead of default
 
         Returns:
             Command execution result
         """
         exec_cmd = cmd
+        log = logger or self._logger
 
         # Wrap with time command if requested
-        if time_cmd:
+        if use_time_cmd:
             if self._sudo_pass:
                 escaped_cmd = cmd.replace("'", "'\"'\"'")
                 exec_cmd = f"time bash -c 'echo \"{self._sudo_pass}\" | sudo -S {escaped_cmd}'"
@@ -873,11 +888,11 @@ class LocalConnection(IConnection):
         elif self._sudo_pass and not cmd.startswith("sudo"):
             exec_cmd = f"sudo -S {cmd}"
 
-        self._logger.debug("Executing local command: '%s' (timeout: %s s)", exec_cmd, timeout)
+        log.debug("Executing local command: '%s' (timeout: %s s)", exec_cmd, timeout)
 
         try:
             # Pass sudo password via stdin if needed (only when not using time_cmd)
-            use_sudo = self._sudo_pass and not cmd.startswith("sudo") and not time_cmd
+            use_sudo = self._sudo_pass and not cmd.startswith("sudo") and not use_time_cmd
             stdin_input = f"{self._sudo_pass}\n" if use_sudo else None
 
             # For local execution, we measure total time as both send and read
@@ -895,14 +910,14 @@ class LocalConnection(IConnection):
 
             # Parse time command output if present in stderr
             parsed_ms = 0.0
-            if result.stderr and "real" in result.stderr:
-                time_parser = TimeCommandParser()
+            if result.stderr and ("real" in result.stderr or "elapsed" in result.stderr):
+                time_parser = TimeCommandParser(log.name)
                 time_parser.parse(result.stderr)
                 parsed_ms = time_parser.get_result()
 
             # For local execution, no network send/read times
             _log_exec_time(
-                self._logger,
+                log,
                 exec_time_ms,
                 result.returncode,
                 0.0,
@@ -911,7 +926,7 @@ class LocalConnection(IConnection):
             )
 
             if result.returncode != 0:
-                self._logger.warning("Command stderr: %s", result.stderr[:200])
+                log.warning("Command stderr: %s", result.stderr[:200])
 
             return CmdResult(
                 cmd=exec_cmd,
@@ -925,8 +940,8 @@ class LocalConnection(IConnection):
             )
 
         except subprocess.TimeoutExpired:
-            self._logger.exception("Command timeout: %s", cmd)
+            log.exception("Command timeout: %s", cmd)
             return CmdResult(exec_cmd, "", "Timeout", -1)
         except Exception as e:
-            self._logger.exception("Command execution failed: %s", cmd)
+            log.exception("Command execution failed: %s", cmd)
             return CmdResult(exec_cmd, "", f"Error: {e}", -1)

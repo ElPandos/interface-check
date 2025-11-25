@@ -23,14 +23,14 @@ class MstTool(Tool, ITool):
     ]
     # fmt: on
 
-    def __init__(self, ssh: SshConnection, interfaces: list[str]):
+    def __init__(self, ssh: SshConnection, interfaces: list[str], logger=None):
         """Initialize tool with SSH connection and interfaces.
 
         Args:
             ssh: SSH connection for command execution
             interfaces: List of network interface names
         """
-        Tool.__init__(self, ssh)
+        Tool.__init__(self, ssh, logger)
 
         self._interfaces = interfaces
 
