@@ -18,10 +18,12 @@ class HostType(str, Enum):
 
 
 class ShowPartType(str, Enum):
-    """Parts to show/skip in system scanning."""
+    """Parts to skip in system scanning.
 
-    LOCAL = "local"
-    REMOTE = "remote"
+    If show_parts is empty, all components run.
+    Add flags to skip specific components.
+    """
+
     NO_SYS_INFO = "no_sys_info"
     NO_MLXLINK = "no_mlxlink"
     NO_MTEMP = "no_mtemp"

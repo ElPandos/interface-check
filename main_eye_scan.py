@@ -156,8 +156,8 @@ class Config:
             sut_pass=sut["pass"],
             sut_sudo_pass=sut["sudo_pass"],
             sut_scan_interfaces=sut["scan_interfaces"],
-            sut_connect_type=ConnectType(sut.get("connect_type", "remote")),
-            sut_show_parts=[ShowPartType(p) for p in sut.get("show_parts", ["local"])],
+            sut_connect_type=ConnectType(sut.get("connect_type", "local")),
+            sut_show_parts=[ShowPartType(p) for p in sut.get("show_parts", [])],
             sut_time_cmd=sut.get("time_cmd", False),
             sut_required_software_packages=sut["required_software_packages"],
             sut_scan_interval_low_res_ms=sut["scan_interval_low_res_ms"],
@@ -491,10 +491,13 @@ class SutSystemScanner:
     def run_scanners(self, cfg: Config) -> bool:
         """Start background worker threads for metrics collection.
 
-        Creates workers per interface based on show_parts configuration:
-        1. mlxlink - Network metrics (temp, voltage, power, BER)
-        2. mget_temp - NIC temperature
-        3. dmesg - Link flap detection
+        Creates workers per interface:
+        - mlxlink: Network metrics (temp, voltage, power, BER)
+        - mget_temp: NIC temperature
+        - dmesg: Link flap detection
+        
+        All workers run in both local and remote modes.
+        Use skip flags in show_parts to disable specific workers.
 
         Args:
             cfg: Configuration containing interfaces to scan
@@ -507,9 +510,7 @@ class SutSystemScanner:
             self._logger.debug(f"Creating workers for interfaces: {cfg.sut_scan_interfaces}")
             self._logger.debug(f"Show parts config: {cfg.sut_show_parts}")
 
-            # Determine which workers to create based on show_parts
-            is_remote = ShowPartType.REMOTE in cfg.sut_show_parts
-            is_local = ShowPartType.LOCAL in cfg.sut_show_parts
+            # Determine which workers to create based on skip flags
             skip_mlxlink = ShowPartType.NO_MLXLINK in cfg.sut_show_parts
             skip_mtemp = ShowPartType.NO_MTEMP in cfg.sut_show_parts
             skip_dmesg = ShowPartType.NO_DMESG in cfg.sut_show_parts
@@ -520,22 +521,16 @@ class SutSystemScanner:
                 pci_id = helper.get_pci_id(self._ssh, interface)
                 self._logger.debug(f"PCI ID for '{interface}': '{pci_id}'")
 
-                # Remote: only dmesg
-                if is_remote:
-                    if not skip_dmesg:
-                        self._create_dmesg_worker(interface)
-                        worker_count += 1
-                # Local: all workers (unless explicitly skipped)
-                elif is_local:
-                    if not skip_mlxlink:
-                        self._create_mlxlink_worker(pci_id)
-                        worker_count += 1
-                    if not skip_mtemp:
-                        self._create_mtemp_worker(pci_id)
-                        worker_count += 1
-                    if not skip_dmesg:
-                        self._create_dmesg_worker(interface)
-                        worker_count += 1
+                # Create workers unless explicitly skipped
+                if not skip_mlxlink:
+                    self._create_mlxlink_worker(pci_id)
+                    worker_count += 1
+                if not skip_mtemp:
+                    self._create_mtemp_worker(pci_id)
+                    worker_count += 1
+                if not skip_dmesg:
+                    self._create_dmesg_worker(interface)
+                    worker_count += 1
 
             self._logger.info(f"Created {worker_count} worker(s)")
             return True  # noqa: TRY300
@@ -714,9 +709,8 @@ def main():  # noqa: PLR0912, PLR0915
         # ---------------------------------------------------------------------------- #
 
         skip_sys_info = ShowPartType.NO_SYS_INFO in cfg.sut_show_parts
-        is_local = ShowPartType.LOCAL in cfg.sut_show_parts
 
-        if is_local and not skip_sys_info:
+        if not skip_sys_info:
             if not sut_system_scanner.install_required_software():
                 _logger.warning(LogMsg.MAIN_SW_INSTALL_WARN.value)
 

@@ -155,7 +155,8 @@ class WorkerStatistics:
         frame = PrettyFrame(width=80)
         rows = []
 
-        for cmd, stats in self._stats.items():
+        # Sort commands alphabetically for consistent display
+        for cmd, stats in sorted(self._stats.items()):
             min_dur = stats.get_min()
             mean = stats.get_mean()
             median = stats.get_median()
@@ -198,7 +199,8 @@ class WorkerStatistics:
         rows.append("  Time: Real execution time on remote system (from 'time' cmd)")
         rows.append("---")
         rows.append("Max Duration Analysis:")
-        for cmd, stats in self._stats.items():
+        # Sort commands alphabetically for consistent display
+        for cmd, stats in sorted(self._stats.items()):
             if not stats.durations:
                 continue
             max_val = stats.get_max()

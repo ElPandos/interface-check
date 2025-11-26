@@ -1,5 +1,5 @@
 {
-    "log_level": "debug",
+    "log_level": "info",
     "jump": {
         "host": "137.58.231.134",
         "user": "emvekta",
@@ -27,7 +27,7 @@
             "ens3f0np0"
         ],
         "connect_type": "remote",
-        "show_parts": ["remote", "no_eye_scan"],
+        "show_parts": [],
         "time_cmd": true,
         "required_software_packages": [
             "pciutils",
@@ -41,6 +41,6 @@
         ],
         "scan_interval_low_res_ms": 500,
         "scan_interval_high_res_ms": 50,
-        "scan_max_log_size_kb": 10
+        "scan_max_log_size_kb": 2000
     }
 }

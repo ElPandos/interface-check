@@ -18,26 +18,26 @@ from src.platform.enums.log import LogName
 
 
 def _log_exec_time(  # noqa: PLR0913
-    logger: logging.Logger,
     exec_time: float,
     exit_code: int,
     send_time: float | None = None,
     read_time: float | None = None,
-    parsed_time: float | None = None,
+    time_cmd_ms: float | None = None,
+    logger: logging.Logger,
 ) -> None:
     """Log command execution time.
 
     Args:
-        logger: Logger instance
         exec_time: Total execution time in seconds
         exit_code: Command exit code
         send_time: Optional send time in milliseconds
         read_time: Optional read time in milliseconds
-        parsed_time: Optional parsed time from time command in milliseconds
+        time_cmd_ms: Optional parsed time from time command in milliseconds
+        logger: Logger instance
     """
     exec_ms = exec_time * 1000
     if send_time is not None and read_time is not None:
-        time_str = f", time={parsed_time:.1f} ms" if parsed_time else ""
+        time_str = f", time={time_cmd_ms:.1f} ms" if time_cmd_ms else ""
         logger.debug(
             "Command execution times: send=%.1f ms, read=%.1f ms%s (exit: %d)",
             send_time,
@@ -322,9 +322,8 @@ class SshConnection(IConnection):
 
         try:
             start_time = time.perf_counter()
-
             _, stdout, stderr = self._ssh_client.exec_command(exec_cmd, timeout=timeout)
-            cmd_sent_time = (time.perf_counter() - start_time) * 1000
+            send_time = (time.perf_counter() - start_time) * 1000
 
             read_start = time.perf_counter()
             stdout_data = self._clean(stdout.read().decode())
@@ -332,22 +331,22 @@ class SshConnection(IConnection):
             rcode = stdout.channel.recv_exit_status()
             read_time = (time.perf_counter() - read_start) * 1000
 
-            execution_time = time.perf_counter() - start_time
+            exec_time = time.perf_counter() - start_time
 
             # Parse time command output if present in stderr
-            parsed_ms = 0.0
+            time_cmd_ms = 0.0
             if stderr_data and ("real" in stderr_data or "elapsed" in stderr_data):
                 time_parser = TimeCommandParser(log.name)
                 time_parser.parse(stderr_data)
-                parsed_ms = time_parser.get_result()
+                time_cmd_ms = time_parser.get_result()
 
             _log_exec_time(
-                log,
-                execution_time,
+                exec_time,
                 rcode,
-                cmd_sent_time,
+                send_time,
                 read_time,
-                parsed_ms if parsed_ms > 0 else None,
+                time_cmd_ms if time_cmd_ms > 0 else None,
+                log,
             )
             if rcode != 0:
                 log.warning("Command stderr: %s", stderr_data[:200])
@@ -356,11 +355,11 @@ class SshConnection(IConnection):
                 cmd=exec_cmd,
                 stdout=stdout_data,
                 stderr=stderr_data,
-                exec_time=execution_time,
+                exec_time=exec_time,
                 rcode=rcode,
-                send_ms=cmd_sent_time,
+                send_ms=send_time,
                 read_ms=read_time,
-                parsed_ms=parsed_ms,
+                parsed_ms=time_cmd_ms,
             )
 
         except Exception as e:
