@@ -905,7 +905,7 @@ class LocalConnection(IConnection):
                 timeout=timeout,
                 check=False,
             )
-            exec_time = (time.perf_counter() - exec_start) * 1000
+            exec_time = time.perf_counter() - exec_start
 
             # Parse time command output if present in stderr
             parsed_ms = 0.0
@@ -931,7 +931,7 @@ class LocalConnection(IConnection):
                 cmd=exec_cmd,
                 stdout=result.stdout,
                 stderr=result.stderr,
-                exec_time=exec_time_ms,
+                exec_time=exec_time / 1000,
                 rcode=result.returncode,
                 send_ms=0.0,
                 read_ms=0.0,

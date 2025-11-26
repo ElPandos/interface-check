@@ -333,6 +333,30 @@ class EthtoolModuleDevice(ParsedDevice):
             return self._parse_power(power_str)
         return None
 
+    @property
+    def rx_power(self) -> list[ValueWithUnit] | None:
+        """Get receiver signal average optical power.
+
+        Returns:
+            RX power values or None
+        """
+        power_str = self._data.get("Receiver signal average optical power")
+        if power_str:
+            return self._parse_power(power_str)
+        return None
+
+    @property
+    def module_voltage(self) -> ValueWithUnit | None:
+        """Get module voltage.
+
+        Returns:
+            Voltage value or None
+        """
+        voltage_str = self._data.get("Module voltage")
+        if voltage_str:
+            return self._parse_single_value(voltage_str)
+        return None
+
     def _parse_temperature(self, temp_str: str) -> list[ValueWithUnit]:
         """Parse temperature string.
 

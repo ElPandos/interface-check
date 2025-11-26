@@ -27,6 +27,17 @@ def get_attr_value(obj: Any, attr_name: str, default: str = "") -> str:
     if attr is None:
         return default
 
+    # Handle lists (e.g., temperature with C and F, power with mW and dBm)
+    if isinstance(attr, list) and len(attr) > 0:
+        # Take first value (mW for power, Celsius for temperature)
+        first_item = attr[0]
+        if hasattr(first_item, "value"):
+            value = first_item.value
+            if isinstance(value, float):
+                return f"{value:.6f}"
+            return str(value)
+        return str(first_item)
+
     # Handle objects with .value property (like ValueWithUnit)
     if hasattr(attr, "value"):
         value = attr.value

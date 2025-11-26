@@ -40,7 +40,7 @@
             "mstflint"
         ],
         "scan_interval_low_res_ms": 500,
-        "scan_interval_high_res_ms": 50,
+        "scan_interval_high_res_ms": 0,
         "scan_max_log_size_kb": 2000
     }
 }

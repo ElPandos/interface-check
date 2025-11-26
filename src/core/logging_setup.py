@@ -90,6 +90,7 @@ def setup_component_loggers(log_dir: Path, log_level: int) -> dict[str, logging.
         (LogName.SUT_SYSTEM_INFO, "sut_system_info.log"),
         (LogName.SUT_MXLINK, "sut_mxlink.log"),
         (LogName.SUT_MTEMP, "sut_mtemp.log"),
+        (LogName.SUT_ETHTOOL, "sut_ethtool.log"),
         (LogName.SUT_LINK_FLAP, "sut_link_flap.log"),
         (LogName.SLX_EYE, "slx_eye.log"),
     ]
@@ -133,6 +134,7 @@ def initialize_logging() -> dict[str, logging.Logger]:
         "sut_system_info": loggers[LogName.SUT_SYSTEM_INFO],
         "sut_mxlink": loggers[LogName.SUT_MXLINK],
         "sut_mtemp": loggers[LogName.SUT_MTEMP],
+        "sut_ethtool": loggers[LogName.SUT_ETHTOOL],
         "sut_link_flap": loggers[LogName.SUT_LINK_FLAP],
         "slx_eye": loggers[LogName.SLX_EYE],
     }

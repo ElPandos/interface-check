@@ -10,6 +10,7 @@ class LogName(Enum):
     SUT_SYSTEM_INFO = "sut_system_info"
     SUT_MXLINK = "sut_mxlink"
     SUT_MTEMP = "sut_mtemp"
+    SUT_ETHTOOL = "sut_ethtool"
     SUT_LINK_FLAP = "sut_link_flap"
 
     SLX_EYE = "slx_eye"

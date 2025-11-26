@@ -39,7 +39,7 @@ from src.core.enums.connect import ConnectType, HostType, ShowPartType
 from src.core.enums.messages import LogMsg
 from src.core.helpers import get_attr_value
 from src.core.logging_setup import initialize_logging
-from src.core.parser import DmesgFlapParser, MlxlinkParser
+from src.core.parser import DmesgFlapParser, EthtoolModuleParser, MlxlinkParser
 from src.core.worker import Worker, WorkerConfig, WorkManager
 from src.models.config import Host
 from src.platform.software_manager import SoftwareManager
@@ -78,6 +78,7 @@ main_logger = loggers["main"]
 sut_system_info_logger = loggers["sut_system_info"]
 sut_mxlink_logger = loggers["sut_mxlink"]
 sut_mtemp_logger = loggers["sut_mtemp"]
+sut_ethtool_logger = loggers["sut_ethtool"]
 sut_link_flap_logger = loggers["sut_link_flap"]
 slx_eye_logger = loggers["slx_eye"]
 
@@ -513,6 +514,7 @@ class SutSystemScanner:
             # Determine which workers to create based on skip flags
             skip_mlxlink = ShowPartType.NO_MLXLINK in cfg.sut_show_parts
             skip_mtemp = ShowPartType.NO_MTEMP in cfg.sut_show_parts
+            skip_ethtool = ShowPartType.NO_ETHTOOL in cfg.sut_show_parts
             skip_dmesg = ShowPartType.NO_DMESG in cfg.sut_show_parts
 
             worker_count = 0
@@ -527,6 +529,9 @@ class SutSystemScanner:
                     worker_count += 1
                 if not skip_mtemp:
                     self._create_mtemp_worker(pci_id)
+                    worker_count += 1
+                if not skip_ethtool:
+                    self._create_ethtool_worker(interface)
                     worker_count += 1
                 if not skip_dmesg:
                     self._create_dmesg_worker(interface)
@@ -585,6 +590,30 @@ class SutSystemScanner:
 
         self._add_worker_to_manager(worker_cfg)
 
+    def _create_ethtool_worker(self, interface: str) -> None:
+        """Create ethtool worker for optical module metrics.
+
+        Args:
+            interface: Network interface name
+        """
+        attributes = [
+            "laser_bias_current",
+            "laser_output_power",
+            "rx_power",
+            "module_temperature",
+            "module_voltage",
+        ]
+
+        worker_cfg = WorkerConfig()
+        worker_cfg.command = f"ethtool -m {interface}"
+        worker_cfg.parser = EthtoolModuleParser()
+        worker_cfg.attributes = attributes
+        worker_cfg.logger = sut_ethtool_logger
+        worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_high_res_ms
+        worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
+
+        self._add_worker_to_manager(worker_cfg)
+
     def _create_dmesg_worker(self, interface: str) -> None:
         """Create dmesg worker for link status monitoring.
 
@@ -603,7 +632,7 @@ class SutSystemScanner:
         worker_cfg.parser = DmesgFlapParser(dt.now(UTC))
         worker_cfg.attributes = attributes
         worker_cfg.logger = sut_link_flap_logger
-        worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_low_res_ms
+        worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_high_res_ms
         worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
         worker_cfg.is_flap_logger = True
 
