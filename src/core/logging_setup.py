@@ -1,5 +1,6 @@
 """Centralized logging configuration for eye scan application."""
 
+from datetime import datetime as dt
 import json
 import logging
 from pathlib import Path
@@ -15,8 +16,6 @@ def get_log_directory() -> Path:
     Returns:
         Path: Log directory path
     """
-    from datetime import datetime as dt
-
     log_time_stamp = f"{dt.now().strftime('%Y%m%d_%H%M%S')}"
     if getattr(sys, "frozen", False):
         log_dir = Path(sys.executable).parent / "logs"

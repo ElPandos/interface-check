@@ -23,7 +23,7 @@ def _log_exec_time(  # noqa: PLR0913
     send_time: float | None = None,
     read_time: float | None = None,
     time_cmd_ms: float | None = None,
-    logger: logging.Logger,
+    logger: logging.Logger | None = None,
 ) -> None:
     """Log command execution time.
 
@@ -905,7 +905,7 @@ class LocalConnection(IConnection):
                 timeout=timeout,
                 check=False,
             )
-            exec_time_ms = (time.perf_counter() - exec_start) * 1000
+            exec_time = (time.perf_counter() - exec_start) * 1000
 
             # Parse time command output if present in stderr
             parsed_ms = 0.0
@@ -916,12 +916,12 @@ class LocalConnection(IConnection):
 
             # For local execution, no network send/read times
             _log_exec_time(
-                log,
-                exec_time_ms,
+                exec_time,
                 result.returncode,
                 0.0,
                 0.0,
                 parsed_ms if parsed_ms > 0 else None,
+                log,
             )
 
             if result.returncode != 0:

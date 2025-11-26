@@ -495,7 +495,7 @@ class SutSystemScanner:
         - mlxlink: Network metrics (temp, voltage, power, BER)
         - mget_temp: NIC temperature
         - dmesg: Link flap detection
-        
+
         All workers run in both local and remote modes.
         Use skip flags in show_parts to disable specific workers.
 
@@ -555,6 +555,9 @@ class SutSystemScanner:
             "effective_physical_ber",
             "raw_physical_errors_per_lane",
             "raw_physical_ber",
+            "physical_grade",
+            "height_eye",
+            "phase_eye",
         ]
 
         worker_cfg = WorkerConfig()

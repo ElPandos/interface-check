@@ -620,6 +620,39 @@ class MlxlinkDevice(ParsedDevice):
             return self._parse_scientific_value(ber_str, "")
         return None
 
+    @property
+    def physical_grade(self) -> str | None:
+        """Get physical grade.
+
+        Returns:
+            Physical grade or None
+        """
+        return self._data.get("Physical Grade")
+
+    @property
+    def height_eye(self) -> ValueWithUnit | None:
+        """Get eye height.
+
+        Returns:
+            Eye height value or None
+        """
+        height_str = self._data.get("Height Eye Opening [mV]")
+        if height_str and height_str != "N/A":
+            return self._parse_value_with_range(height_str)
+        return None
+
+    @property
+    def phase_eye(self) -> ValueWithUnit | None:
+        """Get eye phase.
+
+        Returns:
+            Eye phase value or None
+        """
+        phase_str = self._data.get("Phase  Eye Opening [psec]")
+        if phase_str and phase_str != "N/A":
+            return self._parse_value_with_range(phase_str)
+        return None
+
     def _parse_temperature_with_range(self, temp_str: str) -> ValueWithUnit | None:
         """Parse temperature with range.
 
