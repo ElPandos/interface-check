@@ -26,6 +26,7 @@ class ShowPartType(str, Enum):
 
     NO_SYS_INFO = "no_sys_info"
     NO_MLXLINK = "no_mlxlink"
+    NO_MLXLINK_AMBER = "no_mlxlink_amber"
     NO_MTEMP = "no_mtemp"
     NO_ETHTOOL = "no_ethtool"
     NO_DMESG = "no_dmesg"

@@ -86,13 +86,14 @@ def setup_component_loggers(log_dir: Path, log_level: int) -> dict[str, logging.
     """
     logger_configs = [
         (LogName.MAIN, None),
-        (LogName.MEMORY, "memory.log"),
-        (LogName.SUT_SYSTEM_INFO, "sut_system_info.log"),
-        (LogName.SUT_MXLINK, "sut_mxlink.log"),
-        (LogName.SUT_MTEMP, "sut_mtemp.log"),
-        (LogName.SUT_ETHTOOL, "sut_ethtool.log"),
-        (LogName.SUT_LINK_FLAP, "sut_link_flap.log"),
-        (LogName.SLX_EYE, "slx_eye.log"),
+        (LogName.MEMORY, f"{LogName.MEMORY.value}.log"),
+        (LogName.SUT_SYSTEM_INFO, f"{LogName.SUT_SYSTEM_INFO.value}.log"),
+        (LogName.SUT_MXLINK, f"{LogName.SUT_MXLINK.value}.log"),
+        (LogName.SUT_MXLINK_AMBER, f"{LogName.SUT_MXLINK_AMBER.value}.log"),
+        (LogName.SUT_MTEMP, f"{LogName.SUT_MTEMP.value}.log"),
+        (LogName.SUT_ETHTOOL, f"{LogName.SUT_ETHTOOL.value}.log"),
+        (LogName.SUT_LINK_FLAP, f"{LogName.SUT_LINK_FLAP.value}.log"),
+        (LogName.SLX_EYE, f"{LogName.SLX_EYE.value}.log"),
     ]
 
     loggers = {}
@@ -113,14 +114,15 @@ def setup_component_loggers(log_dir: Path, log_level: int) -> dict[str, logging.
     return loggers
 
 
-def initialize_logging() -> dict[str, logging.Logger]:
+def initialize_logging() -> dict[str, logging.Logger | Path]:
     """Initialize complete logging system.
 
     Sets up root logger, component loggers, and returns logger references.
 
     Returns:
-        dict[str, logging.Logger]: Dictionary with keys:
+        dict[str, logging.Logger | Path]: Dictionary with keys:
             - main, memory, sut_system_info, sut_mxlink, sut_mtemp, sut_link_flap, slx_eye
+            - log_dir: Path to log directory
     """
     log_dir = get_log_directory()
     log_level = get_log_level()
@@ -129,12 +131,14 @@ def initialize_logging() -> dict[str, logging.Logger]:
     loggers = setup_component_loggers(log_dir, log_level)
 
     return {
-        "main": loggers[LogName.MAIN],
-        "memory": loggers[LogName.MEMORY],
-        "sut_system_info": loggers[LogName.SUT_SYSTEM_INFO],
-        "sut_mxlink": loggers[LogName.SUT_MXLINK],
-        "sut_mtemp": loggers[LogName.SUT_MTEMP],
-        "sut_ethtool": loggers[LogName.SUT_ETHTOOL],
-        "sut_link_flap": loggers[LogName.SUT_LINK_FLAP],
-        "slx_eye": loggers[LogName.SLX_EYE],
+        LogName.MAIN.value: loggers[LogName.MAIN],
+        LogName.MEMORY.value: loggers[LogName.MEMORY],
+        LogName.SUT_SYSTEM_INFO.value: loggers[LogName.SUT_SYSTEM_INFO],
+        LogName.SUT_MXLINK.value: loggers[LogName.SUT_MXLINK],
+        LogName.SUT_MXLINK_AMBER.value: loggers[LogName.SUT_MXLINK_AMBER],
+        LogName.SUT_MTEMP.value: loggers[LogName.SUT_MTEMP],
+        LogName.SUT_ETHTOOL.value: loggers[LogName.SUT_ETHTOOL],
+        LogName.SUT_LINK_FLAP.value: loggers[LogName.SUT_LINK_FLAP],
+        LogName.SLX_EYE.value: loggers[LogName.SLX_EYE],
+        "log_dir": log_dir,
     }

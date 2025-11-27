@@ -13,10 +13,10 @@ Features:
 - Comprehensive logging to separate log files
 
 Usage:
-    python main_eye_scan.py
+    python main_scan.py
 
 Configuration:
-    Edit main_eye_cfg.json to configure:
+    Edit main_scan_cfg.json to configure:
     - Jump host and target host credentials
     - SLX scan ports and intervals
     - SUT interfaces and scan intervals
@@ -39,7 +39,7 @@ from src.core.enums.connect import ConnectType, HostType, ShowPartType
 from src.core.enums.messages import LogMsg
 from src.core.helpers import get_attr_value
 from src.core.logging_setup import initialize_logging
-from src.core.parser import DmesgFlapParser, EthtoolModuleParser, MlxlinkParser
+from src.core.parser import DmesgFlapParser, EthtoolModuleParser, MlxlinkAmberParser, MlxlinkParser
 from src.core.worker import Worker, WorkerConfig, WorkManager
 from src.models.config import Host
 from src.platform.software_manager import SoftwareManager
@@ -77,10 +77,12 @@ loggers = initialize_logging()
 main_logger = loggers["main"]
 sut_system_info_logger = loggers["sut_system_info"]
 sut_mxlink_logger = loggers["sut_mxlink"]
+sut_mxlink_amber_logger = loggers["sut_mxlink_amber"]
 sut_mtemp_logger = loggers["sut_mtemp"]
 sut_ethtool_logger = loggers["sut_ethtool"]
 sut_link_flap_logger = loggers["sut_link_flap"]
 slx_eye_logger = loggers["slx_eye"]
+log_dir = loggers["log_dir"]
 
 
 @dataclass(frozen=True)
@@ -182,13 +184,14 @@ def load_cfg(logger: logging.Logger) -> Config:
     """
     logger.debug(LogMsg.CONFIG_START)
 
+    cfg_name = "main_scan_cfg.json"
     # Handle PyInstaller bundled executable
     if getattr(sys, "frozen", False):
         # Running as PyInstaller bundle
-        config_file = Path(sys.executable).parent / "main_eye_cfg.json"
+        config_file = Path(sys.executable).parent / cfg_name
     else:
         # Running as script
-        config_file = Path(__file__).parent / "main_eye_cfg.json"
+        config_file = Path(__file__).parent / cfg_name
     try:
         with config_file.open() as f:
             data = json.load(f)
@@ -513,6 +516,7 @@ class SutSystemScanner:
 
             # Determine which workers to create based on skip flags
             skip_mlxlink = ShowPartType.NO_MLXLINK in cfg.sut_show_parts
+            skip_mlxlink_amber = ShowPartType.NO_MLXLINK_AMBER in cfg.sut_show_parts
             skip_mtemp = ShowPartType.NO_MTEMP in cfg.sut_show_parts
             skip_ethtool = ShowPartType.NO_ETHTOOL in cfg.sut_show_parts
             skip_dmesg = ShowPartType.NO_DMESG in cfg.sut_show_parts
@@ -526,6 +530,9 @@ class SutSystemScanner:
                 # Create workers unless explicitly skipped
                 if not skip_mlxlink:
                     self._create_mlxlink_worker(pci_id)
+                    worker_count += 1
+                if not skip_mlxlink_amber:
+                    self._create_mlxlink_amber_worker(pci_id)
                     worker_count += 1
                 if not skip_mtemp:
                     self._create_mtemp_worker(pci_id)
@@ -572,6 +579,25 @@ class SutSystemScanner:
         worker_cfg.logger = sut_mxlink_logger
         worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_high_res_ms
         worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
+
+        self._add_worker_to_manager(worker_cfg)
+
+    def _create_mlxlink_amber_worker(self, pci_id: str) -> None:
+        """Create mlxlink amber worker for raw amber data collection.
+
+        Args:
+            pci_id: PCI device ID
+        """
+        worker_cfg = WorkerConfig()
+        worker_cfg.pre_command = "rm -f /tmp/amber.csv"
+        worker_cfg.command = (
+            f"mlxlink -d {pci_id} --amber_collect /tmp/amber.csv && cat /tmp/amber.csv"
+        )
+        worker_cfg.parser = MlxlinkAmberParser()
+        worker_cfg.logger = sut_mxlink_amber_logger
+        worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_high_res_ms
+        worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
+        worker_cfg.skip_header = True
 
         self._add_worker_to_manager(worker_cfg)
 

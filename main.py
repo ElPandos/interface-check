@@ -2,6 +2,7 @@ import logging
 
 from src.app import App
 from src.core.config import setup_logging
+from src.platform.enums.log import LogName
 
 setup_logging(logging.DEBUG)
 

@@ -35,19 +35,23 @@ class WorkerConfig:
 
     Attributes:
         command: Shell command to execute
+        pre_command: Optional command to execute once before loop starts
         parser: Optional parser class to process command output
         logger: Logger for worker
         scan_interval_ms: Polling interval in milliseconds
         max_log_size_kb: Maximum log file size in KB before rotation (default 102400KB = 100MB)
         is_flap_logger: Whether this logger tracks link flaps
+        skip_header: Skip writing header row (data includes its own header)
     """
 
     command: str = None
+    pre_command: str | None = None
     parser: Any = None
     attributes: list[str] = None
     scan_interval_ms: int = 500
     max_log_size_kb: int = 102400
     is_flap_logger: bool = False
+    skip_header: bool = False
 
 
 class Worker(Thread, ITime):
@@ -105,15 +109,24 @@ class Worker(Thread, ITime):
         """Main thread execution loop."""
         self.start_timer()
 
-        headers = [
-            "begin_timestamp",
-        ]
-        if self._worker_cfg.attributes is not None:
-            headers.extend(self._worker_cfg.attributes)
-        else:
-            headers.append("value")
+        # Execute pre_command once before loop starts
+        if self._worker_cfg.pre_command:
+            try:
+                self._ssh.exec_cmd(self._worker_cfg.pre_command)
+            except Exception:
+                self._logger.exception("Pre-command execution failed")
 
-        self._logger.info(",".join(headers))
+        # Write header unless skip_header is True
+        if not self._worker_cfg.skip_header:
+            headers = [
+                "begin_timestamp",
+            ]
+            if self._worker_cfg.attributes is not None:
+                headers.extend(self._worker_cfg.attributes)
+            else:
+                headers.append("value")
+
+            self._logger.info(",".join(headers))
 
         reconnect = 0
         while not self._stop_event.is_set():

@@ -1,5 +1,5 @@
 {
-    "log_level": "info",
+    "log_level": "debug",
     "jump": {
         "host": "137.58.231.134",
         "user": "emvekta",
