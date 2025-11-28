@@ -15,3 +15,4 @@ class LogName(Enum):
     SUT_LINK_FLAP = "sut_link_flap"
 
     SLX_EYE = "slx_eye"
+    SLX_DSC = "slx_dsc"

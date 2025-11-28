@@ -7,7 +7,7 @@ from nicegui import ui
 import plotly.graph_objects as go
 
 from src.core.connect import SshConnection
-from src.core.parser import EyeScanParser
+from src.core.parser import SlxEyeParser
 from src.core.screen import MultiScreen
 from src.models.config import Config
 from src.platform.enums.log import LogName
@@ -545,7 +545,7 @@ class SlxContent:
 
             result, success = self.run_eye_scan(connection, interface_name, port_id)
 
-            parser = EyeScanParser(result)
+            parser = SlxEyeParser(result)
             matrix, voltages, phase_offsets = parser.to_matrix()
 
             # Build Plotly heatmap

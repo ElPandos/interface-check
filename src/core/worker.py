@@ -22,7 +22,7 @@ from src.core.enums.messages import LogMsg
 from src.core.helpers import get_attr_value
 from src.core.json import Json
 from src.core.logging import create_formatter
-from src.core.parser import TimeCommandParser
+from src.core.parser import SutTimeParser
 from src.core.sample import Sample
 from src.core.statistics import WorkerStatistics
 from src.interfaces.component import ITime
@@ -42,6 +42,7 @@ class WorkerConfig:
         max_log_size_kb: Maximum log file size in KB before rotation (default 102400KB = 100MB)
         is_flap_logger: Whether this logger tracks link flaps
         skip_header: Skip writing header row (data includes its own header)
+        use_shell: Use interactive shell instead of exec_cmd (for SLX)
     """
 
     command: str = None
@@ -52,6 +53,7 @@ class WorkerConfig:
     max_log_size_kb: int = 102400
     is_flap_logger: bool = False
     skip_header: bool = False
+    use_shell: bool = False
 
 
 class Worker(Thread, ITime):
@@ -158,7 +160,7 @@ class Worker(Thread, ITime):
 
                     # Parse time command output if time_cmd enabled (time writes to stderr)
                     if hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd:
-                        time_parser = TimeCommandParser(self._logger.name)
+                        time_parser = SutTimeParser(self._logger.name)
                         time_parser.parse(sample.cmd_result.stderr)
                         parsed_ms = time_parser.get_result()
 
@@ -229,18 +231,11 @@ class Worker(Thread, ITime):
             except Exception:
                 self._logger.exception(LogMsg.WORKER_STOPPED.value)
                 reconnect += 1
-
-                # Attempt reconnection
-                try:
-                    if self._ssh.connect():
-                        self._logger.info(LogMsg.WORKER_RECONNECT_SUCCESS.value)
-                        reconnect = 0  # Reset on successful reconnect
-                    else:
-                        self._logger.exception(
-                            f"{LogMsg.WORKER_RECONNECT_ATTEMPT.value} ({reconnect}/{self.MAX_RECONNECT})"
-                        )
-                except Exception:
-                    self._logger.exception(LogMsg.WORKER_RECONNECT_ATTEMPT.value)
+                # Don't attempt reconnection - SSH connection is shared and managed externally
+                self._logger.warning(
+                    f"{LogMsg.WORKER_STOPPED.value} - Attempt {reconnect}/{self.MAX_RECONNECT}"
+                )
+                time.sleep(1)  # Brief pause before retry
 
         self.stop_timer()
 

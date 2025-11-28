@@ -30,4 +30,6 @@ class ShowPartType(str, Enum):
     NO_MTEMP = "no_mtemp"
     NO_ETHTOOL = "no_ethtool"
     NO_DMESG = "no_dmesg"
-    NO_EYE_SCAN = "no_eye_scan"
+    NO_SLX_EYE = "no_slx_eye"
+    NO_SLX_DSC = "no_slx_dsc"
+    TOGGLE_SLX_SCANS = "toggle_slx_scans"

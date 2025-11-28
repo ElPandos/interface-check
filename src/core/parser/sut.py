@@ -4,15 +4,9 @@ import logging
 import re
 from typing import ClassVar
 
-import numpy as np
-
 from src.core.enums.messages import LogMsg
 from src.interfaces.component import IParser
 from src.platform.enums.log import LogName
-
-# ---------------------------------------------------------------------------- #
-#                                    Common                                    #
-# ---------------------------------------------------------------------------- #
 
 
 class ParsedDevice:
@@ -26,99 +20,21 @@ class ParsedDevice:
         self._logger = logging.getLogger(logger)
 
 
-# ---------------------------------------------------------------------------- #
-#                                   EYE scan                                   #
-# ---------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class ValueWithUnit:
+    """Represents a value with its unit."""
 
+    value: float
+    unit: str
+    raw: str
 
-class EyeScanParser(IParser):
-    """Parse SLX 'phy diag xeX eyescan' CLI output into structured data."""
-
-    _row_pattern = re.compile(r"^\s*([\-]?\d+)mV\s*:\s*([0-9:\-\+\| ]+)$")
-
-    # Map pattern characters to numeric levels (you can tune this mapping)
-    _char_map: ClassVar[dict[str, int]] = {
-        " ": 0,
-        "1": 1,
-        "2": 2,
-        "3": 3,
-        "4": 4,
-        "5": 5,
-        "6": 6,
-        "7": 7,
-        "8": 8,
-        "9": 9,
-        "+": 10,
-        "-": 5,
-        "|": 8,
-        ":": 2,
-    }
-
-    def __init__(self):
-        IParser.__init__(self, LogName.SLX_EYE_SCANNER.value)
-
-        self._rows: list[dict[str, str]] = []
-        self._raw_data: str | None = None
-
-    def name(self) -> str:
-        """Get parser name.
+    def __str__(self) -> str:
+        """Format value with 6 decimal places.
 
         Returns:
-            Parser identifier
+            Formatted string
         """
-        return "eye_scan"
-
-    def parse(self, raw_data: str) -> list[dict[str, str]]:
-        """Extract voltage/pattern rows from CLI output.
-
-        Returns:
-            List of voltage/pattern dictionaries
-        """
-        self._log_parse(raw_data)
-        self._raw_data = raw_data
-
-        rows = []
-        for line in self._raw_data.splitlines():
-            match = self._row_pattern.match(line)
-            if match:
-                voltage, pattern = match.groups()
-                rows.append(
-                    {
-                        "voltage": int(voltage.strip()),
-                        "pattern": pattern.rstrip(),
-                    }
-                )
-        self._logger.debug(f"[{self.name()}] Parsed {len(rows)} voltage rows")
-        return rows
-
-    def get_result(self) -> tuple[np.ndarray, list[int], list[int]]:
-        """Convert parsed rows into numeric 2D matrix for plotting.
-
-        Returns:
-            Tuple of (matrix, voltages, phase_offsets)
-        """
-        voltages = [row["voltage"] for row in self._rows]
-        patterns = [row["pattern"] for row in self._rows]
-
-        max_len = max(len(p) for p in patterns)
-
-        # Convert pattern characters → numeric grid
-        matrix = np.array(
-            [[self._char_map.get(ch, 0) for ch in p.ljust(max_len)] for p in patterns]
-        )
-
-        # Create phase offset values from -31 to +31
-        phase_offsets = list(range(-31, 32))  # -31 to +31 inclusive
-
-        return matrix, voltages, phase_offsets
-
-    def log(self) -> None:
-        """Log parsed eye scan data."""
-
-
-# ---------------------------------------------------------------------------- #
-#                                      MST                                     #
-# ---------------------------------------------------------------------------- #
+        return f"{self.value:.6f}"
 
 
 class MstVersionDevice(ParsedDevice):
@@ -166,7 +82,7 @@ class MstVersionDevice(ParsedDevice):
         )
 
 
-class MstStatusVersionParser(IParser):
+class SutMstStatusVersionParser(IParser):
     """Parser for mst status -v output."""
 
     def __init__(self):
@@ -260,28 +176,6 @@ class MstStatusVersionParser(IParser):
 
         for d in device:
             d.log()
-
-
-# ---------------------------------------------------------------------------- #
-#                                  Ethtool -m                                  #
-# ---------------------------------------------------------------------------- #
-
-
-@dataclass(frozen=True)
-class ValueWithUnit:
-    """Represents a value with its unit."""
-
-    value: float
-    unit: str
-    raw: str
-
-    def __str__(self) -> str:
-        """Format value with 6 decimal places.
-
-        Returns:
-            Formatted string
-        """
-        return f"{self.value:.6f}"
 
 
 class EthtoolModuleDevice(ParsedDevice):
@@ -403,7 +297,7 @@ class EthtoolModuleDevice(ParsedDevice):
         return None
 
 
-class EthtoolModuleParser(IParser):
+class SutEthtoolModuleParser(IParser):
     """Parser for `ethtool -m <interface>` output."""
 
     def __init__(self):
@@ -455,11 +349,6 @@ class EthtoolModuleParser(IParser):
         if device.module_temperature:
             temps = ", ".join([f"{t.value} {t.unit}" for t in device.module_temperature])
             self._logger.info(f"Temperature: {temps}")
-
-
-# ---------------------------------------------------------------------------- #
-#                                   Mlxlink                                   #
-# ---------------------------------------------------------------------------- #
 
 
 class MlxlinkDevice(ParsedDevice):
@@ -735,15 +624,11 @@ class MlxlinkDevice(ParsedDevice):
         return None
 
 
-class MlxlinkParser(IParser):
-    """Parser for mlxlink command output."""
+class SutMlxlinkParser(IParser):
+    """Parser for mlxlink command output from SUT system."""
 
     def __init__(self):
-        """Initialize parser.
-
-        Args:
-            raw_output: Raw command output
-        """
+        """Initialize parser."""
         IParser.__init__(self, LogName.MAIN.value)
 
         self._result: dict[str, str] = {}
@@ -759,7 +644,11 @@ class MlxlinkParser(IParser):
         return "mlxlink"
 
     def parse(self, raw_data: str) -> None:
-        """Parse key-value pairs from mlxlink output."""
+        """Parse key-value pairs from mlxlink output.
+
+        Args:
+            raw_data: Raw mlxlink command output
+        """
         self._log_parse(raw_data)
         self._raw_data = raw_data
 
@@ -791,13 +680,11 @@ class MlxlinkParser(IParser):
             self._logger.info(f"Voltage: {device.voltage.value} {device.voltage.unit}")
 
 
-# ---------------------------------------------------------------------------- #
-#                            Mlxlink - Amber parser                            #
-# ---------------------------------------------------------------------------- #
+class SutMlxlinkAmberParser(IParser):
+    """Parser for mlxlink --amber_collect CSV output from SUT system.
 
-
-class MlxlinkAmberParser(IParser):
-    """Parser for mlxlink --amber_collect output."""
+    Extracts CSV data rows, including header on first parse.
+    """
 
     def __init__(self):
         """Initialize parser."""
@@ -840,7 +727,7 @@ class MlxlinkAmberParser(IParser):
         """Get parsed data row.
 
         Returns:
-            Data row without header
+            CSV data row (with header on first parse, data only on subsequent parses)
         """
         return self._data_row
 
@@ -849,17 +736,13 @@ class MlxlinkAmberParser(IParser):
         self._logger.debug(f"Data row length: {len(self._data_row)}")
 
 
-# ---------------------------------------------------------------------------- #
-#                          Time - Exec time parser                             #
-# ---------------------------------------------------------------------------- #
+class SutTimeParser(IParser):
+    """Parser for 'time' command output to extract real execution time from SUT.
 
-
-class TimeCommandParser(IParser):
-    """Parser for 'time' command output to extract real execution time.
-
-    Supports both bash and zsh formats:
+    Supports multiple time command formats:
     - bash: real 0m0.002s
     - zsh: 0,01s user 0,01s system 75% cpu 0,027 total
+    - GNU time: 0:00.10elapsed
     """
 
     _bash_pattern: ClassVar[re.Pattern] = re.compile(r"^real\s+(\d+)m([\d.,]+)s$", re.MULTILINE)
@@ -947,11 +830,6 @@ class TimeCommandParser(IParser):
         self._logger.debug(f"Real time: {self._real_time_ms:.3f} ms")
 
 
-# ---------------------------------------------------------------------------- #
-#                           Dmesg - Link flap parser                           #
-# ---------------------------------------------------------------------------- #
-
-
 @dataclass(frozen=True)
 class DmesgEvent:
     """Represents a single link state change event in dmesg."""
@@ -1007,7 +885,7 @@ class DmesgFlapResult:
         return str(self._flaps[-1].duration) if self._flaps else ""
 
 
-class DmesgFlapParser(IParser):
+class SutDmesgFlapParser(IParser):
     """Parser for dmesg output to detect link flaps after start_time."""
 
     _link_event_pattern: ClassVar[re.Pattern] = re.compile(

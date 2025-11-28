@@ -35,14 +35,22 @@ def get_log_level() -> int:
     """
     try:
         if getattr(sys, "frozen", False):
-            config_file = Path(sys.executable).parent / "main_eye_cfg.json"
+            config_file = Path(sys.executable).parent / "main_scan_cfg.json"
         else:
-            config_file = Path(__file__).parent.parent.parent / "main_eye_cfg.json"
+            config_file = Path(__file__).parent.parent.parent / "main_scan_cfg.json"
+
+        if not config_file.exists():
+            print(f"Config file not found: {config_file}", file=sys.stderr)
+            return logging.INFO
+
         with config_file.open() as f:
             config_data = json.load(f)
         log_level_str = config_data.get("log_level", "info").upper()
-        return getattr(logging, log_level_str, logging.INFO)
-    except Exception:
+        level = getattr(logging, log_level_str, logging.INFO)
+        print(f"Log level set to: {log_level_str} ({level})", file=sys.stderr)
+        return level
+    except Exception as e:
+        print(f"Error loading log level: {e}", file=sys.stderr)
         return logging.INFO
 
 
@@ -94,6 +102,7 @@ def setup_component_loggers(log_dir: Path, log_level: int) -> dict[str, logging.
         (LogName.SUT_ETHTOOL, f"{LogName.SUT_ETHTOOL.value}.log"),
         (LogName.SUT_LINK_FLAP, f"{LogName.SUT_LINK_FLAP.value}.log"),
         (LogName.SLX_EYE, f"{LogName.SLX_EYE.value}.log"),
+        (LogName.SLX_DSC, f"{LogName.SLX_DSC.value}.log"),
     ]
 
     loggers = {}
@@ -140,5 +149,6 @@ def initialize_logging() -> dict[str, logging.Logger | Path]:
         LogName.SUT_ETHTOOL.value: loggers[LogName.SUT_ETHTOOL],
         LogName.SUT_LINK_FLAP.value: loggers[LogName.SUT_LINK_FLAP],
         LogName.SLX_EYE.value: loggers[LogName.SLX_EYE],
+        LogName.SLX_DSC.value: loggers[LogName.SLX_DSC],
         "log_dir": log_dir,
     }

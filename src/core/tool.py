@@ -76,37 +76,49 @@ class Tool:
         self._exec_logger = logger  # Logger to pass to exec_cmd
 
     def _exec(
-        self, cmd: str, use_time_cmd: bool = False, logger: logging.Logger | None = None
+        self,
+        cmd: str,
+        use_time_cmd: bool = False,
+        use_shell: bool = False,
+        logger: logging.Logger | None = None,
     ) -> CmdResult:
         """Execute command and return result.
 
         Args:
             cmd: CLI command to execute
             use_time_cmd: Wrap command with 'time' for execution timing
+            use_shell: Use interactive shell instead of exec_cmd
             logger: Optional logger to pass to connection
 
         Returns:
             Command result
         """
         log = logger or self._logger
-        cmd_result = None
+
         if not self._ssh.is_connected():
             return self._ssh.get_cr_msg_connection(cmd, LogMsg.EXEC_CMD_FAIL)
 
         try:
             # Use exec_logger if no logger passed
             exec_log = logger or self._exec_logger
-            cmd_result = self._ssh.exec_cmd(cmd, use_time_cmd=use_time_cmd, logger=exec_log)
+            if use_shell:
+                output = self._ssh.exec_shell_cmd(cmd)
+                cmd_result = CmdResult(cmd=cmd, stdout=output, stderr="", exec_time=0.0, rcode=0)
+            else:
+                cmd_result = self._ssh.exec_cmd(cmd, use_time_cmd=use_time_cmd, logger=exec_log)
 
             if cmd_result.success:
                 log.debug(f"{LogMsg.TOOL_CMD_SUCCESS.value}: '{cmd}'")
             else:
                 cmd_result = CmdResult.error(cmd, cmd_result.stderr)
         except (OSError, TimeoutError) as e:
+            log.exception(f"Command execution failed: {cmd}")
             cmd_result = CmdResult.error(cmd, str(e))
+        except Exception as e:
+            log.exception(f"Unexpected error executing command: {cmd}")
+            cmd_result = CmdResult.error(cmd, f"Unexpected error: {e}")
 
         self._results[cmd] = cmd_result
-
         return cmd_result
 
     def _gen_cmds(self, interface: str, cmd: list[Any]) -> str:

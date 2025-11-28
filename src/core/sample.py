@@ -55,8 +55,11 @@ class Sample(Tool, ITime):
 
         # Check if time command should be used
         time_cmd = hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd
+        use_shell = hasattr(worker_command, "use_shell") and worker_command.use_shell
 
-        result = self._exec(worker_command.command, use_time_cmd=time_cmd, logger=logger)
+        result = self._exec(
+            worker_command.command, use_time_cmd=time_cmd, use_shell=use_shell, logger=logger
+        )
         self._cmd_result = result
 
         if result.success:
