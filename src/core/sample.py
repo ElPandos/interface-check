@@ -65,7 +65,8 @@ class Sample(Tool, ITime):
         if result.success:
             self._snapshot = result.stdout
         else:
-            self._logger.exception(LogMsg.SAMPLE_CMD_FAIL.value)
+            self._logger.error(f"{LogMsg.SAMPLE_CMD_FAIL.value}: {result.stderr or 'No output'}")
+            self._snapshot = ""
 
         self.stop_timer()
 

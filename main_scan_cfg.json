@@ -1,5 +1,6 @@
 {
     "log_level": "info",
+    "worker_collect": false,
     "jump": {
         "host": "137.58.231.134",
         "user": "emvekta",

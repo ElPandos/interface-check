@@ -465,9 +465,9 @@ class SlxContent:
 
             result = buffer.decode(errors="ignore")
             logger.debug(f"Eye scan completed for: {interface_name}")
-            logger.debug("=======================================")
+            logger.debug("=======================================\n")
             logger.debug(result)
-            logger.debug("=======================================")
+            logger.debug("=======================================\n")
 
             return result, True
         except Exception as e:

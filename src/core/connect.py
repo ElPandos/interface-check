@@ -39,14 +39,10 @@ def _log_exec_time(  # noqa: PLR0913
     if send_time is not None and read_time is not None:
         time_str = f", time={time_cmd_ms:.1f} ms" if time_cmd_ms else ""
         logger.debug(
-            "Command execution times: send=%.1f ms, read=%.1f ms%s (exit: %d)",
-            send_time,
-            read_time,
-            time_str,
-            exit_code,
+            f"Command execution times (send={send_time:.1f} ms, read={read_time:.1f} ms{time_str}, exit:{exit_code})"
         )
     else:
-        logger.debug("Command completed in %.1f ms with exit status: %d", exec_ms, exit_code)
+        logger.debug(f"Command completed in {exec_ms:.1f} ms with exit status: {exit_code}")
 
 
 class SshConnection(IConnection):
@@ -180,10 +176,10 @@ class SshConnection(IConnection):
             True if connection successful, False otherwise
         """
         if self.is_connected():
-            self._logger.debug("%s%s", LogMsg.PRE_HOST_CON.value, self._host)
+            self._logger.debug(f"{LogMsg.PRE_HOST_CON.value}{self._host}")
             return True
 
-        self._logger.info("Connecting to %s via %d jump hosts", self._host, len(self._jump_hosts))
+        self._logger.info(f"Connecting to {self._host} via {len(self._jump_hosts)} jump hosts")
         conn_start = time.perf_counter()
 
         try:
@@ -191,13 +187,11 @@ class SshConnection(IConnection):
 
             if self._jump_hosts:
                 self._logger.debug(
-                    "Using %d jump hosts: %s",
-                    len(self._jump_hosts),
-                    [j.ip for j in self._jump_hosts],
+                    f"Using {len(self._jump_hosts)} jump hosts: {[j.ip for j in self._jump_hosts]}"
                 )
                 self._connect_via_jumps()
             else:
-                self._logger.debug("Direct connection to host: %s", self._host)
+                self._logger.debug(f"Direct connection to host: {self._host}")
                 self._ssh_client.connect(
                     self._host,
                     username=self._username,
@@ -211,19 +205,19 @@ class SshConnection(IConnection):
                 return False
 
             conn_time = (time.perf_counter() - conn_start) * 1000
-            self._logger.debug("SSH connection established in %.1f ms", conn_time)
+            self._logger.debug(f"SSH connection established in {conn_time:.1f} ms")
             self._start_keepalive()
-            self._logger.info("%s%s", LogMsg.CON_HOST_SUCCESS.value, self._host)
+            self._logger.info(f"{LogMsg.CON_HOST_SUCCESS.value}{self._host}")
             return True
 
         except TimeoutError:
-            self._logger.exception("%s%s", LogMsg.CON_TIMEOUT.value, self._host)
+            self._logger.exception(f"{LogMsg.CON_TIMEOUT.value}{self._host}")
         except paramiko.AuthenticationException:
-            self._logger.exception("%s%s", LogMsg.CON_AUTH_FAIL.value, self._host)
+            self._logger.exception(f"{LogMsg.CON_AUTH_FAIL.value}{self._host}")
         except paramiko.SSHException:
-            self._logger.exception("%s%s", LogMsg.CON_PROTOCOL_FAIL.value, self._host)
+            self._logger.exception(f"{LogMsg.CON_PROTOCOL_FAIL.value}{self._host}")
         except Exception:
-            self._logger.exception("%s%s", LogMsg.CON_HOST_FAIL.value, self._host)
+            self._logger.exception(f"{LogMsg.CON_HOST_FAIL.value}{self._host}")
 
         self.disconnect()
         return False
@@ -231,20 +225,20 @@ class SshConnection(IConnection):
     def disconnect(self) -> None:
         """Disconnect from host and cleanup resources."""
         if not self._ssh_client:
-            self._logger.debug("%s%s", LogMsg.POST_HOST_DISCON.value, self._host)
+            self._logger.debug(f"{LogMsg.POST_HOST_DISCON.value}{self._host}")
             return
 
-        self._logger.info("%s%s", LogMsg.DISCON_HOST.value, self._host)
+        self._logger.info(f"{LogMsg.DISCON_HOST.value}{self._host}")
 
         try:
             self._stop_keepalive.set()
             self._stop_keepalive_thread()
             self.close_shell()
             self._close_all_clients()
-            self._logger.info("%s%s", LogMsg.DISCON_HOST_SUCCESS.value, self._host)
+            self._logger.info(f"{LogMsg.DISCON_HOST_SUCCESS.value}{self._host}")
 
         except Exception:
-            self._logger.exception("Error during disconnect from %s", self._host)
+            self._logger.exception(f"Error during disconnect from {self._host}")
 
     def is_connected(self) -> bool:
         """Check if SSH connection is active.
@@ -278,7 +272,7 @@ class SshConnection(IConnection):
         Returns:
             CmdResult indicating no active connection
         """
-        self._logger.error("%s - %s", lm, cmd)
+        self._logger.error(f"{lm} - {cmd}")
         cmd_result = CmdResult.error(cmd, f"{lm} - {cmd}")
         return cmd_result
 
@@ -323,7 +317,7 @@ class SshConnection(IConnection):
                 exec_cmd = f'echo "{self._sudo_pass}" | sudo -S {cmd}'
 
             timeout_str = f" (timeout: {timeout} s)" if timeout is not None else ""
-            log.debug("Executing command: '%s'%s", exec_cmd, timeout_str)
+            log.debug(f"Executing command: '{exec_cmd}'{timeout_str}")
 
             try:
                 start_time = time.perf_counter()
@@ -354,7 +348,7 @@ class SshConnection(IConnection):
                     log,
                 )
                 if rcode != 0:
-                    log.warning("Command stderr: %s", stderr_data[:200])
+                    log.warning(f"Command stderr: {stderr_data[:200]}")
 
                 return CmdResult(
                     cmd=exec_cmd,
@@ -368,7 +362,7 @@ class SshConnection(IConnection):
                 )
 
             except Exception as e:
-                self._logger.exception("%s%s", LogMsg.AGENT_CMD_FAIL.value, cmd)
+                self._logger.exception(f"{LogMsg.AGENT_CMD_FAIL.value}{cmd}")
                 return CmdResult(exec_cmd, "", f"Error: {e}", -1)
 
     def _clean(self, data: str) -> str:
@@ -430,25 +424,23 @@ class SshConnection(IConnection):
             raise ValueError(msg)
 
         transport = None
-        self._logger.debug("Connecting through %d jump hosts", len(self._jump_hosts))
+        self._logger.debug(f"Connecting through {len(self._jump_hosts)} jump hosts")
 
         for i, jump in enumerate(self._jump_hosts):
-            self._logger.info(
-                "Connecting to jump host %d/%d: %s", i + 1, len(self._jump_hosts), jump.ip
-            )
+            self._logger.info(f"Connecting to jump host {i + 1}/{len(self._jump_hosts)}: {jump.ip}")
             client = self._create_client()
 
             try:
                 if transport:
                     self._logger.debug(
-                        "Opening channel from %s to %s", self._jump_hosts[i - 1].ip, jump.ip
+                        f"Opening channel from {self._jump_hosts[i - 1].ip} to {jump.ip}"
                     )
                     channel = transport.open_channel(
                         "direct-tcpip", (jump.ip, 22), (self._jump_hosts[i - 1].ip, 22)
                     )
                     self._connect_to_host(client, jump, channel)
                 else:
-                    self._logger.debug("Direct connection to first jump host: %s", jump.ip)
+                    self._logger.debug(f"Direct connection to first jump host: {jump.ip}")
                     self._connect_to_host(client, jump)
 
                 self._jump_clients.append(client)
@@ -458,10 +450,10 @@ class SshConnection(IConnection):
                     raise RuntimeError(msg)  # noqa: TRY301
 
                 transport.set_keepalive(self._keepalive_interval)
-                self._logger.info("%s%s", LogMsg.CON_JUMP_SUCCESS.value, jump.ip)
+                self._logger.info(f"{LogMsg.CON_JUMP_SUCCESS.value}{jump.ip}")
 
             except Exception:
-                self._logger.exception("%s%s", LogMsg.CON_JUMP_FAIL.value, jump.ip)
+                self._logger.exception(f"{LogMsg.CON_JUMP_FAIL.value}{jump.ip}")
                 raise
 
         # Connect to target through final jump host
@@ -470,7 +462,7 @@ class SshConnection(IConnection):
             raise RuntimeError(msg)
 
         self._logger.info(
-            "Opening final channel from %s to target %s", self._jump_hosts[-1].ip, self._host
+            f"Opening final channel from {self._jump_hosts[-1].ip} to target {self._host}"
         )
         try:
             channel = transport.open_channel(
@@ -483,10 +475,10 @@ class SshConnection(IConnection):
                 ip=self._host, username=self._username, password=SecretStr(self._password)
             )
             self._connect_to_host(self._ssh_client, target_host, channel)
-            self._logger.debug("%s%s", LogMsg.CON_TARGET_SUCCESS.value, self._host)
+            self._logger.debug(f"{LogMsg.CON_TARGET_SUCCESS.value}{self._host}")
 
         except Exception:
-            self._logger.exception("%s%s", LogMsg.CON_HOST_FAIL.value, self._host)
+            self._logger.exception(f"{LogMsg.CON_HOST_FAIL.value}{self._host}")
             raise
 
     def _start_keepalive(self) -> None:
@@ -502,7 +494,7 @@ class SshConnection(IConnection):
         Runs in daemon thread until stop event is set.
         Logs warnings if no active connections found.
         """
-        self._logger.debug("Keepalive loop started with %ds interval", self._keepalive_interval)
+        self._logger.debug(f"Keepalive loop started with {self._keepalive_interval}s interval")
 
         while not self._stop_keepalive.wait(self._keepalive_interval):
             try:
@@ -516,7 +508,7 @@ class SshConnection(IConnection):
                         active_count += 1
 
                 self._logger.debug(
-                    "Keepalive sent to %d/%d active connections", active_count, total_count
+                    f"Keepalive sent to {active_count}/{total_count} active connections"
                 )
 
                 if active_count == 0 and total_count > 0:
@@ -545,7 +537,7 @@ class SshConnection(IConnection):
             self._logger.debug(LogMsg.SHELL_ALREADY_OPEN.value)
             return True
 
-        self._logger.info("Opening shell on %s", self._host)
+        self._logger.info(f"Opening shell on {self._host}")
 
         try:
             self._shell = self._ssh_client.invoke_shell(width=120, height=40)
@@ -558,9 +550,9 @@ class SshConnection(IConnection):
 
             try:
                 output = self._read_until_prompt(timeout=15)
-                self._logger.debug("Shell opened. Initial banner length: %d chars", len(output))
+                self._logger.debug(f"Shell opened. Initial banner length: {len(output)} chars")
                 if output:
-                    self._logger.debug("Banner preview: %s...", output[:200])
+                    self._logger.debug(f"Banner preview:\n\n{output[:200]}...\n")
             except TimeoutError:
                 self._logger.warning("Initial prompt detection failed, but continuing")
                 output = ""
@@ -572,11 +564,11 @@ class SshConnection(IConnection):
 
             for cmd in config_commands:
                 try:
-                    self._logger.debug("Executing config command: %s", cmd)
+                    self._logger.debug(f"Executing config command: '{cmd}'")
                     self._shell.send(f"{cmd}\n")
                     time.sleep(0.5)
                 except Exception:
-                    self._logger.exception("Failed executing config command: '%s'", cmd)
+                    self._logger.exception(f"Failed executing config command: '{cmd}'")
 
             # Clear buffer after config commands to prevent contamination
             try:
@@ -640,19 +632,19 @@ class SshConnection(IConnection):
                     last_activity = time.time()
                     stable_count = 0
                     self._logger.debug(
-                        "Received %d bytes, total buffer: %d bytes", len(chunk), len(buffer)
+                        f"Received {len(chunk)} bytes, total buffer: {len(buffer)} bytes"
                     )
 
                     # Check for prompt pattern
                     if self._prompt_pattern.search(buffer):
                         self._logger.debug("Prompt pattern matched!")
-                        return buffer.decode(errors="ignore")
+                        return buffer.decode(errors="ignore").strip()
 
                     # Also check last few lines for common prompt patterns
                     lines = buffer.decode(errors="ignore").splitlines()
                     if lines and self._is_prompt_like(lines[-1].strip()):
-                        self._logger.debug("Detected prompt-like ending: '%s'", lines[-1].strip())
-                        return buffer.decode(errors="ignore")
+                        self._logger.debug(f"Detected prompt-like ending: '{lines[-1].strip()}'")
+                        return buffer.decode(errors="ignore").strip()
             else:
                 # No data ready, check if we've been stable
                 if time.time() - last_activity > 2.0:  # 2 seconds of no activity
@@ -660,25 +652,28 @@ class SshConnection(IConnection):
                     if stable_count > 3:  # Been stable for a while
                         self._logger.debug("No activity detected, assuming prompt ready")
                         if buffer:
-                            return buffer.decode(errors="ignore")
+                            return buffer.decode(errors="ignore").strip()
                 time.sleep(0.1)
 
-        self._logger.error("Timeout after %.1fs. Buffer length: %d", timeout, len(buffer))
+        self._logger.error(f"Timeout after {timeout:.1f}s. Buffer length: {len(buffer)}")
         if buffer:
             content = buffer.decode(errors="ignore")
-            self._logger.error("Final buffer content: %s", content[-500:])
+            self._logger.error(f"Final buffer content: {content[-500:]}")
             # Return what we have instead of failing
-            return content
+            return content.strip()
 
         msg = "Prompt not detected within timeout"
         raise TimeoutError(msg)
 
-    def exec_shell_cmd(self, cmd: str, *, until_prompt: bool = True) -> str:
+    def exec_shell_cmd(
+        self, cmd: str, *, until_prompt: bool = True, logger: logging.Logger | None = None
+    ) -> str:
         """Execute command in interactive shell.
 
         Args:
             cmd: Command to execute
             until_prompt: Wait for prompt before returning
+            logger: Optional logger to use instead of default
 
         Returns:
             Command output
@@ -686,48 +681,50 @@ class SshConnection(IConnection):
         Raises:
             ConnectionError: If shell not open or connection lost
         """
+        log = logger or self._logger
+
         if not self._shell:
-            self._logger.error(LogMsg.SHELL_CMD_NO_SHELL.value)
+            log.error(LogMsg.SHELL_CMD_NO_SHELL.value)
             msg = "Shell not opened"
             raise ConnectionError(msg)
 
         if not self.is_connected():
-            self._logger.error(LogMsg.SHELL_CMD_NO_CON.value)
+            log.error(LogMsg.SHELL_CMD_NO_CON.value)
             msg = "Connection lost"
             raise ConnectionError(msg)
 
         cmd_preview = cmd[:100] + "..." if len(cmd) > 100 else cmd
-        self._logger.debug("Executing shell command: %s", cmd_preview)
-        self._logger.debug("Shell ready state: %s", self._shell.recv_ready())
+        log.debug(f"Executing shell command: {cmd_preview}")
+        log.debug(f"Shell ready state: {self._shell.recv_ready()}")
 
         try:
             result = ""
             self._shell.send(cmd + "\n")
 
             if until_prompt:
-                self._logger.debug("Command sent, waiting for output...")
+                log.debug("Command sent, waiting for output...")
 
                 output = self._read_until_prompt()
-                self._logger.debug("Raw output length: %d", len(output))
+                log.debug(f"Raw output length: {len(output)}")
 
                 if len(output) > 400:
-                    self._logger.debug("Raw output preview: %s...%s", output[:200], output[-200:])
+                    log.debug(f"Raw output preview:\n\n{output[:200]}...{output[-200:]}\n")
                 else:
-                    self._logger.debug("Raw output:\n%s", output)
+                    log.debug(f"Raw output:\n\n{output}\n")
 
                 # Clean up echoed command and prompt
                 lines = output.splitlines()
-                self._logger.debug("Output has %d lines", len(lines))
+                log.debug(f"Output has {len(lines)} lines")
 
                 result = self._clean_shell_output(lines, cmd)
-                self._logger.debug("Clean output length: %d", len(result))
+                log.debug(f"Clean output length: {len(result)}")
             else:
-                self._logger.debug("Command sent without waiting for prompt")
+                log.debug("Command sent without waiting for prompt")
 
-            return result
+            return f"\n\n{result}\n\n"
 
         except Exception:
-            self._logger.exception("Shell cmd execution failed: %s", cmd)
+            log.exception(f"Shell cmd execution failed: '{cmd}'")
             raise
 
     def _clean_shell_output(self, lines: list[str], cmd: str) -> str:
@@ -767,14 +764,14 @@ class SshConnection(IConnection):
         """Close all SSH clients (main and jump hosts)."""
         all_clients = [self._ssh_client, *self._jump_clients]
         client_count = len([c for c in all_clients if c])
-        self._logger.debug("Closing %d connected clients", client_count)
+        self._logger.debug(f"Closing {client_count} connected clients")
 
         for i, client in enumerate(filter(None, all_clients)):
             try:
                 client.close()
-                self._logger.debug("Closed client %d/%d", i + 1, client_count)
+                self._logger.debug(f"Closed client {i + 1}/{client_count}")
             except Exception:
-                self._logger.exception("Failed to close client %d", i + 1)
+                self._logger.exception(f"Failed to close client {i + 1}")
 
         self._ssh_client = None
         self._jump_clients.clear()
@@ -891,7 +888,7 @@ class LocalConnection(IConnection):
         elif self._sudo_pass and not cmd.startswith("sudo"):
             exec_cmd = f"sudo -S {cmd}"
 
-        log.debug("Executing local command: '%s' (timeout: %s s)", exec_cmd, timeout)
+        log.debug(f"Executing local command: '{exec_cmd}' (timeout: {timeout} s)")
 
         try:
             # Pass sudo password via stdin if needed (only when not using time_cmd)
@@ -929,7 +926,7 @@ class LocalConnection(IConnection):
             )
 
             if result.returncode != 0:
-                log.warning("Command stderr: %s", result.stderr[:200])
+                log.warning(f"Command stderr: {result.stderr[:200]}")
 
             return CmdResult(
                 cmd=exec_cmd,
@@ -943,8 +940,8 @@ class LocalConnection(IConnection):
             )
 
         except subprocess.TimeoutExpired:
-            log.exception("Command timeout: %s", cmd)
+            log.exception(f"Command timeout: {cmd}")
             return CmdResult(exec_cmd, "", "Timeout", -1)
         except Exception as e:
-            log.exception("Command execution failed: %s", cmd)
+            log.exception(f"Command execution failed: {cmd}")
             return CmdResult(exec_cmd, "", f"Error: {e}", -1)

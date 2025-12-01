@@ -1,12 +1,12 @@
 """Tool interface for CLI-based network diagnostic tools."""
 
 from dataclasses import dataclass
-import itertools
 import logging
 from pathlib import Path
 from typing import Any
 
 from src.core import json
+from src.core.cli import PrettyFrame
 from src.core.connect import SshConnection
 from src.core.enums.messages import LogMsg
 from src.core.result import CmdResult
@@ -108,7 +108,7 @@ class Tool:
                 cmd_result = self._ssh.exec_cmd(cmd, use_time_cmd=use_time_cmd, logger=exec_log)
 
             if cmd_result.success:
-                log.debug(f"{LogMsg.TOOL_CMD_SUCCESS.value}: '{cmd}'")
+                log.debug(f"{LogMsg.CMD_SUCCESS.value}: '{cmd}'")
             else:
                 cmd_result = CmdResult.error(cmd, cmd_result.stderr)
         except (OSError, TimeoutError) as e:
@@ -152,17 +152,13 @@ class Tool:
             logger: Logger instance
         """
         for cmd, result in self._results.items():
-            border = "".join(itertools.repeat("=", len(f"= {cmd}") + 2))
             if result.success:
-                logger.info(border)
-                logger.info(f"= '{cmd}' -> SUCCESS")
-                logger.info(border)
-                logger.info(f"\n\n{result.stdout}")
+                frame = PrettyFrame().build(f"'{cmd}' -> SUCCESS", [])
+                logger.info(frame)
+                logger.info(f"\n{result.stdout}\n")
             else:
-                logger.warning(border)
-                logger.warning(f"= '{cmd}' -> FAILED")
-                logger.warning(f"= Reason: {result.stderr}")
-                self._logger.warning(border)
+                frame = PrettyFrame().build(f"'{cmd}' -> FAILED", [f"Reason: {result.stderr}"])
+                logger.warning(frame)
 
     def _save(self, path: Path) -> None:
         """Export data to JSON file.

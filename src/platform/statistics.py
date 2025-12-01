@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 import contextlib
 from dataclasses import dataclass, field
-from datetime import datetime as dt, timedelta
+from datetime import UTC, datetime as dt, timedelta
 import statistics as stats
 from typing import Any
 

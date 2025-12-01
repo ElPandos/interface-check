@@ -14,8 +14,8 @@ from src.models.scanner import BaseScanner
 
 
 @dataclass
-class EyeScanResult:
-    """Eye scan result data."""
+class ScanResult:
+    """Scan result data."""
 
     interface: str
     port_id: str
@@ -37,7 +37,7 @@ class SlxScanner(BaseScanner):
         super().__init__(cfg, logger, shutdown_event)
         self._eye_logger = loggers["slx_eye"]
         self._dsc_logger = loggers["slx_dsc"]
-        self._results: list[EyeScanResult] = []
+        self._results: list[ScanResult] = []
         self._interface_cache: dict[str, tuple[str, str]] = {}
         self._scan_type: str = ""  # "eye" or "dsc"
 
@@ -62,8 +62,8 @@ class SlxScanner(BaseScanner):
         logger = self._get_logger()
         log_cmd = cmd_description if cmd_description else cmd
         logger.debug(f"{LogMsg.CMD_EXECUTING.value}: '{log_cmd}'")
-        result = self._ssh.exec_shell_cmd(cmd)
-        logger.debug(f"{LogMsg.CMD_RESULT.value}:\n{result}")
+        result = self._ssh.exec_shell_cmd(cmd, logger=logger)
+        logger.debug(f"{LogMsg.CMD_RESULT.value}:{result}")
         return result
 
     def connect(self) -> bool:
@@ -80,12 +80,12 @@ class SlxScanner(BaseScanner):
             if not self._ssh.connect():
                 self._logger.error(LogMsg.SSH_CONN_FAILED.value)
                 return False
-            self._logger.debug(LogMsg.MAIN_SSH_ESTABLISHED.value)
+            self._logger.debug(LogMsg.SSH_ESTABLISHED.value)
 
             if not self._ssh.open_shell():
                 self._logger.error(LogMsg.SHELL_OPEN_FAILED.value)
                 return False
-            self._logger.debug(LogMsg.MAIN_SHELL_OPENED.value)
+            self._logger.debug(LogMsg.SHELL_OPENED.value)
 
             self._exec_with_logging("start-shell")
             self._exec_with_logging("su root")
@@ -147,13 +147,13 @@ class SlxScanner(BaseScanner):
         self._ssh.exec_shell_cmd("fbr-CLI")
         time.sleep(0.5)
         welcome_msg = self._ssh.exec_shell_cmd("")
-        logger.debug(f"{LogMsg.CMD_RESULT.value}:\n{welcome_msg}")
-        logger.info(LogMsg.MAIN_FBR_ENTERED.value)
+        logger.debug(f"{LogMsg.CMD_RESULT.value}:\n\n{welcome_msg}\n")
+        logger.info(LogMsg.FBR_ENTERED.value)
 
     def _exit_fbr_cli(self) -> None:
         """Exit fbr-CLI."""
         logger = self._get_logger()
-        logger.info(LogMsg.MAIN_FBR_EXIT_CTRL_C.value)
+        logger.info(LogMsg.FBR_EXIT_CTRL_C.value)
         self._exec_with_logging("\x03", "Ctrl+C")
         time.sleep(0.3)
         logger.info(LogMsg.FBR_EXITED.value)
@@ -173,9 +173,9 @@ class SlxScanner(BaseScanner):
             return None
 
         try:
-            self._enter_fbr_cli(f"to find interface for port {port_id}")
+            self._enter_fbr_cli(f"to find interface for port: {port_id}")
             ps_result = self._ssh.exec_shell_cmd("ps")
-            logger.debug(f"{LogMsg.CMD_RESULT.value}:\n{ps_result}")
+            logger.debug(f"{LogMsg.CMD_RESULT.value}:\n\n{ps_result}\n")
             self._exit_fbr_cli()
 
             pattern = rf"(\w+)\(\s*{re.escape(port_id)}\s*\)"
@@ -251,9 +251,9 @@ class SlxScanner(BaseScanner):
                 self._toggle_interface(interface, True, toggle_wait_sec)
 
             self._enter_fbr_cli("for eye scan")
-            self._eye_logger.info(LogMsg.MAIN_BUFFER_CLEARING.value)
+            self._eye_logger.info(LogMsg.BUFFER_CLEARING.value)
             self._ssh.clear_shell()
-            self._eye_logger.info(LogMsg.MAIN_BUFFER_CLEARED.value)
+            self._eye_logger.info(LogMsg.BUFFER_CLEARED.value)
 
             cmd = f"phy diag {interface} eyescan"
             self._eye_logger.info(f"{LogMsg.CMD_EXECUTING.value} eye scan: '{cmd}'")
@@ -262,12 +262,14 @@ class SlxScanner(BaseScanner):
             time.sleep(scan_wait_sec)
             result = self._ssh.exec_shell_cmd("\n")
 
-            self._results.append(EyeScanResult(interface, port_id, result))
+            if self._cfg.worker_collect:
+                self._results.append(ScanResult(interface, port_id, result))
+
             self._eye_logger.info(
                 f"{LogMsg.EYE_SCAN_COMPLETE.value}: '{interface}' (Port: '{port_id}')"
             )
             self._eye_logger.info("=" * 39)
-            self._eye_logger.info("\n%s", self._results[-1].result)
+            self._eye_logger.info("\n%s", result)
             self._eye_logger.info("=" * 39)
             self._exit_fbr_cli()
         except Exception:
@@ -378,11 +380,11 @@ class SlxScanner(BaseScanner):
                 mapping = self._get_cached_or_lookup(interface)
                 if not mapping:
                     continue
-                _, interface_name = mapping
+                _, port_id = mapping
 
-                cmd = f"phy diag {interface_name} dsc"
+                cmd = f"phy diag {port_id} dsc"
                 self._dsc_logger.debug(f"Executing DSC: '{cmd}'")
-                result = self._ssh.exec_shell_cmd(cmd)
+                result = self._ssh.exec_shell_cmd(cmd, logger=self._dsc_logger)
 
                 # Parse DSC output - extract data lines only
                 output_lines = []
@@ -397,9 +399,15 @@ class SlxScanner(BaseScanner):
                     ):
                         output_lines.append(line)
 
-                if output_lines:
-                    self._dsc_logger.info(f"\n{'\n'.join(output_lines)}")
+                parsed_result = "\n".join(output_lines) if output_lines else result
 
+                if self._cfg.worker_collect:
+                    self._results.append(ScanResult(interface, port_id, parsed_result))
+
+                self._dsc_logger.info(f"DSC scan complete: '{interface}' (Port: '{port_id}')")
+                self._dsc_logger.info("=" * 39)
+                self._dsc_logger.info("\n%s", parsed_result)
+                self._dsc_logger.info("=" * 39)
                 success_count += 1
             except Exception:
                 self._dsc_logger.exception(f"Failed DSC scan for '{interface}'")
@@ -447,7 +455,13 @@ class SlxScanner(BaseScanner):
                 self._create_eye_worker()
                 worker_count += 1
 
-            self._logger.info(f"{LogMsg.SCANNER_WORKERS_CREATED.value}: {worker_count}")
+            scan_types = []
+            if not skip_dsc:
+                scan_types.append("DSC")
+            if not skip_eye:
+                scan_types.append("Eye")
+            types_str = "+".join(scan_types) if scan_types else "None"
+            self._logger.info(f"{LogMsg.SCANNER_WORKERS_CREATED.value}: {worker_count} (SLX {types_str})")
             return True
         except Exception:
             self._logger.exception(LogMsg.SCANNER_START_FAILED.value)
@@ -492,9 +506,16 @@ class SlxScanner(BaseScanner):
         scan_count = 0
 
         # Pre-lookup all interfaces before entering fbr-CLI
+        self._dsc_logger.info(
+            f"Pre-looking up {len(self._cfg.slx_scan_ports)} interfaces before fbr-CLI"
+        )
         for interface in self._cfg.slx_scan_ports:
             if interface not in self._interface_cache:
-                self._get_cached_or_lookup(interface)
+                result = self._get_cached_or_lookup(interface)
+                if result:
+                    self._dsc_logger.debug(f"Pre-lookup success: '{interface}'")
+                else:
+                    self._dsc_logger.warning(f"Pre-lookup failed: '{interface}'")
 
         self._enter_fbr_cli("for DSC")
 

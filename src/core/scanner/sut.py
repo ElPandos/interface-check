@@ -54,7 +54,7 @@ class SutScanner(BaseScanner):
         """
         logger.debug(f"{LogMsg.CMD_EXECUTING.value}: '{cmd}'")
         result = self._ssh.exec_cmd(cmd)
-        logger.debug(f"{LogMsg.CMD_RESULT.value}:\n{result.stdout}")
+        logger.debug(f"{LogMsg.CMD_RESULT.value}:\n\n{result.stdout}\n")
         return result.stdout, result.rcode
 
     def connect(self) -> bool:
@@ -81,8 +81,8 @@ class SutScanner(BaseScanner):
             if self._cfg.sut_connect_type == ConnectType.LOCAL:
                 self._logger.debug(LogMsg.MAIN_LOCAL_CONN_ESTABLISHED.value)
             else:
-                self._logger.debug(LogMsg.MAIN_SSH_ESTABLISHED.value)
-                self._logger.debug(LogMsg.MAIN_SHELL_SKIP.value)
+                self._logger.debug(LogMsg.SSH_ESTABLISHED.value)
+                self._logger.debug(LogMsg.SHELL_SKIP.value)
 
             test_commands = ["whoami", "pwd"]
             self._logger.debug(f"{LogMsg.SCANNER_SUT_TEST_CONN.value}: {test_commands}")
@@ -111,7 +111,7 @@ class SutScanner(BaseScanner):
             try:
                 self._logger.debug(LogMsg.MAIN_SW_MGR_INIT.value)
                 self._software_manager = SoftwareManager(self._ssh)
-                self._logger.debug(LogMsg.SW_MGR_INIT.value)
+                self._logger.debug(LogMsg.MAIN_SW_MGR_INIT.value)
             except Exception:
                 self._logger.exception(LogMsg.SW_MGR_INIT_FAILED.value)
                 return False
@@ -203,10 +203,10 @@ class SutScanner(BaseScanner):
             if not self.log_required_software_versions():
                 self._logger.warning(LogMsg.MAIN_SW_VERSION_WARN.value)
 
-            self._logger.info(LogMsg.MAIN_SYS_INFO_START.value)
+            self._logger.info(LogMsg.SYS_INFO_START.value)
             self.log_system_info(self._system_info_logger)
         else:
-            self._logger.info(LogMsg.MAIN_SYS_INFO_SKIP.value)
+            self._logger.info(LogMsg.SYS_INFO_SKIP.value)
 
         self._logger.info(
             f"{LogMsg.SCANNER_SUT_SCAN_INTERFACES.value}: {self._cfg.sut_scan_interfaces}"
@@ -255,7 +255,7 @@ class SutScanner(BaseScanner):
                     self._create_dmesg_worker(interface)
                     worker_count += 1
 
-            self._logger.info(f"{LogMsg.SCANNER_WORKERS_CREATED.value}: {worker_count}")
+            self._logger.info(f"{LogMsg.SCANNER_WORKERS_CREATED.value}: {worker_count} (SUT monitoring)")
             return True
         except Exception:
             self._logger.exception(LogMsg.WORKER_FAILED.value)

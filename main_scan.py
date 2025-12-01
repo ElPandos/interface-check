@@ -35,14 +35,12 @@ import time
 from src.core.cli import PrettyFrame
 from src.core.enums.connect import ConnectType, ShowPartType
 from src.core.enums.messages import LogMsg
-from src.core.helpers import get_attr_value
 from src.core.logging_setup import initialize_logging
-from src.core.parser import SutDmesgFlapParser
 from src.core.scanner import SlxScanner, SutScanner
 
-# ============================================================================
-# Graceful Shutdown Handling
-# ============================================================================
+# ---------------------------------------------------------------------------- #
+#                          Graceful Shutdown Handling                          #
+# ---------------------------------------------------------------------------- #
 
 # Global event for coordinating graceful shutdown across all threads
 shutdown_event = threading.Event()
@@ -55,18 +53,19 @@ def signal_handler(_signum, _frame) -> None:
     """
     frame = PrettyFrame()
     msg = frame.build("SHUTDOWN SIGNAL", ["Ctrl+C pressed. Shutting down gracefully..."])
-    sys.stderr.write(f"\n{msg}\n")
+    sys.stderr.write(msg)
     shutdown_event.set()
 
 
 # Register signal handler for SIGINT (Ctrl+C)
 signal.signal(signal.SIGINT, signal_handler)
 
-# ============================================================================
-# Logging Configuration
-# ============================================================================
+# ---------------------------------------------------------------------------- #
+#                             Logging configuration                            #
+# ---------------------------------------------------------------------------- #
 
 loggers = initialize_logging()
+
 main_logger = loggers["main"]
 sut_system_info_logger = loggers["sut_system_info"]
 sut_mxlink_logger = loggers["sut_mxlink"]
@@ -77,6 +76,11 @@ sut_link_flap_logger = loggers["sut_link_flap"]
 slx_eye_logger = loggers["slx_eye"]
 slx_dsc_logger = loggers["slx_dsc"]
 log_dir = loggers["log_dir"]
+
+
+# ---------------------------------------------------------------------------- #
+#                                  JSON config                                 #
+# ---------------------------------------------------------------------------- #
 
 
 @dataclass(frozen=True)
@@ -122,6 +126,7 @@ class Config:
     sut_scan_interval_low_res_ms: int
     sut_scan_interval_high_res_ms: int
     sut_scan_max_log_size_kb: int
+    worker_collect: bool
 
     @classmethod
     def from_dict(cls, data: dict) -> "Config":
@@ -160,6 +165,7 @@ class Config:
             sut_scan_interval_low_res_ms=sut["scan_interval_low_res_ms"],
             sut_scan_interval_high_res_ms=sut["scan_interval_high_res_ms"],
             sut_scan_max_log_size_kb=sut["scan_max_log_size_kb"],
+            worker_collect=data.get("worker_collect", False),
         )
 
 
@@ -225,7 +231,12 @@ def check_cfg(cfg: Config, logger: logging.Logger) -> bool:
     return True
 
 
-def main():  # noqa: PLR0912, PLR0915
+# ---------------------------------------------------------------------------- #
+#                                MAIN function                                 #
+# ---------------------------------------------------------------------------- #
+
+
+def main():  # noqa: PLR0915
     """Main execution orchestrating SUT monitoring and SLX eye scans.
 
     Execution flow:
@@ -284,121 +295,93 @@ def main():  # noqa: PLR0912, PLR0915
         time.sleep(1)
 
     # ---------------------------------------------------------------------------- #
-    #                                   FINISHED                                   #
+    #                                 Stop workers                                 #
     # ---------------------------------------------------------------------------- #
 
     # Log shutdown signal
     _logger.info(LogMsg.SHUTDOWN_SIGNAL.value)
 
-    # Pause logging and show worker shutdown countdown
-    logging.disable(logging.CRITICAL)
-    sys.stderr.write("\nWaiting for all threads to complete...\n")
+    _logger.info(LogMsg.WORKER_SHUTDOWN.value)
 
+    # Pause logging and show worker shutdown countdown
     sut_workers = sut_scanner.worker_manager.get_workers_in_pool()
     slx_workers = slx_scanner.worker_manager.get_workers_in_pool()
     all_workers = sut_workers + slx_workers
     total_workers = len(all_workers)
-    sys.stderr.write(f"\nStopping {total_workers} workers...\n")
+
+    frame = PrettyFrame()
+    _logger.info(frame.build("WORKER SHUTDOWN", [f"Total workers: {total_workers}", "---"]))
+
+    logging.disable(logging.CRITICAL)
 
     for idx, w in enumerate(all_workers, 1):
         w.close()
-        sys.stderr.write(f"\rWorkers stopped: {idx}/{total_workers}")
+        sys.stderr.write(f"\rStopping workers: {idx}/{total_workers}")
         sys.stderr.flush()
 
-    sys.stderr.write("\n\nWaiting for workers to finish...\n")
+    sys.stderr.write("\n")
     for idx, w in enumerate(all_workers, 1):
         w.join()
-        sys.stderr.write(f"\rWorkers finished: {idx}/{total_workers}")
+        sys.stderr.write(f"\rWaiting for workers: {idx}/{total_workers}")
         sys.stderr.flush()
 
     sys.stderr.write("\n")
     logging.disable(logging.NOTSET)
 
     frame = PrettyFrame()
-    shutdown_msg = frame.build("SHUTDOWN", ["Starting shutdown sequence..."])
-    _logger.info(f"\n{shutdown_msg}")
+    _logger.info(
+        frame.build("WORKERS STOPPED", [f"All {total_workers} workers stopped successfully"])
+    )
 
-    _logger.info(LogMsg.SHUTDOWN_EYE_SCANNER.value)
+    # ---------------------------------------------------------------------------- #
+    #                                   Shutdown                                   #
+    # ---------------------------------------------------------------------------- #
+
+    frame = PrettyFrame()
+    shutdown_msg = frame.build("SHUTDOWN", ["Starting disconnect sequence..."])
+    _logger.info(shutdown_msg)
+
+    _logger.info(LogMsg.SHUTDOWN_SLX_SCANNER.value)
     slx_scanner.disconnect()
-    _logger.debug(LogMsg.MAIN_EYE_DISCONNECTED.value)
+    _logger.debug(LogMsg.SHUTDOWN_COMPLETE.value)
 
-    _logger.info(LogMsg.WORKER_EXTRACT.value)
-    workers = sut_scanner.worker_manager.get_workers_in_pool()
-    _logger.debug(f"Found {len(workers)} workers to extract samples from")
-    for w in workers:
-        w.extract_all_samples()
-
-    # Build matrix with smallest list determining rows
-    all_samples = [w.get_extracted_samples() for w in workers]
-    min_rows = min(len(samples) for samples in all_samples) if all_samples else 0
-
-    if min_rows > 0:
-        # CSV headers - begin_timestamp first
-        headers = [
-            "begin_timestamp",
-            "temperature",
-            "voltage",
-            "bias_current",
-            "rx_power",
-            "tx_power",
-            "time_since_last_clear",
-            "effective_physical_errors",
-            "effective_physical_ber",
-            "raw_physical_errors_per_lane",
-            "raw_physical_ber",
-            "m_temp_nic",
-            "link_status",
-            "link_status_timestamp",
-        ]
-        headers_str = [",".join(headers)]
-
-        # mlxlink attributes (excluding begin - we add it first)
-        mlxlink_attrs = [
-            "temperature",
-            "voltage",
-            "bias_current",
-            "rx_power",
-            "tx_power",
-            "time_since_last_clear",
-            "effective_physical_errors",
-            "effective_physical_ber",
-            "raw_physical_errors_per_lane",
-            "raw_physical_ber",
-        ]
-
-        for i in range(min_rows):
-            row = []
-            for worker_idx, samples in enumerate(all_samples):
-                sample = samples[i]
-                if worker_idx == 0:  # Worker 1: mlxlink
-                    # Add begin timestamp first (from Sample, not snapshot)
-                    # Format: YYYY-MM-DD HH:MM:SS.mmm
-                    timestamp = (
-                        sample.begin.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] if sample.begin else ""
-                    )
-                    row.append(timestamp)
-                    # Add all other mlxlink metrics
-                    row.extend(get_attr_value(sample.snapshot, attr) for attr in mlxlink_attrs)
-                elif worker_idx == 1:  # Worker 2: NIC temp
-                    row.append(str(sample.snapshot) if hasattr(sample, "snapshot") else "")
-                elif worker_idx == 2:  # Worker 3: dmesg link status
-                    dmesg_output = str(sample.snapshot) if hasattr(sample, "snapshot") else ""
-                    parser = SutDmesgFlapParser(dmesg_output)
-                    link_status, link_ts = parser.get_most_recent_status()
-                    row.extend([link_status, link_ts])
-            headers_str.append(",".join(row))
-
-    _logger.info(LogMsg.WORKER_SHUTDOWN.value)
-
-    _logger.debug(LogMsg.MAIN_SCANNER_DISCONNECT.value)
+    _logger.debug(LogMsg.SHUTDOWN_SUT_SCANNER.value)
     sut_scanner.disconnect()
+    _logger.debug(LogMsg.SHUTDOWN_COMPLETE.value)
+
+    # ---------------------------------------------------------------------------- #
+    #                              Collected Data Summary                          #
+    # ---------------------------------------------------------------------------- #
+
+    summary_lines = []
+
+    # SLX Scanner results
+    total_scans = slx_scanner.scans_collected()
+    if cfg.worker_collect:
+        summary_lines.append(f"SLX scans: {total_scans} (~{total_scans * 10}KB)")
+    else:
+        summary_lines.append("SLX scans: 0 (worker_collect=false)")
+
+    # SUT Worker samples
+    total_samples = 0
+    for worker in sut_workers:
+        sample_count = len(worker.get_extracted_samples())
+        total_samples += sample_count
+        summary_lines.append(f"{worker.name}: {sample_count} samples")
+    summary_lines.append(f"Total SUT: {total_samples} samples (~{total_samples * 5}KB)")
+
+    data_summary = frame.build("COLLECTED DATA", summary_lines)
+    _logger.info(data_summary)
+
+    # ---------------------------------------------------------------------------- #
+    #                                  Statistics                                  #
+    # ---------------------------------------------------------------------------- #
+
+    _logger.info(LogMsg.SHUTDOWN_TOTAL_COMPLETED.value)
+    _logger.info(LogMsg.MAIN_LOGS_SAVED.value)
 
     stats_summary = sut_scanner.worker_manager.get_statistics_summary()
-    _logger.info(f"\n{stats_summary}")
-
-    _logger.info(f"Total eye scans completed: {slx_scanner.scans_collected()}")
-    _logger.info(LogMsg.MAIN_SHUTDOWN_COMPLETE.value)
-    _logger.info(LogMsg.MAIN_LOGS_SAVED.value)
+    _logger.info(stats_summary)
 
 
 if __name__ == "__main__":

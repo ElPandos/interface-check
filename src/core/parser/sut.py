@@ -96,6 +96,7 @@ class SutMstStatusVersionParser(IParser):
         self._devices: list[MstVersionDevice] = []
         self._raw_data: str | None = None
 
+    @property
     def name(self) -> str:
         """Get parser name.
 
@@ -144,7 +145,7 @@ class SutMstStatusVersionParser(IParser):
 
             self._devices.append(MstVersionDevice(device_type, mst, pci, rdma, net, numa))
 
-        self._logger.debug(f"[{self.name()}] Parsed {len(self._devices)} MST devices")
+        self._logger.debug(f"[{self.name}] Parsed {len(self._devices)} MST devices")
 
     def get_result(self) -> list[MstVersionDevice]:
         """Get parsed devices.
@@ -329,7 +330,7 @@ class SutEthtoolModuleParser(IParser):
                 key, value = line.split(":", 1)
                 self._result[key.strip()] = value.strip()
 
-        self._logger.debug(f"[{self.name()}] Parsed {len(self._result)} key-value pairs")
+        self._logger.debug(f"[{self.name}] Parsed {len(self._result)} key-value pairs")
 
     def get_result(self) -> EthtoolModuleDevice:
         """Return parsed module device.
@@ -693,6 +694,7 @@ class SutMlxlinkAmberParser(IParser):
         self._raw_data: str | None = None
         self._first_parse = True
 
+    @property
     def name(self) -> str:
         """Get parser name.
 
@@ -721,7 +723,7 @@ class SutMlxlinkAmberParser(IParser):
         elif len(csv_lines) > 1:
             self._data_row = csv_lines[-1]
 
-        self._logger.debug(f"[{self.name()}] Parsed data row")
+        self._logger.debug(f"[{self.name}] Parsed data row")
 
     def get_result(self) -> str:
         """Get parsed data row.
@@ -788,7 +790,7 @@ class SutTimeParser(IParser):
             seconds = float(match.group(2).replace(",", "."))
             self._real_time_ms = (minutes * 60 + seconds) * 1000
             self._logger.debug(
-                f"[{self.name}] Bash format: {minutes}m{seconds}s -> {self._real_time_ms:.3f}ms"
+                f"[{self.name}] Bash format: {minutes} m {seconds} s -> {self._real_time_ms:.3f} ms"
             )
             return
 
@@ -798,7 +800,7 @@ class SutTimeParser(IParser):
             seconds = float(match.group(1).replace(",", "."))
             self._real_time_ms = seconds * 1000
             self._logger.debug(
-                f"[{self.name}] Zsh format: {seconds}s -> {self._real_time_ms:.3f}ms"
+                f"[{self.name}] Zsh format: {seconds} s -> {self._real_time_ms:.3f} ms"
             )
             return
 
@@ -811,7 +813,7 @@ class SutTimeParser(IParser):
             total_seconds = minutes * 60 + seconds + subseconds
             self._real_time_ms = total_seconds * 1000
             self._logger.debug(
-                f"[{self.name}] GNU format: {minutes}:{seconds}.{match.group(3)} -> {self._real_time_ms:.3f}ms"
+                f"[{self.name}] GNU format: {minutes}:{seconds}.{match.group(3)} -> {self._real_time_ms:.3f} ms"
             )
             return
 

@@ -69,12 +69,23 @@ class PrettyFrame:
         Returns:
             Complete formatted table string
         """
-        lines = self.header(title)
+        # Calculate width based on content
+        max_len = len(title)
+        for row in rows:
+            max_len = max(max_len, len(row))
+        self._width = max_len + 4  # Add space for "║ " and " ║"
+        self._content_width = self._width - 4
 
-        for i, row in enumerate(rows):
-            lines.append(self.row(row))
-            if i < len(rows) - 1:
-                lines.append(self.separator())
+        lines = ["", "╔" + "═" * (self._width - 2) + "╗"]
+        lines.append("║ " + title.ljust(self._content_width) + " ║")
 
-        lines.append(self.footer())
-        return "\n".join(lines)
+        if rows:  # Only add separator if there are rows
+            lines.append("╠" + "═" * (self._width - 2) + "╣")
+            for i, row in enumerate(rows):
+                lines.append(self.row(row))
+                if i < len(rows) - 1:
+                    lines.append(self.separator())
+
+        lines.append("╚" + "═" * (self._width - 2) + "╝")
+        total = "\n".join(lines)
+        return f"\n{total}\n"
