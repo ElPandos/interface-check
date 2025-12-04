@@ -655,7 +655,7 @@ class SshConnection(IConnection):
                             return buffer.decode(errors="ignore").strip()
                 time.sleep(0.1)
 
-        self._logger.error(f"Timeout after {timeout:.1f}s. Buffer length: {len(buffer)}")
+        self._logger.error(f"Timeout after {timeout:.1f} s. Buffer length: {len(buffer)}")
         if buffer:
             content = buffer.decode(errors="ignore")
             self._logger.error(f"Final buffer content: {content[-500:]}")
