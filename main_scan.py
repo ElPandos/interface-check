@@ -35,7 +35,7 @@ import time
 from src.core.cli import PrettyFrame
 from src.core.enums.connect import ConnectType, ShowPartType
 from src.core.enums.messages import LogMsg
-from src.core.logging_setup import initialize_logging
+from src.core.log.setup import initialize_logging
 from src.core.scanner import SlxScanner, SutScanner
 
 # ---------------------------------------------------------------------------- #
@@ -265,8 +265,14 @@ def main():  # noqa: PLR0915
 
     _logger.info(LogMsg.SCANNER_INIT.value)
 
-    slx_scanner = SlxScanner(cfg, main_logger, shutdown_event, loggers)
     sut_scanner = SutScanner(cfg, main_logger, shutdown_event, loggers)
+    slx_scanner = SlxScanner(
+        cfg,
+        main_logger,
+        shutdown_event,
+        loggers,
+        sut_scanner.worker_manager.get_shared_flap_state(),
+    )
 
     # ---------------------------------------------------------------------------- #
     #                                  SUT scanner                                 #

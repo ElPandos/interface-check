@@ -1,0 +1,26 @@
+# Take down link
+sudo ip link set ens3f0np0 down
+sudo ip link set ens3f1np1 down
+
+# Check link is DOWN
+ip link show | grep ens
+
+# Check loaded modules
+lsmod | grep mlx5
+
+# Remove drivers
+# RDMA first (if loaded)
+sudo modprobe -r mlx5_ib
+# Core driver
+sudo modprobe -r mlx5_core
+
+# Load driver
+sudo modprobe mlx5_core
+sudo modprobe mlx5_ib
+
+# Set link UP
+sudo ip link set ens3f0np0 up
+sudo ip link set ens3f1np1 up
+
+# Check link UP
+ip link show | grep ens

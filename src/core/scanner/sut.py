@@ -255,7 +255,9 @@ class SutScanner(BaseScanner):
                     self._create_dmesg_worker(interface)
                     worker_count += 1
 
-            self._logger.info(f"{LogMsg.SCANNER_WORKERS_CREATED.value}: {worker_count} (SUT monitoring)")
+            self._logger.info(
+                f"{LogMsg.SCANNER_WORKERS_CREATED.value}: {worker_count} (SUT monitoring)"
+            )
             return True
         except Exception:
             self._logger.exception(LogMsg.WORKER_FAILED.value)

@@ -60,7 +60,9 @@ class MlxTool(Tool, ITool):
         Runs each command from available_cmds() and stores results.
         """
         for command in self.available_cmds():
-            self._exec(command)
+            # mlxconfig needs longer timeout (60s instead of default 20s)
+            timeout = 60 if "mlxconfig" in command else 20
+            self._exec(command, timeout=timeout)
 
     def log(self, logger: logging.Logger) -> None:
         """Log all command results.

@@ -21,7 +21,7 @@ from src.core.connect import SshConnection
 from src.core.enums.messages import LogMsg
 from src.core.helpers import get_attr_value
 from src.core.json import Json
-from src.core.logging import create_formatter
+from src.core.log.rotation import check_and_rotate_log
 from src.core.parser import SutTimeParser
 from src.core.sample import Sample
 from src.core.statistics import WorkerStatistics
@@ -104,8 +104,9 @@ class Worker(Thread, ITime):
         self._extracted_samples: list[Sample] = []  # Extracted samples for analysis
 
         self._logger = worker_cfg.logger
-        self._log_rotation_count = 0  # Track number of log rotations
-        self._has_rotated_since_flap = False  # Track if this worker rotated since last flap
+        # Use shared dicts for rotation state (modified by rotation function)
+        self._log_rotation_count_dict = {self._logger.name: 0}
+        self._has_rotated_since_flap_dict = {self._logger.name: False}
 
     def run(self) -> None:
         """Main thread execution loop."""
@@ -128,7 +129,8 @@ class Worker(Thread, ITime):
             else:
                 headers.append("value")
 
-            self._logger.info(",".join(headers))
+            # Write raw CSV header directly to file (bypass logging formatter)
+            self._write_raw_csv(",".join(headers))
 
         reconnect = 0
         while not self._stop_event.is_set():
@@ -272,119 +274,45 @@ class Worker(Thread, ITime):
         self._extracted_samples.clear()
         self._logger.debug(LogMsg.WORKER_CLEAR_SAMPLES.value)
 
-    def _check_and_rotate_log(self) -> None:
-        """Check log file size and rotate if needed."""
-        # Get log file path from logger handlers
-        log_file = None
-        for handler in self._logger.handlers:
-            if isinstance(handler, logging.FileHandler):
-                log_file = Path(handler.baseFilename)
-                break
-
-        if not log_file or not log_file.exists():
-            return
-
-        # Check file size
-        file_size_kb = log_file.stat().st_size / 1024
-        if file_size_kb < self._worker_cfg.max_log_size_kb:
-            return
-
-        # Log size exceeded
-        if self._worker_cfg.is_flap_logger:
-            # Flap logger: never rotate or clear, just keep growing
-            return
-        # Other loggers: rotate with suffix if flaps detected, otherwise clear
-        if self._shared_flap_state.get("flaps_detected", False):
-            if self._has_rotated_since_flap:
-                # Already rotated once since flap, now clear and reset flag
-                self._clear_log_keep_header(log_file)
-                self._shared_flap_state["flaps_detected"] = False
-                self._has_rotated_since_flap = False
-                self._logger.debug(LogMsg.WORKER_LOG_CLEARED.value)
-            else:
-                # First rotation since flap detected
-                self._rotate_to_new_file(log_file)
-                self._has_rotated_since_flap = True
-        else:
-            self._clear_log_keep_header(log_file)
-            self._has_rotated_since_flap = False
-
-    def _rotate_to_new_file(self, log_file: Path) -> None:
-        """Rotate to new log file with suffix.
+    def _write_raw_csv(self, line: str) -> None:
+        """Write raw CSV line directly to log file without logging prefix.
 
         Args:
-            log_file: Current log file path
+            line: CSV line to write
         """
-        self._log_rotation_count += 1
-        # Extract base name without previous rotation suffix
-        base_stem = (
-            log_file.stem.rsplit("_", 1)[0]
-            if "_" in log_file.stem and log_file.stem.split("_")[-1].isdigit()
-            else log_file.stem
-        )
-        new_log_file = log_file.with_name(
-            f"{base_stem}_{self._log_rotation_count}{log_file.suffix}"
-        )
-
-        # Close current handler
-        for handler in self._logger.handlers[:]:
+        for handler in self._logger.handlers:
             if isinstance(handler, logging.FileHandler):
-                handler.close()
-                self._logger.removeHandler(handler)
+                try:
+                    with Path(handler.baseFilename).open("a") as f:
+                        f.write(line + "\n")
+                except Exception:
+                    self._logger.exception("Failed to write raw CSV")
+                break
 
-        # Create new handler with new file
-        new_handler = logging.FileHandler(new_log_file)
-        new_handler.setFormatter(create_formatter(self._logger.name))
-        new_handler.setLevel(self._logger.level)
-        self._logger.addHandler(new_handler)
+    def _check_and_rotate_log(self) -> None:
+        """Check log file size and rotate if needed."""
+        # Flap logger: never rotate or clear, just keep growing
+        if self._worker_cfg.is_flap_logger:
+            return
 
-        # Log header in new file
+        # Build CSV header from worker config
         headers = ["begin_timestamp"]
         if self._worker_cfg.attributes:
             headers.extend(self._worker_cfg.attributes)
         else:
             headers.append("value")
-        self._logger.info(",".join(headers))
+        csv_header = ",".join(headers)
 
-    def _clear_log_keep_header(self, log_file: Path) -> None:
-        """Clear log file but keep header row.
-
-        Args:
-            log_file: Log file path to clear
-        """
-        # Read first line (header)
-        header = None
-        try:
-            with log_file.open("r") as f:
-                for line in f:
-                    if "begin_timestamp" in line:
-                        header = line
-                        break
-        except Exception:
-            self._logger.exception(LogMsg.WORKER_LOG_HEADER_FAIL.value)
-            return
-
-        if not header:
-            return
-
-        # Close current handler
-        for handler in self._logger.handlers[:]:
-            if isinstance(handler, logging.FileHandler):
-                handler.close()
-                self._logger.removeHandler(handler)
-
-        # Truncate file and write header
-        try:
-            with log_file.open("w") as f:
-                f.write(header)
-        except Exception:
-            self._logger.exception(LogMsg.WORKER_LOG_CLEAR_FAIL.value)
-
-        # Reopen handler
-        new_handler = logging.FileHandler(log_file)
-        new_handler.setFormatter(create_formatter(self._logger.name))
-        new_handler.setLevel(self._logger.level)
-        self._logger.addHandler(new_handler)
+        # Use common rotation logic with CSV header preservation
+        check_and_rotate_log(
+            self._logger,
+            self._worker_cfg.max_log_size_kb,
+            self._shared_flap_state,
+            self._has_rotated_since_flap_dict,
+            self._log_rotation_count_dict,
+            keep_header=True,
+            csv_header=csv_header,
+        )
 
     def _log_mem_size(self, collection: Any):
         """Log memory size of collection.

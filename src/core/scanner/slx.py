@@ -9,6 +9,7 @@ import time
 from src.core.connect import SshConnection
 from src.core.enums.connect import HostType, ShowPartType
 from src.core.enums.messages import LogMsg
+from src.core.log.rotation import check_and_rotate_log
 from src.models.config import Host
 from src.models.scanner import BaseScanner
 
@@ -25,7 +26,14 @@ class ScanResult:
 class SlxScanner(BaseScanner):
     """SLX scanner for eye scan and DSC diagnostics."""
 
-    def __init__(self, cfg, logger: logging.Logger, shutdown_event: threading.Event, loggers: dict):
+    def __init__(
+        self,
+        cfg,
+        logger: logging.Logger,
+        shutdown_event: threading.Event,
+        loggers: dict,
+        shared_flap_state: dict | None = None,
+    ):
         """Initialize SLX scanner.
 
         Args:
@@ -33,6 +41,7 @@ class SlxScanner(BaseScanner):
             logger: Logger instance
             shutdown_event: Shutdown event
             loggers: Logger instances dict
+            shared_flap_state: Shared flap state dict from SUT scanner
         """
         super().__init__(cfg, logger, shutdown_event)
         self._eye_logger = loggers["slx_eye"]
@@ -40,6 +49,9 @@ class SlxScanner(BaseScanner):
         self._results: list[ScanResult] = []
         self._interface_cache: dict[str, tuple[str, str]] = {}
         self._scan_type: str = ""  # "eye" or "dsc"
+        self._shared_flap_state = shared_flap_state or {"flaps_detected": False}
+        self._has_rotated_since_flap: dict[str, bool] = {}  # Track per logger
+        self._log_rotation_count: dict[str, int] = {}  # Track per logger
 
     def _get_logger(self) -> logging.Logger:
         """Get appropriate logger based on scan type.
@@ -271,6 +283,7 @@ class SlxScanner(BaseScanner):
             self._eye_logger.info("=" * 39)
             self._eye_logger.info("\n%s", result)
             self._eye_logger.info("=" * 39)
+            self._check_and_rotate_log(self._eye_logger, self._cfg.sut_scan_max_log_size_kb)
             self._exit_fbr_cli()
         except Exception:
             self._eye_logger.exception(f"{LogMsg.EYE_SCAN_FAILED.value} for '{interface}'")
@@ -408,6 +421,7 @@ class SlxScanner(BaseScanner):
                 self._dsc_logger.info("=" * 39)
                 self._dsc_logger.info("\n%s", parsed_result)
                 self._dsc_logger.info("=" * 39)
+                self._check_and_rotate_log(self._dsc_logger, self._cfg.sut_scan_max_log_size_kb)
                 success_count += 1
             except Exception:
                 self._dsc_logger.exception(f"Failed DSC scan for '{interface}'")
@@ -461,7 +475,9 @@ class SlxScanner(BaseScanner):
             if not skip_eye:
                 scan_types.append("Eye")
             types_str = "+".join(scan_types) if scan_types else "None"
-            self._logger.info(f"{LogMsg.SCANNER_WORKERS_CREATED.value}: {worker_count} (SLX {types_str})")
+            self._logger.info(
+                f"{LogMsg.SCANNER_WORKERS_CREATED.value}: {worker_count} (SLX {types_str})"
+            )
             return True
         except Exception:
             self._logger.exception(LogMsg.SCANNER_START_FAILED.value)
@@ -481,6 +497,22 @@ class SlxScanner(BaseScanner):
         self._logger.info(LogMsg.SCANNER_DSC_START.value)
         dsc_thread = threading.Thread(target=self._run_dsc_scan_loop, daemon=True)
         dsc_thread.start()
+
+    def _check_and_rotate_log(self, logger: logging.Logger, max_size_kb: int) -> None:
+        """Check log file size and rotate if needed.
+
+        Args:
+            logger: Logger to check
+            max_size_kb: Maximum log size in KB
+        """
+        check_and_rotate_log(
+            logger,
+            max_size_kb,
+            self._shared_flap_state,
+            self._has_rotated_since_flap,
+            self._log_rotation_count,
+            keep_header=False,  # SLX logs are not CSV format
+        )
 
     def _interruptible_sleep(self, seconds: int, logger: logging.Logger | None = None) -> None:
         """Sleep with shutdown event checking.

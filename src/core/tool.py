@@ -80,6 +80,7 @@ class Tool:
         cmd: str,
         use_time_cmd: bool = False,
         use_shell: bool = False,
+        timeout: int | None = 20,
         logger: logging.Logger | None = None,
     ) -> CmdResult:
         """Execute command and return result.
@@ -88,6 +89,7 @@ class Tool:
             cmd: CLI command to execute
             use_time_cmd: Wrap command with 'time' for execution timing
             use_shell: Use interactive shell instead of exec_cmd
+            timeout: Command timeout in seconds (default: 20)
             logger: Optional logger to pass to connection
 
         Returns:
@@ -105,7 +107,9 @@ class Tool:
                 output = self._ssh.exec_shell_cmd(cmd)
                 cmd_result = CmdResult(cmd=cmd, stdout=output, stderr="", exec_time=0.0, rcode=0)
             else:
-                cmd_result = self._ssh.exec_cmd(cmd, use_time_cmd=use_time_cmd, logger=exec_log)
+                cmd_result = self._ssh.exec_cmd(
+                    cmd, timeout=timeout, use_time_cmd=use_time_cmd, logger=exec_log
+                )
 
             if cmd_result.success:
                 log.debug(f"{LogMsg.CMD_SUCCESS.value}: '{cmd}'")

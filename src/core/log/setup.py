@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 import sys
 
-from src.core.logging import create_formatter
+from src.core.log.formatter import create_formatter
 from src.platform.enums.log import LogName
 
 
@@ -20,7 +20,7 @@ def get_log_directory() -> Path:
     if getattr(sys, "frozen", False):
         log_dir = Path(sys.executable).parent / "logs"
     else:
-        log_dir = Path(__file__).parent.parent.parent / "logs"
+        log_dir = Path(__file__).parent.parent.parent.parent / "logs"
     log_dir.mkdir(exist_ok=True)
     timestamped_dir = log_dir / log_time_stamp
     timestamped_dir.mkdir(exist_ok=True)
@@ -37,7 +37,7 @@ def get_log_level() -> int:
         if getattr(sys, "frozen", False):
             config_file = Path(sys.executable).parent / "main_scan_cfg.json"
         else:
-            config_file = Path(__file__).parent.parent.parent / "main_scan_cfg.json"
+            config_file = Path(__file__).parent.parent.parent.parent / "main_scan_cfg.json"
 
         if not config_file.exists():
             print(f"Config file not found: {config_file}", file=sys.stderr)
