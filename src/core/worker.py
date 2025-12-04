@@ -202,7 +202,15 @@ class Worker(Thread, ITime):
                 # Special handling for DmesgFlapResult - log each flap on separate row
                 if hasattr(sample.snapshot, "flaps"):
                     for flap in sample.snapshot.flaps:
-                        self._shared_flap_state["flaps_detected"] = True  # Mark that flaps occurred
+                        # Mark flaps detected
+                        if self._shared_flap_state.get("flaps_detected", False):
+                            # Already in rotation cycle - mark new flap during rotation
+                            self._shared_flap_state["flaps_detected_during"] = True
+                        else:
+                            # Start new rotation cycle
+                            self._shared_flap_state["flaps_detected"] = True
+                            self._shared_flap_state["flaps_detected_during"] = False
+
                         row = [timestamp]
                         row.append(flap.interface)
                         row.append(flap.down_time.strftime("%Y-%m-%d %H:%M:%S.%f"))

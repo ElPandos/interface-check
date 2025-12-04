@@ -17,10 +17,21 @@ def check_and_rotate_log(
 ) -> None:
     """Check log file size and rotate if needed.
 
+    Two-flag rotation logic:
+    - flaps_detected: Main flag indicating rotation cycle is active
+    - flaps_detected_during: Secondary flag for new flaps during rotation
+
+    Behavior:
+    - If flaps_detected=True: Rotate to new file with suffix
+    - After all loggers rotate: Check flaps_detected_during
+      - If True: Keep flaps_detected=True, reset flaps_detected_during=False
+      - If False: Reset flaps_detected=False (end cycle)
+    - If flaps_detected=False: Clear file and reuse
+
     Args:
         logger: Logger to check
         max_size_kb: Maximum log size in KB
-        shared_flap_state: Shared state dict with 'flaps_detected' key
+        shared_flap_state: Dict with 'flaps_detected', 'flaps_detected_during', 'active_loggers'
         has_rotated_since_flap: Dict tracking rotation state per logger
         log_rotation_count: Dict tracking rotation count per logger
         keep_header: Whether to preserve CSV header when clearing
@@ -45,6 +56,15 @@ def check_and_rotate_log(
     if logger_key not in log_rotation_count:
         log_rotation_count[logger_key] = 0
 
+    # Initialize secondary flag if not present
+    if "flaps_detected_during" not in shared_flap_state:
+        shared_flap_state["flaps_detected_during"] = False
+    if "active_loggers" not in shared_flap_state:
+        shared_flap_state["active_loggers"] = set()
+
+    # Track this logger as active
+    shared_flap_state["active_loggers"].add(logger_key)
+
     # Rotate with suffix if flaps detected, otherwise clear file
     if shared_flap_state.get("flaps_detected", False):
         # Flaps detected - rotate to new file to preserve data
@@ -52,9 +72,30 @@ def check_and_rotate_log(
             log_file, logger, logger_key, log_rotation_count, keep_header, csv_header
         )
         has_rotated_since_flap[logger_key] = True
+
+        # Check if all active loggers have rotated
+        all_rotated = all(
+            has_rotated_since_flap.get(log, False) for log in shared_flap_state["active_loggers"]
+        )
+
+        if all_rotated:
+            # All loggers rotated - check if new flaps occurred during rotation
+            if shared_flap_state.get("flaps_detected_during", False):
+                # New flaps during rotation - keep cycling
+                shared_flap_state["flaps_detected_during"] = False
+                # Reset rotation flags for next cycle
+                for log in shared_flap_state["active_loggers"]:
+                    has_rotated_since_flap[log] = False
+            else:
+                # No new flaps - end rotation cycle
+                shared_flap_state["flaps_detected"] = False
+                for log in shared_flap_state["active_loggers"]:
+                    has_rotated_since_flap[log] = False
     else:
         # No flaps - just clear the file and reuse it
         _clear_log_file(log_file, logger, keep_header, csv_header)
+        # Reset rotation counter when clearing (start fresh)
+        log_rotation_count[logger_key] = 0
 
 
 def _rotate_to_new_file(

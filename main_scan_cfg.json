@@ -28,7 +28,7 @@
             "ens3f0np0"
         ],
         "connect_type": "remote",
-        "show_parts": [ "no_slx_eye", "no_mlxlink", "no_mlxlink_amber", "no_mtemp" ],
+        "show_parts": [ "no_slx_dsc", "no_mlxlink", "no_mlxlink_amber", "no_mtemp" ],
         "time_cmd": true,
         "required_software_packages": [
             "pciutils",
