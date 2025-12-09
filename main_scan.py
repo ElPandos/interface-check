@@ -35,11 +35,12 @@ import time
 from src.core.cli import PrettyFrame
 from src.core.enums.connect import ConnectType, ShowPartType
 from src.core.enums.messages import LogMsg
-from src.core.log.setup import initialize_logging
+from src.core.log.setup import init_logging
 from src.core.scanner import SlxScanner, SutScanner
+from src.platform.enums.log import LogName
 
 # ---------------------------------------------------------------------------- #
-#                          Graceful Shutdown Handling                          #
+#                          Graceful shutdown handling                          #
 # ---------------------------------------------------------------------------- #
 
 # Global event for coordinating graceful shutdown across all threads
@@ -64,19 +65,17 @@ signal.signal(signal.SIGINT, signal_handler)
 #                             Logging configuration                            #
 # ---------------------------------------------------------------------------- #
 
-loggers = initialize_logging()
+loggers = init_logging()
 
-main_logger = loggers["main"]
-sut_system_info_logger = loggers["sut_system_info"]
-sut_mxlink_logger = loggers["sut_mxlink"]
-sut_mxlink_amber_logger = loggers["sut_mxlink_amber"]
-sut_mtemp_logger = loggers["sut_mtemp"]
-sut_ethtool_logger = loggers["sut_ethtool"]
-sut_link_flap_logger = loggers["sut_link_flap"]
-slx_eye_logger = loggers["slx_eye"]
-slx_dsc_logger = loggers["slx_dsc"]
-log_dir = loggers["log_dir"]
-
+main_logger = loggers[LogName.MAIN.value]
+sut_system_info_logger = loggers[LogName.SUT_SYSTEM_INFO.value]
+sut_mxlink_logger = loggers[LogName.SUT_MXLINK.value]
+sut_mxlink_amber_logger = loggers[LogName.SUT_MXLINK_AMBER.value]
+sut_mtemp_logger = loggers[LogName.SUT_MTEMP.value]
+sut_ethtool_logger = loggers[LogName.SUT_ETHTOOL.value]
+sut_link_flap_logger = loggers[LogName.SUT_LINK_FLAP.value]
+slx_eye_logger = loggers[LogName.SLX_EYE.value]
+slx_dsc_logger = loggers[LogName.SLX_DSC.value]
 
 # ---------------------------------------------------------------------------- #
 #                                  JSON config                                 #
@@ -110,7 +109,7 @@ class Config:
     slx_sudo_pass: str
     slx_scan_ports: list[str]
     slx_scan_interval_sec: int
-    slx_port_toggle_enabled: bool
+    slx_port_toggle_limit: int
     slx_port_toggle_wait_sec: int
     slx_port_eyescan_wait_sec: int
 
@@ -150,7 +149,7 @@ class Config:
             slx_sudo_pass=slx["sudo_pass"],
             slx_scan_ports=slx["scan_ports"],
             slx_scan_interval_sec=slx["scan_interval_sec"],
-            slx_port_toggle_enabled=slx["port_toggling_enabled"],
+            slx_port_toggle_limit=slx["port_toggle_limit"],
             slx_port_toggle_wait_sec=slx["port_toggle_wait_sec"],
             slx_port_eyescan_wait_sec=slx["port_eye_scan_wait_sec"],
             sut_host=sut["host"],

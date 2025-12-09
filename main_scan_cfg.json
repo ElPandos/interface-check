@@ -15,7 +15,7 @@
             "0/9:1"
         ],
         "scan_interval_sec": 20,
-        "port_toggling_enabled": true,
+        "port_toggle_limit": 5,
         "port_toggle_wait_sec": 5,
         "port_eye_scan_wait_sec": 20
     },

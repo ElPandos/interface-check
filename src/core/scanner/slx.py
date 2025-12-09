@@ -52,6 +52,7 @@ class SlxScanner(BaseScanner):
         self._shared_flap_state = shared_flap_state or {"flaps_detected": False}
         self._has_rotated_since_flap: dict[str, bool] = {}  # Track per logger
         self._log_rotation_count: dict[str, int] = {}  # Track per logger
+        self._toggle_count = 0  # Track number of toggles performed
 
     def _get_logger(self) -> logging.Logger:
         """Get appropriate logger based on scan type.
@@ -235,7 +236,7 @@ class SlxScanner(BaseScanner):
         self,
         interface: str,
         port_id: str,
-        toggle_enabled: bool = False,
+        toggle_limit: int = -1,
         toggle_wait_sec: int = 5,
         scan_wait_sec: int = 20,
     ) -> None:
@@ -244,7 +245,7 @@ class SlxScanner(BaseScanner):
         Args:
             interface: Interface name
             port_id: Port identifier
-            toggle_enabled: Whether to toggle port
+            toggle_limit: -1=disabled, 0=unlimited, >0=max toggles
             toggle_wait_sec: Seconds to wait after toggle
             scan_wait_sec: Seconds to wait for scan
         """
@@ -257,10 +258,15 @@ class SlxScanner(BaseScanner):
                 f"{LogMsg.EYE_SCAN_START.value} '{interface}' (Port: '{port_id}')"
             )
 
-            if toggle_enabled:
-                self._eye_logger.info(LogMsg.TOGGLE_ENABLED.value)
+            # Check if toggling should be performed
+            should_toggle = toggle_limit == 0 or (toggle_limit > 0 and self._toggle_count < toggle_limit)
+            if should_toggle:
+                self._eye_logger.info(f"Toggle enabled (count={self._toggle_count}, limit={toggle_limit})")
                 self._toggle_interface(interface, False, toggle_wait_sec)
                 self._toggle_interface(interface, True, toggle_wait_sec)
+                self._toggle_count += 1
+            elif toggle_limit > 0:
+                self._eye_logger.info(f"Toggle limit reached ({self._toggle_count}/{toggle_limit})")
 
             self._enter_fbr_cli("for eye scan")
             self._eye_logger.info(LogMsg.BUFFER_CLEARING.value)
@@ -354,7 +360,7 @@ class SlxScanner(BaseScanner):
                 self._run_eye_scan(
                     interface_name,
                     port_id,
-                    self._cfg.slx_port_toggle_enabled,
+                    self._cfg.slx_port_toggle_limit,
                     self._cfg.slx_port_toggle_wait_sec,
                     self._cfg.slx_port_eyescan_wait_sec,
                 )

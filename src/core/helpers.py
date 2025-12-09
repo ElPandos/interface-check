@@ -6,7 +6,10 @@ This module provides reusable utility functions for:
 - Common data transformations
 """
 
+from pathlib import Path
 from typing import Any
+
+import pandas as pd
 
 
 def get_attr_value(obj: Any, attr_name: str, default: str = "") -> str:
@@ -111,3 +114,101 @@ def truncate_string(text: str, max_length: int = 100, suffix: str = "...") -> st
     if len(text) <= max_length:
         return text
     return text[: max_length - len(suffix)] + suffix
+
+
+def get_latest_log_dir() -> str:
+    """Get the latest log directory path.
+
+    Returns:
+        str: Path to latest log directory (e.g., 'logs/20251201_135420/')
+    """
+    logs_dir = Path("logs")
+    if not logs_dir.exists():
+        return ""
+
+    subdirs = [d for d in logs_dir.iterdir() if d.is_dir()]
+    if not subdirs:
+        return ""
+
+    latest = max(subdirs, key=lambda d: d.name)
+    return f"{latest}/"
+
+
+def get_files_with_prefix(folder: str, prefix: str) -> list[Path]:
+    """Get list of files in folder that start with prefix.
+
+    Args:
+        folder: Folder path
+        prefix: File name prefix (e.g., 'sut_ethtool')
+
+    Returns:
+        list[Path]: Sorted list of matching files
+    """
+    folder_path = Path(folder)
+    if not folder_path.exists():
+        return []
+    return sorted(folder_path.glob(f"{prefix}*"))
+
+
+def parse_amber_ts(s: str) -> pd.Timestamp:
+    """Parse amber timestamp with multiple format attempts.
+
+    Args:
+        s: Timestamp string to parse
+
+    Returns:
+        pd.Timestamp: Parsed timestamp or NaT if parsing fails
+    """
+    for fmt in ["%m/%d/%y-%H:%M:%S.%f", "%m/%d/%Y-%H:%M:%S.%f"]:
+        try:
+            return pd.to_datetime(s, format=fmt)
+        except Exception:
+            pass
+    try:
+        return pd.to_datetime(s)
+    except Exception:
+        return pd.NaT
+
+
+def strip_log_prefix(line: str) -> str:
+    """Remove logging prefix from log line.
+
+    Args:
+        line: Log line with prefix
+
+    Returns:
+        str: Raw data without logging prefix
+    """
+    parts = line.split(" - ", 3)
+    return parts[3] if len(parts) > 3 else line
+
+
+def strip_log_file(input_file: str | Path, output_file: str | Path) -> None:
+    """Strip logging prefix from all lines in file.
+
+    Args:
+        input_file: Input log file path
+        output_file: Output file path for cleaned data
+    """
+    input_path = Path(input_file)
+    output_path = Path(output_file)
+
+    with input_path.open() as f_in, output_path.open("w") as f_out:
+        for line in f_in:
+            # Skip WARNING, ERROR, and time command output lines
+            if " - WARNING " in line or " - ERROR " in line or ("user" in line and "system" in line) or "pagefaults" in line:
+                continue
+            f_out.write(strip_log_prefix(line.rstrip()) + "\n")
+
+
+def strip_log_prefix(line: str) -> str:
+    """Remove logging prefix from log line to extract raw CSV data.
+
+    Args:
+        line: Log line with prefix (e.g., '2025-12-04 12:26:13,969 - sut_link_flap - INFO - data')
+
+    Returns:
+        str: Raw data without logging prefix
+    """
+    parts = line.split(" - ", 3)
+    return parts[3] if len(parts) > 3 else line
