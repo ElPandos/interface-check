@@ -74,6 +74,7 @@ sut_mxlink_amber_logger = loggers[LogName.SUT_MXLINK_AMBER.value]
 sut_mtemp_logger = loggers[LogName.SUT_MTEMP.value]
 sut_ethtool_logger = loggers[LogName.SUT_ETHTOOL.value]
 sut_link_flap_logger = loggers[LogName.SUT_LINK_FLAP.value]
+sut_tx_errors_logger = loggers[LogName.SUT_TX_ERRORS.value]
 slx_eye_logger = loggers[LogName.SLX_EYE.value]
 slx_dsc_logger = loggers[LogName.SLX_DSC.value]
 
@@ -98,6 +99,7 @@ class Config:
     """
 
     log_level: str
+    log_rotation_timeout_sec: int
 
     jump_host: str
     jump_user: str
@@ -121,9 +123,11 @@ class Config:
     sut_connect_type: ConnectType
     sut_show_parts: list[ShowPartType]
     sut_time_cmd: bool
+    sut_reload_driver: bool
     sut_required_software_packages: list[str]
     sut_scan_interval_low_res_ms: int
     sut_scan_interval_high_res_ms: int
+    sut_scan_interval_tx_errors_ms: int
     sut_scan_max_log_size_kb: int
     worker_collect: bool
 
@@ -140,6 +144,7 @@ class Config:
         j, slx, sut = data["jump"], data["slx"], data["sut"]
         return cls(
             log_level=data.get("log_level", "info"),
+            log_rotation_timeout_sec=data.get("log_rotation_timeout_sec", 300),
             jump_host=j["host"],
             jump_user=j["user"],
             jump_pass=j["pass"],
@@ -160,9 +165,11 @@ class Config:
             sut_connect_type=ConnectType(sut.get("connect_type", "local")),
             sut_show_parts=[ShowPartType(p) for p in sut.get("show_parts", [])],
             sut_time_cmd=sut.get("time_cmd", False),
+            sut_reload_driver=sut.get("reload_driver", False),
             sut_required_software_packages=sut["required_software_packages"],
             sut_scan_interval_low_res_ms=sut["scan_interval_low_res_ms"],
             sut_scan_interval_high_res_ms=sut["scan_interval_high_res_ms"],
+            sut_scan_interval_tx_errors_ms=sut["scan_interval_tx_errors_ms"],
             sut_scan_max_log_size_kb=sut["scan_max_log_size_kb"],
             worker_collect=data.get("worker_collect", False),
         )

@@ -18,6 +18,8 @@ from src.core.parser.sut import (
     SutMlxlinkParser,
     SutMstStatusVersionParser,
     SutTimeParser,
+    SutTxErrorsParser,
+    TxErrorsResult,
     ValueWithUnit,
 )
 
@@ -37,5 +39,7 @@ __all__ = [
     "SutMlxlinkParser",
     "SutMstStatusVersionParser",
     "SutTimeParser",
+    "SutTxErrorsParser",
+    "TxErrorsResult",
     "ValueWithUnit",
 ]

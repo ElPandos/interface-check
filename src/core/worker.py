@@ -108,6 +108,21 @@ class Worker(Thread, ITime):
         self._log_rotation_count_dict = {self._logger.name: 0}
         self._has_rotated_since_flap_dict = {self._logger.name: False}
 
+    def _build_csv_header(self) -> str:
+        """Build CSV header from worker config.
+
+        Returns:
+            CSV header string
+        """
+        headers = ["begin_timestamp"]
+        if hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd:
+            headers.append("time_cmd_ms")
+        if self._worker_cfg.attributes:
+            headers.extend(self._worker_cfg.attributes)
+        else:
+            headers.append("value")
+        return ",".join(headers)
+
     def run(self) -> None:
         """Main thread execution loop."""
         self.start_timer()
@@ -121,16 +136,7 @@ class Worker(Thread, ITime):
 
         # Write header unless skip_header is True
         if not self._worker_cfg.skip_header:
-            headers = [
-                "begin_timestamp",
-            ]
-            if self._worker_cfg.attributes is not None:
-                headers.extend(self._worker_cfg.attributes)
-            else:
-                headers.append("value")
-
-            # Write raw CSV header directly to file (bypass logging formatter)
-            self._write_raw_csv(",".join(headers))
+            self._write_raw_csv(self._build_csv_header())
 
         reconnect = 0
         while not self._stop_event.is_set():
@@ -199,19 +205,23 @@ class Worker(Thread, ITime):
                     sample.begin.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] if sample.begin else ""
                 )
 
+                # Skip logging if parser returned None (no change detected)
+                if sample.snapshot is None:
+                    reconnect = 0
+                    sleep_time_ms = self._worker_cfg.scan_interval_ms
+                    time.sleep(float(sleep_time_ms / 1000))
+                    continue
+
                 # Special handling for DmesgFlapResult - log each flap on separate row
                 if hasattr(sample.snapshot, "flaps"):
                     for flap in sample.snapshot.flaps:
-                        # Mark flaps detected
-                        if self._shared_flap_state.get("flaps_detected", False):
-                            # Already in rotation cycle - mark new flap during rotation
-                            self._shared_flap_state["flaps_detected_during"] = True
-                        else:
-                            # Start new rotation cycle
-                            self._shared_flap_state["flaps_detected"] = True
-                            self._shared_flap_state["flaps_detected_during"] = False
+                        # Mark flaps detected with timestamp
+                        self._shared_flap_state["flaps_detected"] = True
+                        self._shared_flap_state["last_flap_time"] = time.time()
 
                         row = [timestamp]
+                        if hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd:
+                            row.append(f"{parsed_ms:.3f}")
                         row.append(flap.interface)
                         row.append(flap.down_time.strftime("%Y-%m-%d %H:%M:%S.%f"))
                         row.append(flap.up_time.strftime("%Y-%m-%d %H:%M:%S.%f"))
@@ -219,6 +229,8 @@ class Worker(Thread, ITime):
                         self._logger.info(",".join(row))
                 else:
                     row = [timestamp]
+                    if hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd:
+                        row.append(f"{parsed_ms:.3f}")
                     if self._worker_cfg.attributes is not None:
                         row.extend(
                             get_attr_value(sample.snapshot, attr)
@@ -303,14 +315,6 @@ class Worker(Thread, ITime):
         if self._worker_cfg.is_flap_logger:
             return
 
-        # Build CSV header from worker config
-        headers = ["begin_timestamp"]
-        if self._worker_cfg.attributes:
-            headers.extend(self._worker_cfg.attributes)
-        else:
-            headers.append("value")
-        csv_header = ",".join(headers)
-
         # Use common rotation logic with CSV header preservation
         check_and_rotate_log(
             self._logger,
@@ -319,7 +323,8 @@ class Worker(Thread, ITime):
             self._has_rotated_since_flap_dict,
             self._log_rotation_count_dict,
             keep_header=True,
-            csv_header=csv_header,
+            csv_header=self._build_csv_header(),
+            timeout_sec=self._cfg.log_rotation_timeout_sec,
         )
 
     def _log_mem_size(self, collection: Any):

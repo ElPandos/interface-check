@@ -12,6 +12,7 @@ from src.core.parser import (
     SutEthtoolModuleParser,
     SutMlxlinkAmberParser,
     SutMlxlinkParser,
+    SutTxErrorsParser,
 )
 from src.core.worker import WorkerConfig
 from src.models.config import Host
@@ -39,6 +40,7 @@ class SutScanner(BaseScanner):
         self._sut_mtemp_logger = loggers["sut_mtemp"]
         self._sut_ethtool_logger = loggers["sut_ethtool"]
         self._sut_link_flap_logger = loggers["sut_link_flap"]
+        self._sut_tx_errors_logger = loggers["sut_tx_errors"]
         self._system_info_logger = loggers["sut_system_info"]
         self._software_manager: SoftwareManager | None = None
 
@@ -188,6 +190,60 @@ class SutScanner(BaseScanner):
         except Exception:
             self._logger.exception(LogMsg.SYS_INFO_FAILED.value)
 
+    def _reload_drivers(self) -> bool:
+        """Reload mlx5 network drivers.
+
+        Returns:
+            bool: True if successful
+        """
+        try:
+            self._logger.info("Reloading mlx5 drivers...")
+            interfaces = self._cfg.sut_scan_interfaces
+
+            # Take down links
+            for iface in interfaces:
+                result = self._ssh.exec_cmd(f"sudo ip link set {iface} down", 30)
+                if result.rcode != 0:
+                    self._logger.error(f"Failed to bring down {iface}: {result.stderr}")
+                    return False
+            self._logger.debug(f"Links down: {interfaces}")
+
+            # Remove drivers
+            result = self._ssh.exec_cmd("sudo modprobe -r mlx5_ib", 120)
+            if result.rcode != 0:
+                self._logger.warning(f"Failed to remove mlx5_ib: {result.stderr}")
+            result = self._ssh.exec_cmd("sudo modprobe -r mlx5_core", 120)
+            if result.rcode != 0:
+                self._logger.error(f"Failed to remove mlx5_core: {result.stderr}")
+                return False
+            self._logger.debug("Drivers removed")
+
+            # Load drivers
+            result = self._ssh.exec_cmd("sudo modprobe mlx5_core", 120)
+            if result.rcode != 0:
+                self._logger.error(f"Failed to load mlx5_core: {result.stderr}")
+                return False
+            result = self._ssh.exec_cmd("sudo modprobe mlx5_ib", 120)
+            if result.rcode != 0:
+                self._logger.warning(f"Failed to load mlx5_ib: {result.stderr}")
+            self._logger.debug("Drivers loaded")
+
+            # Wait for driver initialization
+            import time
+            time.sleep(2)
+
+            # Bring up links
+            for iface in interfaces:
+                result = self._ssh.exec_cmd(f"sudo ip link set {iface} up", 30)
+                if result.rcode != 0:
+                    self._logger.error(f"Failed to bring up {iface}: {result.stderr}")
+                    return False
+            self._logger.info(f"Driver reload complete: {interfaces}")
+            return True
+        except Exception:
+            self._logger.exception("Driver reload failed")
+            return False
+
     def run(self) -> None:
         """Run SUT scanning."""
         if not self.connect():
@@ -207,6 +263,10 @@ class SutScanner(BaseScanner):
             self.log_system_info(self._system_info_logger)
         else:
             self._logger.info(LogMsg.SYS_INFO_SKIP.value)
+
+        if self._cfg.sut_reload_driver:
+            if not self._reload_drivers():
+                return
 
         self._logger.info(
             f"{LogMsg.SCANNER_SUT_SCAN_INTERFACES.value}: {self._cfg.sut_scan_interfaces}"
@@ -232,6 +292,7 @@ class SutScanner(BaseScanner):
             skip_mtemp = ShowPartType.NO_MTEMP in self._cfg.sut_show_parts
             skip_ethtool = ShowPartType.NO_ETHTOOL in self._cfg.sut_show_parts
             skip_dmesg = ShowPartType.NO_DMESG in self._cfg.sut_show_parts
+            skip_tx_errors = ShowPartType.NO_TX_ERRORS in self._cfg.sut_show_parts
 
             worker_count = 0
             for interface in self._cfg.sut_scan_interfaces:
@@ -253,6 +314,9 @@ class SutScanner(BaseScanner):
                     worker_count += 1
                 if not skip_dmesg:
                     self._create_dmesg_worker(interface)
+                    worker_count += 1
+                if not skip_tx_errors:
+                    self._create_tx_errors_worker(interface)
                     worker_count += 1
 
             self._logger.info(
@@ -374,6 +438,24 @@ class SutScanner(BaseScanner):
         worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_high_res_ms
         worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
         worker_cfg.is_flap_logger = True
+
+        self._add_worker_to_manager(worker_cfg)
+
+    def _create_tx_errors_worker(self, interface: str) -> None:
+        """Create tx_errors worker.
+
+        Args:
+            interface: Network interface name
+        """
+        attributes = ["tx_errors"]
+
+        worker_cfg = WorkerConfig()
+        worker_cfg.command = f"cat /sys/class/net/{interface}/statistics/tx_errors"
+        worker_cfg.parser = SutTxErrorsParser()
+        worker_cfg.attributes = attributes
+        worker_cfg.logger = self._sut_tx_errors_logger
+        worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_tx_errors_ms
+        worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
 
         self._add_worker_to_manager(worker_cfg)
 

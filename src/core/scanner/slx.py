@@ -259,9 +259,13 @@ class SlxScanner(BaseScanner):
             )
 
             # Check if toggling should be performed
-            should_toggle = toggle_limit == 0 or (toggle_limit > 0 and self._toggle_count < toggle_limit)
+            should_toggle = toggle_limit == 0 or (
+                toggle_limit > 0 and self._toggle_count < toggle_limit
+            )
             if should_toggle:
-                self._eye_logger.info(f"Toggle enabled (count={self._toggle_count}, limit={toggle_limit})")
+                self._eye_logger.info(
+                    f"Toggle enabled (count={self._toggle_count}, limit={toggle_limit})"
+                )
                 self._toggle_interface(interface, False, toggle_wait_sec)
                 self._toggle_interface(interface, True, toggle_wait_sec)
                 self._toggle_count += 1
@@ -518,6 +522,7 @@ class SlxScanner(BaseScanner):
             self._has_rotated_since_flap,
             self._log_rotation_count,
             keep_header=False,  # SLX logs are not CSV format
+            timeout_sec=self._cfg.log_rotation_timeout_sec,
         )
 
     def _interruptible_sleep(self, seconds: int, logger: logging.Logger | None = None) -> None:
