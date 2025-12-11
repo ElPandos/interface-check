@@ -6,11 +6,10 @@ import re
 import threading
 import time
 
-from src.core.connect import SshConnection
-from src.core.enums.connect import HostType, ShowPartType
+from src.core.connect import create_ssh_connection
+from src.core.enums.connect import HostType, PortState, ShowPartType
 from src.core.enums.messages import LogMsg
 from src.core.log.rotation import check_and_rotate_log
-from src.models.config import Host
 from src.models.scanner import BaseScanner
 
 
@@ -88,7 +87,7 @@ class SlxScanner(BaseScanner):
         try:
             self._logger.info(f"{LogMsg.SCANNER_SLX_CONN_HOST.value}: {self._cfg.slx_host}")
             self._logger.debug(f"{LogMsg.SCANNER_SUT_JUMP_HOST.value}: {self._cfg.jump_host}")
-            self._ssh = _create_ssh_connection(self._cfg, HostType.SLX)
+            self._ssh = create_ssh_connection(self._cfg, HostType.SLX)
 
             if not self._ssh.connect():
                 self._logger.error(LogMsg.SSH_CONN_FAILED.value)
@@ -106,10 +105,11 @@ class SlxScanner(BaseScanner):
             result = self._exec_with_logging(self._cfg.slx_sudo_pass, "password")
             self._logger.debug(f"{LogMsg.MAIN_PASSWORD_AUTH_RESULT.value}: {result}")
             self._logger.info(f"{LogMsg.SSH_CONN_SUCCESS.value} (in Linux shell)")
-            return True  # noqa: TRY300
         except Exception:
             self._logger.exception(LogMsg.MAIN_CONN_FAILED.value)
             return False
+        else:
+            return True
 
     def _get_port_id(self, interface: str) -> str | None:
         """Extract port ID from cmsh output.
@@ -140,10 +140,11 @@ class SlxScanner(BaseScanner):
                 )
                 return port_id
             logger.warning(f"{LogMsg.PORT_ID_NOT_FOUND.value} '{interface}'")
-            return None  # noqa: TRY300
         except Exception:
             logger.exception(f"Failed to get port ID for '{interface}'")
             return None
+        else:
+            return port_id
 
     def _enter_fbr_cli(self, purpose: str = "") -> None:
         """Enter fbr-CLI.
@@ -202,18 +203,19 @@ class SlxScanner(BaseScanner):
                 )
                 return interface_name
             logger.warning(f"{LogMsg.INTERFACE_NOT_FOUND.value}: '{port_id}'")
-            return None  # noqa: TRY300
         except Exception:
             logger.exception(f"Failed to get interface name for port: '{port_id}'")
             return None
+        else:
+            return interface_name
 
-    def _toggle_interface(self, port_name: str, enable: bool, wait_sec: int = 5) -> None:
+    def _toggle_interface(self, port_name: str, state: PortState, wait_sec: int = 5) -> None:
         """Toggle interface state.
 
         Args:
             port_name: Interface name
-            enable: True to enable, False to disable
-            wait_sec: Seconds to wait
+            state: Port state (PortState.ON or PortState.OFF)
+            wait_sec: Seconds to wait after toggle
         """
         logger = self._get_logger()
         if not self._ssh:
@@ -221,10 +223,9 @@ class SlxScanner(BaseScanner):
             return
 
         try:
-            state = "ON" if enable else "OFF"
-            logger.info(f"Toggling port '{port_name}': {state}")
+            logger.info(f"Toggling port '{port_name}': {state.display_name}")
             self._enter_fbr_cli("for toggle")
-            cmd = f"port {port_name} enable={'true' if enable else 'false'}"
+            cmd = f"port {port_name} enable={state.value}"
             self._exec_with_logging(cmd)
             self._exit_fbr_cli()
             logger.debug(f"{LogMsg.TOGGLE_WAITING.value}: {wait_sec} seconds...")
@@ -266,8 +267,8 @@ class SlxScanner(BaseScanner):
                 self._eye_logger.info(
                     f"Toggle enabled (count={self._toggle_count}, limit={toggle_limit})"
                 )
-                self._toggle_interface(interface, False, toggle_wait_sec)
-                self._toggle_interface(interface, True, toggle_wait_sec)
+                self._toggle_interface(interface, PortState.OFF, toggle_wait_sec)
+                self._toggle_interface(interface, PortState.ON, toggle_wait_sec)
                 self._toggle_count += 1
             elif toggle_limit > 0:
                 self._eye_logger.info(f"Toggle limit reached ({self._toggle_count}/{toggle_limit})")
@@ -488,10 +489,11 @@ class SlxScanner(BaseScanner):
             self._logger.info(
                 f"{LogMsg.SCANNER_WORKERS_CREATED.value}: {worker_count} (SLX {types_str})"
             )
-            return True
         except Exception:
             self._logger.exception(LogMsg.SCANNER_START_FAILED.value)
             return False
+        else:
+            return True
 
     def _create_eye_worker(self) -> None:
         """Create eye scan worker thread."""
@@ -615,35 +617,3 @@ class SlxScanner(BaseScanner):
                     time.sleep(5)
 
         return scan_count
-
-
-def _create_ssh_connection(cfg, host_type: HostType) -> SshConnection:
-    """Create SSH connection with jump host.
-
-    Args:
-        cfg: Configuration object
-        host_type: Target host type (SLX or SUT)
-
-    Returns:
-        SshConnection: Configured SSH connection
-    """
-    jump_host = Host(
-        ip=cfg.jump_host,
-        username=cfg.jump_user,
-        password=cfg.jump_pass,
-    )
-
-    if host_type == HostType.SLX:
-        return SshConnection(
-            host=cfg.slx_host,
-            username=cfg.slx_user,
-            password=cfg.slx_pass,
-            jump_hosts=[jump_host],
-        )
-    return SshConnection(
-        host=cfg.sut_host,
-        username=cfg.sut_user,
-        password=cfg.sut_pass,
-        jump_hosts=[jump_host],
-        sudo_pass=cfg.sut_sudo_pass,
-    )

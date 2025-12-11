@@ -19,6 +19,7 @@ class SutTxErrorsParser(IParser):
         IParser.__init__(self, LogName.MAIN.value)
         self._baseline: int | None = None
         self._current: int | None = None
+        self._first_parse: bool = True
 
     @property
     def name(self) -> str:
@@ -40,13 +41,16 @@ class SutTxErrorsParser(IParser):
             self._current = None
 
     def get_result(self) -> TxErrorsResult | None:
-        """Get parsed result only if value changed from baseline.
+        """Get parsed result on first parse or if value changed from baseline.
 
         Returns:
-            TxErrorsResult if value changed, None otherwise
+            TxErrorsResult on first parse or if value changed, None otherwise
         """
         if self._current is None or self._baseline is None:
             return None
+        if self._first_parse:
+            self._first_parse = False
+            return TxErrorsResult(tx_errors=self._current)
         if self._current == self._baseline:
             return None
         return TxErrorsResult(tx_errors=self._current)

@@ -45,17 +45,19 @@ from src.platform.enums.log import LogName
 
 # Global event for coordinating graceful shutdown across all threads
 shutdown_event = threading.Event()
+_shutdown_triggered = False
 
 
 def signal_handler(_signum, _frame) -> None:
     """Handle Ctrl+C signal for graceful shutdown.
 
-    Sets shutdown event to trigger cleanup in finally block.
+    Sets shutdown event to trigger cleanup. Does not perform I/O
+    to avoid reentrant call errors.
     """
-    frame = PrettyFrame()
-    msg = frame.build("SHUTDOWN SIGNAL", ["Ctrl+C pressed. Shutting down gracefully..."])
-    sys.stderr.write(msg)
-    shutdown_event.set()
+    global _shutdown_triggered
+    if not _shutdown_triggered:
+        _shutdown_triggered = True
+        shutdown_event.set()
 
 
 # Register signal handler for SIGINT (Ctrl+C)
@@ -305,6 +307,13 @@ def main():  # noqa: PLR0915
     _logger.info("Main loop: waiting for shutdown signal...")
     while not shutdown_event.is_set():
         time.sleep(1)
+
+    # Print shutdown message after signal detected
+    if _shutdown_triggered:
+        frame = PrettyFrame()
+        msg = frame.build("SHUTDOWN SIGNAL", ["Ctrl+C pressed. Shutting down gracefully..."])
+        sys.stderr.write(msg)
+        sys.stderr.flush()
 
     # ---------------------------------------------------------------------------- #
     #                                 Stop workers                                 #

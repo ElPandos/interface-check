@@ -29,9 +29,9 @@
             "ens3f0np0"
         ],
         "connect_type": "remote",
-        "show_parts": [ "no_slx_dsc", "no_mlxlink", "no_mlxlink_amber", "no_mtemp" ],
+        "show_parts": [ "no_slx_dsc", "no_mlxlink", "no_mlxlink_amber", "no_mtemp", "no_sys_info" ],
         "time_cmd": true,
-        "reload_driver": false,
+        "reload_driver": true,
         "required_software_packages": [
             "pciutils",
             "ethtool",
@@ -45,6 +45,6 @@
         "scan_interval_low_res_ms": 500,
         "scan_interval_high_res_ms": 20,
         "scan_interval_tx_errors_ms": 50,
-        "scan_max_log_size_kb": 10
+        "scan_max_log_size_kb": 20
     }
 }

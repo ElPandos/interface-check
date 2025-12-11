@@ -17,6 +17,22 @@ class HostType(str, Enum):
     SUT = "sut"
 
 
+class PortState(str, Enum):
+    """Port/interface state for toggling."""
+
+    ON = "true"
+    OFF = "false"
+
+    @property
+    def display_name(self) -> str:
+        """Get display name for logging.
+
+        Returns:
+            Display name (ON/OFF)
+        """
+        return self.name
+
+
 class ShowPartType(str, Enum):
     """Parts to skip in system scanning.
 

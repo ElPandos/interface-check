@@ -37,6 +37,7 @@ class WorkerConfig:
         command: Shell command to execute
         pre_command: Optional command to execute once before loop starts
         parser: Optional parser class to process command output
+        attributes: List of attribute names to extract from parsed results
         logger: Logger for worker
         scan_interval_ms: Polling interval in milliseconds
         max_log_size_kb: Maximum log file size in KB before rotation (default 102400KB = 100MB)
@@ -108,6 +109,15 @@ class Worker(Thread, ITime):
         self._log_rotation_count_dict = {self._logger.name: 0}
         self._has_rotated_since_flap_dict = {self._logger.name: False}
 
+    @property
+    def _time_cmd_enabled(self) -> bool:
+        """Check if time command parsing is enabled.
+
+        Returns:
+            True if time_cmd is enabled
+        """
+        return hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd
+
     def _build_csv_header(self) -> str:
         """Build CSV header from worker config.
 
@@ -115,7 +125,7 @@ class Worker(Thread, ITime):
             CSV header string
         """
         headers = ["begin_timestamp"]
-        if hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd:
+        if self._time_cmd_enabled:
             headers.append("time_cmd_ms")
         if self._worker_cfg.attributes:
             headers.extend(self._worker_cfg.attributes)
@@ -123,8 +133,121 @@ class Worker(Thread, ITime):
             headers.append("value")
         return ",".join(headers)
 
+    def _extract_timing_data(self, sample: Sample) -> tuple[float, float, float]:
+        """Extract timing data from sample command result.
+
+        Args:
+            sample: Sample with command result
+
+        Returns:
+            Tuple of (send_ms, read_ms, parsed_ms)
+        """
+        send_ms = 0.0
+        read_ms = 0.0
+        parsed_ms = 0.0
+
+        if sample.cmd_result:
+            send_ms = sample.cmd_result.send_ms
+            read_ms = sample.cmd_result.read_ms
+            parsed_ms = sample.cmd_result.parsed_ms
+
+            if self._time_cmd_enabled:
+                time_parser = SutTimeParser(self._logger.name)
+                time_parser.parse(sample.cmd_result.stderr)
+                parsed_ms = time_parser.get_result()
+
+        return send_ms, read_ms, parsed_ms
+
+    def _record_statistics(
+        self,
+        cmd_duration_ms: float,
+        send_ms: float,
+        read_ms: float,
+        parsed_ms: float,
+        cmd_start: float,
+    ) -> None:
+        """Record command duration statistics.
+
+        Args:
+            cmd_duration_ms: Total command duration
+            send_ms: Send time
+            read_ms: Read time
+            parsed_ms: Parse time
+            cmd_start: Command start timestamp
+        """
+        if hasattr(self, "_statistics") and self._statistics:
+            cycle_ms = cmd_duration_ms + self._worker_cfg.scan_interval_ms
+            self._statistics.record_duration(
+                self._worker_cfg.command,
+                cmd_duration_ms,
+                send_ms=send_ms,
+                read_ms=read_ms,
+                cycle_ms=cycle_ms,
+                parsed_ms=parsed_ms,
+                timestamp=cmd_start,
+            )
+
+    def _parse_sample_output(self, sample: Sample) -> None:
+        """Parse sample output using configured parser.
+
+        Args:
+            sample: Sample to parse (modified in place)
+        """
+        if self._worker_cfg.parser is not None:
+            if hasattr(self._worker_cfg.parser, "_logger"):
+                self._worker_cfg.parser._logger = self._logger  # noqa: SLF001
+            self._worker_cfg.parser.parse(sample.snapshot)
+            sample.snapshot = self._worker_cfg.parser.get_result()
+        elif sample.snapshot is not None:
+            sample.snapshot = sample.snapshot.strip()
+        else:
+            sample.snapshot = ""
+
+    def _log_flap_data(self, timestamp: str, parsed_ms: float, flap: Any) -> None:
+        """Log flap detection data.
+
+        Args:
+            timestamp: Begin timestamp
+            parsed_ms: Parsed time in milliseconds
+            flap: Flap object with interface, down_time, up_time, duration
+        """
+        self._shared_flap_state["flaps_detected"] = True
+        self._shared_flap_state["last_flap_time"] = time.time()
+
+        row = [timestamp]
+        if self._time_cmd_enabled:
+            row.append(f"{parsed_ms:.3f}")
+        row.append(flap.interface)
+        row.append(flap.down_time.strftime("%Y-%m-%d %H:%M:%S.%f"))
+        row.append(flap.up_time.strftime("%Y-%m-%d %H:%M:%S.%f"))
+        row.append(str(flap.duration))
+        self._logger.info(",".join(row))
+
+    def _log_sample_data(self, timestamp: str, parsed_ms: float, sample: Sample) -> None:
+        """Log regular sample data.
+
+        Args:
+            timestamp: Begin timestamp
+            parsed_ms: Parsed time in milliseconds
+            sample: Sample with snapshot data
+        """
+        row = [timestamp]
+        if self._time_cmd_enabled:
+            row.append(f"{parsed_ms:.3f}")
+        if self._worker_cfg.attributes is not None:
+            row.extend(
+                get_attr_value(sample.snapshot, attr) for attr in self._worker_cfg.attributes
+            )
+        else:
+            row.append(sample.snapshot)
+        self._logger.info(",".join(row))
+
     def run(self) -> None:
-        """Main thread execution loop."""
+        """Main thread execution loop.
+
+        Executes commands at configured intervals, parses output, logs data,
+        and handles reconnection on failures. Runs until stop event is set.
+        """
         self.start_timer()
 
         # Execute pre_command once before loop starts
@@ -157,45 +280,12 @@ class Worker(Thread, ITime):
                 if self._stop_event.is_set():
                     break
 
-                # Extract timing data from command result (parsing done in Sample.collect)
-                send_ms = 0.0
-                read_ms = 0.0
-                parsed_ms = 0.0
-                if sample.cmd_result:
-                    send_ms = sample.cmd_result.send_ms
-                    read_ms = sample.cmd_result.read_ms
-                    parsed_ms = sample.cmd_result.parsed_ms
+                # Extract timing data and record statistics
+                send_ms, read_ms, parsed_ms = self._extract_timing_data(sample)
+                self._record_statistics(cmd_duration_ms, send_ms, read_ms, parsed_ms, cmd_start)
 
-                    # Parse time command output if time_cmd enabled (time writes to stderr)
-                    if hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd:
-                        time_parser = SutTimeParser(self._logger.name)
-                        time_parser.parse(sample.cmd_result.stderr)
-                        parsed_ms = time_parser.get_result()
-
-                # Record duration in statistics (if statistics object provided)
-                if hasattr(self, "_statistics") and self._statistics:
-                    cycle_ms = cmd_duration_ms + self._worker_cfg.scan_interval_ms
-                    self._statistics.record_duration(
-                        self._worker_cfg.command,
-                        cmd_duration_ms,
-                        send_ms=send_ms,
-                        read_ms=read_ms,
-                        cycle_ms=cycle_ms,
-                        parsed_ms=parsed_ms,
-                        timestamp=cmd_start,
-                    )
-
-                # Parse output if parser provided
-                if self._worker_cfg.parser is not None:
-                    # Set parser logger to worker logger if it has _logger attribute
-                    if hasattr(self._worker_cfg.parser, "_logger"):
-                        self._worker_cfg.parser._logger = self._logger
-                    self._worker_cfg.parser.parse(sample.snapshot)
-                    sample.snapshot = self._worker_cfg.parser.get_result()
-                elif sample.snapshot is not None:
-                    sample.snapshot = sample.snapshot.strip()
-                else:
-                    sample.snapshot = ""
+                # Parse output
+                self._parse_sample_output(sample)
 
                 # Add to thread-safe queue
                 self._collected_samples.put(sample)
@@ -212,33 +302,12 @@ class Worker(Thread, ITime):
                     time.sleep(float(sleep_time_ms / 1000))
                     continue
 
-                # Special handling for DmesgFlapResult - log each flap on separate row
+                # Log data
                 if hasattr(sample.snapshot, "flaps"):
                     for flap in sample.snapshot.flaps:
-                        # Mark flaps detected with timestamp
-                        self._shared_flap_state["flaps_detected"] = True
-                        self._shared_flap_state["last_flap_time"] = time.time()
-
-                        row = [timestamp]
-                        if hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd:
-                            row.append(f"{parsed_ms:.3f}")
-                        row.append(flap.interface)
-                        row.append(flap.down_time.strftime("%Y-%m-%d %H:%M:%S.%f"))
-                        row.append(flap.up_time.strftime("%Y-%m-%d %H:%M:%S.%f"))
-                        row.append(str(flap.duration))
-                        self._logger.info(",".join(row))
+                        self._log_flap_data(timestamp, parsed_ms, flap)
                 else:
-                    row = [timestamp]
-                    if hasattr(self._cfg, "sut_time_cmd") and self._cfg.sut_time_cmd:
-                        row.append(f"{parsed_ms:.3f}")
-                    if self._worker_cfg.attributes is not None:
-                        row.extend(
-                            get_attr_value(sample.snapshot, attr)
-                            for attr in self._worker_cfg.attributes
-                        )
-                    else:
-                        row.append(sample.snapshot)
-                    self._logger.info(",".join(row))
+                    self._log_sample_data(timestamp, parsed_ms, sample)
 
                 # Check log size and rotate if needed
                 self._check_and_rotate_log()
@@ -250,14 +319,18 @@ class Worker(Thread, ITime):
             except KeyboardInterrupt:
                 self._logger.info(f"{LogMsg.WORKER_USER_EXIT.value}: {self.name}")
                 break
-            except Exception:
-                self._logger.exception(LogMsg.WORKER_STOPPED.value)
+            except Exception as e:
+                self._logger.exception(f"{LogMsg.WORKER_STOPPED.value}: {type(e).__name__}: {e}")
                 reconnect += 1
                 # Don't attempt reconnection - SSH connection is shared and managed externally
-                self._logger.warning(
-                    f"{LogMsg.WORKER_STOPPED.value} - Attempt {reconnect}/{self.MAX_RECONNECT}"
+                self._logger.error(
+                    f"Worker error - Attempt {reconnect}/{self.MAX_RECONNECT} - Command: {self._worker_cfg.command}"
                 )
-                time.sleep(1)  # Brief pause before retry
+                if reconnect >= self.MAX_RECONNECT:
+                    self._logger.critical(
+                        f"Worker {self.name} exceeded max reconnect attempts. Thread will exit."
+                    )
+                time.sleep(min(reconnect, 5))  # Exponential backoff up to 5s
 
         self.stop_timer()
 
@@ -327,7 +400,7 @@ class Worker(Thread, ITime):
             timeout_sec=self._cfg.log_rotation_timeout_sec,
         )
 
-    def _log_mem_size(self, collection: Any):
+    def _log_mem_size(self, collection: Any) -> None:
         """Log memory size of collection.
 
         Args:
@@ -352,10 +425,10 @@ class Worker(Thread, ITime):
         self._log_mem_size(self._extracted_samples)
 
     def first_sample(self) -> Sample | None:
-        """Get first sample.
+        """Get first sample from queue.
 
         Returns:
-            First sample or None
+            First sample or None if queue is empty
         """
         if not self._extracted_samples:
             self._collect_samples()
@@ -364,11 +437,11 @@ class Worker(Thread, ITime):
         return None
 
     def _collect_samples(self) -> None:
-        """Collect samples from queue."""
+        """Collect single sample from queue and add to extracted samples."""
         self._extracted_samples.append(self._collected_samples.get())
 
     def _collect_all_samples(self) -> None:
-        """Collect all samples from queue."""
+        """Collect all available samples from queue and add to extracted samples."""
         while True:
             try:
                 self._extracted_samples.append(self._collected_samples.get_nowait())
@@ -376,14 +449,14 @@ class Worker(Thread, ITime):
                 break
 
     def get_range(self, start: dt, end: dt) -> list[Sample]:
-        """Get samples in time range.
+        """Get samples within specified time range.
 
         Args:
-            start: Start time
-            end: End time
+            start: Start datetime (inclusive)
+            end: End datetime (inclusive)
 
         Returns:
-            List of samples
+            List of samples within time range
         """
         return [
             s
@@ -391,11 +464,11 @@ class Worker(Thread, ITime):
             if hasattr(s, "begin") and start <= s.begin <= end
         ]
 
-    def group_by_type(self) -> dict:
+    def group_by_type(self) -> dict[str, list[Sample]]:
         """Group samples by their class name.
 
         Returns:
-            Dictionary of grouped samples
+            Dictionary mapping class names to lists of samples
         """
         groups = defaultdict(list)
         for s in self.collected_samples.get():
@@ -411,10 +484,10 @@ class Worker(Thread, ITime):
         Json.save(self.get_samples(), full_path)
 
     def summary(self) -> str:
-        """One-line textual summary of the collected sample data.
+        """Generate one-line summary of collected sample data.
 
         Returns:
-            Summary string
+            Summary string with sample count and types
         """
         total_samples = len(self._collected_samples)
         types = {type(s).__name__ for s in self._collected_samples.get()}
@@ -422,7 +495,11 @@ class Worker(Thread, ITime):
 
 
 class WorkManager:
-    """Manages a pool of worker threads."""
+    """Manages a pool of worker threads.
+
+    Provides centralized management for multiple worker threads including
+    lifecycle management, statistics tracking, and shared state coordination.
+    """
 
     def __init__(self) -> None:
         """Initialize empty worker pool."""
@@ -497,13 +574,13 @@ class WorkManager:
         self._logger.debug(LogMsg.WORKER_RESET_DONE.value)
 
     def get_worker(self, command: str) -> Worker | None:
-        """Get worker by command.
+        """Get worker by command string.
 
         Args:
-            command: Command string
+            command: Command string to search for
 
         Returns:
-            Worker or None
+            Worker instance if found, None otherwise
         """
         for w in self._work_pool:
             if w.command == command:
@@ -521,10 +598,10 @@ class WorkManager:
         return self._work_pool
 
     def summary(self) -> str:
-        """One-line textual summary of the work pool.
+        """Generate one-line summary of worker pool.
 
         Returns:
-            Summary string
+            Summary string with worker count and types
         """
         total_workers = len(self._work_pool)
         types = {type(s).__name__ for s in self._work_pool}

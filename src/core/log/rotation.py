@@ -93,12 +93,12 @@ def _end_rotation_cycle(
     main_logger: logging.Logger,
     timeout_sec: int,
 ) -> None:
-    """End rotation cycle and reset all counters.
+    """End rotation cycle and reset flap tracking.
 
     Args:
         shared_flap_state: Shared state dict
         has_rotated_since_flap: Rotation tracking dict
-        log_rotation_count: Counter dict
+        log_rotation_count: Counter dict (NOT reset to preserve file numbering)
         main_logger: Main logger for status messages
         timeout_sec: Timeout in seconds
     """
@@ -106,8 +106,8 @@ def _end_rotation_cycle(
     shared_flap_state["last_flap_time"] = None
     for logger_key in list(has_rotated_since_flap.keys()):
         has_rotated_since_flap[logger_key] = False
-        log_rotation_count[logger_key] = 0
-    main_logger.info(f"Rotation: Ending cycle (no flaps for {timeout_sec} s, reset all counters)")
+        # DO NOT reset log_rotation_count to prevent overwriting old files
+    main_logger.info(f"Rotation: Ending cycle (no flaps for {timeout_sec} s, counters preserved)")
 
 
 def check_and_rotate_log(

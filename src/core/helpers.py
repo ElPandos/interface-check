@@ -196,7 +196,12 @@ def strip_log_file(input_file: str | Path, output_file: str | Path) -> None:
     with input_path.open() as f_in, output_path.open("w") as f_out:
         for line in f_in:
             # Skip WARNING, ERROR, and time command output lines
-            if " - WARNING " in line or " - ERROR " in line or ("user" in line and "system" in line) or "pagefaults" in line:
+            if (
+                " - WARNING " in line
+                or " - ERROR " in line
+                or ("user" in line and "system" in line)
+                or "pagefaults" in line
+            ):
                 continue
             f_out.write(strip_log_prefix(line.rstrip()) + "\n")
 
