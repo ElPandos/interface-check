@@ -74,7 +74,7 @@ class Worker(Thread, ITime):
         self,
         worker_cfg: WorkerConfig,
         cfg: Config,
-        ssh: SshConnection,
+        ssh_factory,
         shared_flap_state: dict | None = None,
         statistics: WorkerStatistics | None = None,
     ) -> None:
@@ -83,7 +83,7 @@ class Worker(Thread, ITime):
         Args:
             worker_cfg: Command configuration to execute
             cfg: Application configuration
-            ssh: SSH connection for command execution
+            ssh_factory: Callable that creates new SSH connection
             shared_flap_state: Shared dictionary for flap detection across workers
             statistics: Shared statistics tracker for command durations
         """
@@ -94,7 +94,9 @@ class Worker(Thread, ITime):
 
         self._worker_cfg = worker_cfg
         self._cfg = cfg
-        self._ssh = ssh
+        self._ssh_factory = ssh_factory
+        self._ssh: SshConnection | None = None
+        self._owns_connection = True
         self._shared_flap_state = shared_flap_state or {
             "flaps_detected": False,
             "workers_rotated": set(),
@@ -263,6 +265,17 @@ class Worker(Thread, ITime):
         """
         self.start_timer()
 
+        # Create and connect SSH connection for this worker
+        try:
+            self._ssh = self._ssh_factory()
+            if not self._ssh.connect():
+                self._logger.error(f"Worker {self.name} failed to establish SSH connection")
+                return
+            self._logger.debug(f"Worker {self.name} established SSH connection")
+        except Exception:
+            self._logger.exception(f"Worker {self.name} failed to create SSH connection")
+            return
+
         # Execute pre_command once before loop starts
         if self._worker_cfg.pre_command:
             try:
@@ -366,6 +379,14 @@ class Worker(Thread, ITime):
                         f"Worker {self.name} exceeded max reconnect attempts. Thread will exit."
                     )
                 time.sleep(min(reconnect, 5))  # Exponential backoff up to 5s
+
+        # Cleanup: disconnect SSH connection
+        if self._owns_connection and self._ssh:
+            try:
+                self._ssh.disconnect()
+                self._logger.debug(f"Worker {self.name} disconnected SSH connection")
+            except Exception:
+                self._logger.exception(f"Worker {self.name} failed to disconnect SSH")
 
         self.stop_timer()
 

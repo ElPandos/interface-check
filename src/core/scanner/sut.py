@@ -279,6 +279,20 @@ class SutScanner(BaseScanner):
         if not self._start_workers():
             self._logger.warning(LogMsg.MAIN_SCAN_FAILED_START.value)
 
+    def _create_ssh_factory(self):
+        """Create SSH connection factory for workers.
+
+        Returns:
+            Callable that creates new SSH connection
+        """
+
+        def factory():
+            if self._cfg.sut_connect_type == ConnectType.LOCAL:
+                return LocalConnection(host=self._cfg.sut_host, sudo_pass=self._cfg.sut_sudo_pass)
+            return create_ssh_connection(self._cfg, HostType.SUT)
+
+        return factory
+
     def _start_workers(self) -> bool:
         """Start worker threads.
 

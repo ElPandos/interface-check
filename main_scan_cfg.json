@@ -1,0 +1,50 @@
+{
+    "log_level": "info",
+    "log_rotation_timeout_sec": 120,
+    "worker_collect": false,
+    "jump": {
+        "host": "137.58.231.134",
+        "user": "emvekta",
+        "pass": "emvekta"
+    },
+    "slx": {
+        "host": "172.16.171.1",
+        "user": "admin",
+        "pass": "password",
+        "sudo_pass": "fibranne",
+        "scan_ports": [
+            "0/9:1"
+        ],
+        "scan_interval_sec": 20,
+        "port_toggle_limit": 5,
+        "port_toggle_wait_sec": 5,
+        "port_eye_scan_wait_sec": 20
+    },
+    "sut": {
+        "host": "172.16.225.1",
+        "user": "hts",
+        "pass": "hts",
+        "sudo_pass": "hts",
+        "scan_interfaces": [
+            "ens3f0np0"
+        ],
+        "connect_type": "remote",
+        "show_parts": [ "no_slx_dsc", "no_mlxlink", "no_mlxlink_amber", "no_mtemp", "no_sys_info" ],
+        "time_cmd": true,
+        "reload_driver": false,
+        "required_software_packages": [
+            "pciutils",
+            "ethtool",
+            "rdma-core",
+            "ibverbs-utils",
+            "lshw",
+            "lm-sensors",
+            "python3-pip",
+            "mstflint"
+        ],
+        "scan_interval_low_res_ms": 500,
+        "scan_interval_high_res_ms": 20,
+        "scan_interval_tx_errors_ms": 50,
+        "scan_max_log_size_kb": 20
+    }
+}

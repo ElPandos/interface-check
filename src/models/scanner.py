@@ -49,12 +49,32 @@ class BaseScanner(IScanner):
         self._logger.debug(f"{LogMsg.SCANNER_SUT_WORKER_CMD.value}: '{worker_cfg.command}'")
         shared_state = self._worker_manager.get_shared_flap_state()
         statistics = self._worker_manager.get_statistics()
+
+        # Create SSH factory for per-worker connections
+        ssh_factory = self._create_ssh_factory()
+
         self._worker_manager.add(
             Worker(
                 worker_cfg,
                 self._cfg,
-                self._ssh,
+                ssh_factory,
                 shared_flap_state=shared_state,
                 statistics=statistics,
             )
         )
+
+    def _create_ssh_factory(self):
+        """Create SSH connection factory for workers.
+
+        Returns:
+            Callable that creates new SSH connection
+        """
+
+        # Return factory that creates connection with same config as scanner
+        # Subclasses can override to provide specific connection creation logic
+        def factory():
+            # Return a copy of the scanner's connection for now
+            # This will be overridden in SutScanner
+            return self._ssh
+
+        return factory
