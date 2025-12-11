@@ -498,6 +498,11 @@ class SlxScanner(BaseScanner):
     def _create_eye_worker(self) -> None:
         """Create eye scan worker thread."""
         self._scan_type = "eye"
+        # Register eye logger for flap rotation marking
+        if "active_loggers" not in self._shared_flap_state:
+            self._shared_flap_state["active_loggers"] = set()
+        self._shared_flap_state["active_loggers"].add(self._eye_logger.name)
+        self._logger.debug(f"Registered {self._eye_logger.name} as active logger for flap rotation")
         self._logger.info(LogMsg.MAIN_EYE_SCAN_START.value)
         self._logger.info(LogMsg.MAIN_EXIT_PROMPT.value)
         scan_thread = threading.Thread(target=self._run_eye_scan_loop, daemon=True)
@@ -506,6 +511,11 @@ class SlxScanner(BaseScanner):
     def _create_dsc_worker(self) -> None:
         """Create DSC scan worker thread."""
         self._scan_type = "dsc"
+        # Register dsc logger for flap rotation marking
+        if "active_loggers" not in self._shared_flap_state:
+            self._shared_flap_state["active_loggers"] = set()
+        self._shared_flap_state["active_loggers"].add(self._dsc_logger.name)
+        self._logger.debug(f"Registered {self._dsc_logger.name} as active logger for flap rotation")
         self._logger.info(LogMsg.SCANNER_DSC_START.value)
         dsc_thread = threading.Thread(target=self._run_dsc_scan_loop, daemon=True)
         dsc_thread.start()

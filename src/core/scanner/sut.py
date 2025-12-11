@@ -11,6 +11,8 @@ from src.core.enums.messages import LogMsg
 from src.core.parser import (
     SutDmesgFlapParser,
     SutEthtoolModuleParser,
+    SutIpmitoolFanNameParser,
+    SutIpmitoolFanParser,
     SutMlxlinkAmberParser,
     SutMlxlinkParser,
     SutTxErrorsParser,
@@ -41,6 +43,7 @@ class SutScanner(BaseScanner):
         self._sut_ethtool_logger = loggers["sut_ethtool"]
         self._sut_link_flap_logger = loggers["sut_link_flap"]
         self._sut_tx_errors_logger = loggers["sut_tx_errors"]
+        self._sut_ipmitool_fan_logger = loggers["sut_ipmitool_fan"]
         self._system_info_logger = loggers["sut_system_info"]
         self._software_manager: SoftwareManager | None = None
 
@@ -295,8 +298,15 @@ class SutScanner(BaseScanner):
             skip_ethtool = ShowPartType.NO_ETHTOOL in self._cfg.sut_show_parts
             skip_dmesg = ShowPartType.NO_DMESG in self._cfg.sut_show_parts
             skip_tx_errors = ShowPartType.NO_TX_ERRORS in self._cfg.sut_show_parts
+            skip_fan = ShowPartType.NO_FAN in self._cfg.sut_show_parts
 
-            worker_count = 0
+            # Create fan worker once (not per interface)
+            if not skip_fan:
+                self._create_ipmitool_fan_worker()
+                worker_count = 1
+            else:
+                worker_count = 0
+
             for interface in self._cfg.sut_scan_interfaces:
                 self._logger.debug(f"{LogMsg.SCANNER_SUT_SETUP_INTERFACE.value}: '{interface}'")
                 pci_id = helper.get_pci_id(self._ssh, interface)
@@ -458,6 +468,19 @@ class SutScanner(BaseScanner):
         worker_cfg.attributes = attributes
         worker_cfg.logger = self._sut_tx_errors_logger
         worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_tx_errors_ms
+        worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
+
+        self._add_worker_to_manager(worker_cfg)
+
+    def _create_ipmitool_fan_worker(self) -> None:
+        """Create ipmitool fan worker."""
+        worker_cfg = WorkerConfig()
+        worker_cfg.command = "ipmitool sensor | grep Fan"
+        worker_cfg.attribute_command = "ipmitool sensor | grep Fan"
+        worker_cfg.attribute_parser = SutIpmitoolFanNameParser()
+        worker_cfg.parser = SutIpmitoolFanParser()
+        worker_cfg.logger = self._sut_ipmitool_fan_logger
+        worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_low_res_ms
         worker_cfg.max_log_size_kb = self._cfg.sut_scan_max_log_size_kb
 
         self._add_worker_to_manager(worker_cfg)

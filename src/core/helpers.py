@@ -13,16 +13,26 @@ import pandas as pd
 
 
 def get_attr_value(obj: Any, attr_name: str, default: str = "") -> str:
-    """Safely extract attribute value from object.
+    """Safely extract attribute value from object or dict.
 
     Args:
-        obj: Object to extract attribute from
-        attr_name: Name of attribute to extract
-        default: Default value if attribute missing or None
+        obj: Object to extract attribute from (or dict to extract key from)
+        attr_name: Name of attribute/key to extract
+        default: Default value if attribute/key missing or None
 
     Returns:
-        String representation of attribute value or default
+        String representation of attribute/key value or default
     """
+    # Handle dictionaries
+    if isinstance(obj, dict):
+        value = obj.get(attr_name)
+        if value is None:
+            return default
+        if isinstance(value, float):
+            return f"{value:.6f}"
+        return str(value)
+
+    # Handle objects with attributes
     if not hasattr(obj, attr_name):
         return default
 

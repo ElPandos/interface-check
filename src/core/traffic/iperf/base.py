@@ -1,0 +1,470 @@
+"""Iperf base class with common functionality."""
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from datetime import datetime
+import json
+import logging
+import re
+import statistics
+
+from src.interfaces.component import IConnection
+
+
+@dataclass
+class IperfStats:
+    """Iperf statistics data."""
+
+    timestamp: str
+    interval: str
+    transfer_bytes: float
+    bandwidth_bps: float
+    jitter_ms: float | None = None
+    lost_packets: int | None = None
+    total_packets: int | None = None
+    loss_percent: float | None = None
+
+
+class IperfBase(ABC):
+    """Base class for iperf server and client."""
+
+    REQUIRED_SW = ["iperf3", "net-tools"]
+    UNIT_MULTIPLIERS_BYTES = {"K": 1024, "M": 1024**2, "G": 1024**3, "": 1}
+    UNIT_MULTIPLIERS_BPS = {"K": 1000, "M": 1000**2, "G": 1000**3, "": 1}
+
+    def __init__(self, connection: IConnection, logger: logging.Logger):
+        """Initialize iperf base.
+
+        Args:
+            connection: Connection instance (SSH or Local)
+            logger: Logger instance
+        """
+        self._conn = connection
+        self._logger = logger
+        self._process = None
+        self._pid = None
+        self._stats: list[IperfStats] = []
+
+    @abstractmethod
+    def start(self) -> bool:
+        """Start iperf process (must be implemented by subclasses)."""
+
+    def _parse_output(self, output: str, use_json: bool = False) -> list[IperfStats]:
+        """Parse iperf output to extract statistics.
+
+        Args:
+            output: Raw iperf output (text or JSON)
+            use_json: Whether output is JSON format
+
+        Returns:
+            List of parsed statistics
+        """
+        if use_json:
+            return self._parse_json_output(output)
+        return self._parse_text_output(output)
+
+    def _parse_json_output(self, output: str) -> list[IperfStats]:
+        """Parse JSON iperf output.
+
+        Args:
+            output: JSON iperf output
+
+        Returns:
+            List of parsed statistics
+        """
+        stats = []
+        try:
+            data = json.loads(output)
+            timestamp = datetime.now().isoformat()
+
+            # Parse intervals from JSON
+            for interval in data.get("intervals", []):
+                streams = interval.get("streams", [])
+                if not streams:
+                    continue
+
+                stream = streams[0]  # Use first stream
+                stats.append(
+                    IperfStats(
+                        timestamp=timestamp,
+                        interval=f"{interval['sum']['start']}-{interval['sum']['end']}",
+                        transfer_bytes=interval["sum"].get("bytes", 0),
+                        bandwidth_bps=interval["sum"].get("bits_per_second", 0),
+                        jitter_ms=stream.get("jitter_ms"),
+                        lost_packets=stream.get("lost_packets"),
+                        total_packets=stream.get("packets"),
+                        loss_percent=stream.get("lost_percent"),
+                    )
+                )
+        except (json.JSONDecodeError, KeyError) as e:
+            self._logger.error(f"Failed to parse JSON output: {e}")
+
+        return stats
+
+    def _parse_text_output(self, output: str) -> list[IperfStats]:
+        """Parse text iperf output.
+
+        Args:
+            output: Text iperf output
+
+        Returns:
+            List of parsed statistics
+        """
+        stats = []
+        timestamp = datetime.now().isoformat()
+
+        # Pattern for bandwidth line: [  3]  0.0- 1.0 sec  1.25 GBytes  10.7 Gbits/sec
+        pattern = r"\[\s*\d+\]\s+([\d\.-]+)\s+sec\s+([\d\.]+)\s+([KMG]?)Bytes\s+([\d\.]+)\s+([KMG]?)bits/sec"
+
+        for line in output.splitlines():
+            match = re.search(pattern, line)
+            if match:
+                interval = match.group(1)
+                transfer = float(match.group(2))
+                transfer_unit = match.group(3)
+                bandwidth = float(match.group(4))
+                bandwidth_unit = match.group(5)
+
+                # Convert to bytes
+                transfer_bytes = self._convert_to_bytes(transfer, transfer_unit)
+                bandwidth_bps = self._convert_to_bps(bandwidth, bandwidth_unit)
+
+                # Parse UDP-specific metrics
+                jitter = lost = total = loss_pct = None
+                jitter_match = re.search(r"([\d\.]+)\s+ms", line)
+                if jitter_match:
+                    jitter = float(jitter_match.group(1))
+
+                loss_match = re.search(r"(\d+)/\s*(\d+)\s+\(([\d\.]+)%\)", line)
+                if loss_match:
+                    lost = int(loss_match.group(1))
+                    total = int(loss_match.group(2))
+                    loss_pct = float(loss_match.group(3))
+
+                stats.append(
+                    IperfStats(
+                        timestamp=timestamp,
+                        interval=interval,
+                        transfer_bytes=transfer_bytes,
+                        bandwidth_bps=bandwidth_bps,
+                        jitter_ms=jitter,
+                        lost_packets=lost,
+                        total_packets=total,
+                        loss_percent=loss_pct,
+                    )
+                )
+
+        return stats
+
+    def _convert_to_bytes(self, value: float, unit: str) -> float:
+        """Convert value to bytes."""
+        return value * self.UNIT_MULTIPLIERS_BYTES.get(unit, 1)
+
+    def _convert_to_bps(self, value: float, unit: str) -> float:
+        """Convert value to bits per second."""
+        return value * self.UNIT_MULTIPLIERS_BPS.get(unit, 1)
+
+    def get_stats(self) -> list[IperfStats]:
+        """Get collected statistics.
+
+        Returns:
+            List of statistics
+        """
+        return self._stats
+
+    def get_stats_summary(self) -> dict[str, float] | None:
+        """Get summary statistics.
+
+        Returns:
+            Dictionary with min/max/avg/stddev or None if no stats
+        """
+        if not self._stats:
+            return None
+
+        bandwidths = [s.bandwidth_bps for s in self._stats]
+        transfers = [s.transfer_bytes for s in self._stats]
+
+        return {
+            "bandwidth_min_bps": min(bandwidths),
+            "bandwidth_max_bps": max(bandwidths),
+            "bandwidth_avg_bps": statistics.mean(bandwidths),
+            "bandwidth_stddev_bps": statistics.stdev(bandwidths) if len(bandwidths) > 1 else 0,
+            "transfer_total_bytes": sum(transfers),
+            "sample_count": len(self._stats),
+        }
+
+    def is_running(self) -> bool:
+        """Check if iperf process is running.
+
+        Returns:
+            True if running
+        """
+        if not self._pid:
+            return False
+
+        result = self._conn.exec_cmd(f"ps -p {self._pid}", timeout=5)
+        return result.rcode == 0
+
+    def _cleanup_existing_processes(self) -> None:
+        """Kill any existing iperf3 processes."""
+        self._logger.info("Checking for existing iperf3 processes...")
+        result = self._conn.exec_cmd("pkill -9 iperf3", timeout=5)
+        if result.rcode == 0:
+            self._logger.info("Killed existing iperf3 processes")
+
+    def _check_sw_installed(self, package: str) -> bool:
+        """Check if software package is installed.
+
+        Args:
+            package: Package name
+
+        Returns:
+            True if installed
+        """
+        result = self._conn.exec_cmd(f"which {package}", timeout=5)
+        return result.rcode == 0
+
+    def _install_sw(self, package: str) -> bool:
+        """Install software package.
+
+        Args:
+            package: Package name
+
+        Returns:
+            True if installation successful
+        """
+        self._logger.info(f"Installing {package}...")
+
+        # Try apt first
+        result = self._conn.exec_cmd("which apt-get", timeout=5)
+        if result.rcode == 0:
+            result = self._conn.exec_cmd(
+                f"apt-get update && apt-get install -y {package}", timeout=120
+            )
+            if result.rcode == 0:
+                self._logger.info(f"{package} installed successfully via apt")
+                return True
+            self._logger.error(f"Failed to install {package} via apt: {result.stderr}")
+            return False
+
+        # Try yum
+        result = self._conn.exec_cmd("which yum", timeout=5)
+        if result.rcode == 0:
+            result = self._conn.exec_cmd(f"yum install -y {package}", timeout=120)
+            if result.rcode == 0:
+                self._logger.info(f"{package} installed successfully via yum")
+                return True
+            self._logger.error(f"Failed to install {package} via yum: {result.stderr}")
+            return False
+
+        self._logger.error("No supported package manager found (apt/yum)")
+        return False
+
+    def _verify_sw(self, package: str, version_flag: str = "--version") -> bool:
+        """Verify software installation and get version.
+
+        Args:
+            package: Package name
+            version_flag: Flag to get version (default: --version)
+
+        Returns:
+            True if package is working
+        """
+        result = self._conn.exec_cmd(f"{package} {version_flag}", timeout=5)
+        if result.rcode == 0:
+            version = result.stdout.split()[0] if result.stdout else "unknown"
+            self._logger.info(f"{package} verified: {version}")
+            return True
+        self._logger.error(f"{package} verification failed")
+        return False
+
+    def ensure_required_sw(self) -> bool:
+        """Ensure required software packages are installed.
+
+        Returns:
+            True if all packages available
+        """
+        missing = []
+
+        self._logger.info("Checking required software...")
+        for package in self.REQUIRED_SW:
+            if not self._check_sw_installed(package):
+                self._logger.warning(f"{package} not found")
+                missing.append(package)
+            else:
+                self._logger.debug(f"{package} is installed")
+
+        if not missing:
+            self._logger.info("All required software is installed")
+            return True
+
+        # Install missing packages
+        self._logger.info(f"Installing missing software: {missing}")
+        for package in missing:
+            if not self._install_sw(package):
+                self._logger.error(f"Failed to install {package}")
+                return False
+
+        # Verify installations
+        self._logger.info("Verifying installations...")
+        for package in self.REQUIRED_SW:
+            if not self._check_sw_installed(package):
+                self._logger.error(f"{package} verification failed")
+                return False
+
+        self._logger.info("All required software installed and verified")
+        return True
+
+    def _check_port_available(self, port: int) -> bool:
+        """Check if port is available.
+
+        Args:
+            port: Port number to check
+
+        Returns:
+            True if port is available
+        """
+        result = self._conn.exec_cmd(f"netstat -tuln | grep ':{port} '", timeout=5)
+        return result.rcode != 0
+
+    def _exec_cmd(self, cmd: str, timeout: int = 10) -> bool:
+        """Execute command and check result.
+
+        Args:
+            cmd: Command to execute
+            timeout: Command timeout
+
+        Returns:
+            True if command succeeded
+        """
+        self._logger.info(f"Executing: {cmd}")
+        result = self._conn.exec_cmd(cmd, timeout=timeout)
+        if result.rcode != 0:
+            self._logger.error(f"Command failed: {result.stderr}")
+            return False
+        return True
+
+    def validate_connection(self, target_host: str | None = None) -> bool:
+        """Validate connection with ping test.
+
+        Args:
+            target_host: Target host to ping (None for self-test)
+
+        Returns:
+            True if connection valid
+        """
+        if target_host:
+            self._logger.info(f"Validating connection to {target_host}...")
+            result = self._conn.exec_cmd(f"ping -c 3 -W 2 {target_host}", timeout=10)
+            if result.rcode != 0:
+                self._logger.error(f"Cannot reach {target_host}: {result.stderr}")
+                return False
+            self._logger.info(f"Connection to {target_host} validated")
+        else:
+            self._logger.info("Validating local connection...")
+            result = self._conn.exec_cmd("echo test", timeout=5)
+            if result.rcode != 0:
+                self._logger.error("Local connection validation failed")
+                return False
+            self._logger.info("Local connection validated")
+        return True
+
+    def check_port_reachable(self, host: str, port: int, timeout: int = 5) -> bool:
+        """Check if port is reachable on remote host.
+
+        Args:
+            host: Target host
+            port: Target port
+            timeout: Connection timeout in seconds
+
+        Returns:
+            True if port is reachable
+        """
+        self._logger.info(f"Checking port {port} on {host}...")
+        result = self._conn.exec_cmd(
+            f"timeout {timeout} bash -c 'cat < /dev/null > /dev/tcp/{host}/{port}'",
+            timeout=timeout + 2,
+        )
+        if result.rcode == 0:
+            self._logger.info(f"Port {port} on {host} is reachable")
+            return True
+        self._logger.error(f"Port {port} on {host} is not reachable (firewall/network issue?)")
+        return False
+
+    def validate_results(self, stats: list[IperfStats]) -> tuple[bool, str]:
+        """Validate test results for anomalies.
+
+        Args:
+            stats: List of statistics to validate
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if not stats:
+            return False, "No statistics collected"
+
+        # Check for zero bandwidth
+        zero_bw = [s for s in stats if s.bandwidth_bps == 0]
+        if zero_bw:
+            return False, f"Found {len(zero_bw)} samples with zero bandwidth"
+
+        # Check for excessive packet loss (UDP only)
+        if stats[0].loss_percent is not None:
+            high_loss = [s for s in stats if s.loss_percent and s.loss_percent > 10]
+            if high_loss:
+                avg_loss = sum(s.loss_percent for s in high_loss if s.loss_percent) / len(high_loss)
+                return False, f"High packet loss detected: {avg_loss:.2f}% avg"
+
+        return True, ""
+
+    def stop(self) -> bool:
+        """Stop iperf process gracefully.
+
+        Returns:
+            True if stopped successfully
+        """
+        if not self._pid:
+            self._logger.warning("No PID found")
+            return True
+
+        self._logger.info(f"Stopping process (PID {self._pid})")
+        result = self._conn.exec_cmd(f"kill {self._pid}", timeout=5)
+
+        if result.rcode == 0:
+            self._pid = None
+            self._logger.info("Process stopped")
+            return True
+
+        self._logger.error(f"Failed to stop process: {result.stderr}")
+        return False
+
+    def kill(self) -> bool:
+        """Force kill iperf process.
+
+        Returns:
+            True if killed successfully
+        """
+        if not self._pid:
+            return True
+
+        self._logger.warning(f"Force killing process (PID {self._pid})")
+        result = self._conn.exec_cmd(f"kill -9 {self._pid}", timeout=5)
+        self._pid = None
+        return result.rcode == 0
+
+    def _get_pid(self, pattern: str) -> bool:
+        """Get PID of iperf process.
+
+        Args:
+            pattern: Pattern to match process (e.g., 'iperf3 -s.*5201')
+
+        Returns:
+            True if PID found
+        """
+        result = self._conn.exec_cmd(f"pgrep -f '{pattern}'", timeout=5)
+        if result.rcode == 0 and result.stdout.strip():
+            self._pid = int(result.stdout.strip().split()[0])
+            self._logger.info(f"Process started with PID {self._pid}")
+            return True
+        self._logger.error("Failed to get process PID")
+        return False

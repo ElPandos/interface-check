@@ -29,8 +29,13 @@ except SpecificError as e:
 - **Formatting**: `uv run black .`
 - **Testing**: `uv run pytest --cov=src`
 
+## Import Organization
+- **Top of file**: ALL imports must be at the top of the file, never inside functions or methods
+- **Only exception**: `TYPE_CHECKING` blocks for avoiding circular imports
+- **Grouping**: Standard library, third-party, local imports (separated by blank lines)
+- **Sorting**: Alphabetically within each group using `isort`
+
 ## Code Style
 - **Line length**: 120 characters
-- **Imports**: Sorted with `isort`, grouped logically
 - **Naming**: Snake_case for functions/variables, PascalCase for classes
 - **Constants**: UPPER_CASE with type annotations

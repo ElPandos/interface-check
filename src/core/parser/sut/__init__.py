@@ -6,6 +6,8 @@ from src.core.parser.sut.dmesg_flap import (
     SutDmesgFlapParser,
 )
 from src.core.parser.sut.ethtool_module import EthtoolModuleDevice, SutEthtoolModuleParser
+from src.core.parser.sut.ipmitool_fan import SutIpmitoolFanParser
+from src.core.parser.sut.ipmitool_fan_name import SutIpmitoolFanNameParser
 from src.core.parser.sut.mlxlink import MlxlinkDevice, SutMlxlinkParser
 from src.core.parser.sut.mlxlink_amber import SutMlxlinkAmberParser
 from src.core.parser.sut.mst_status import MstVersionDevice, SutMstStatusVersionParser
@@ -22,6 +24,8 @@ __all__ = [
     "ParsedDevice",
     "SutDmesgFlapParser",
     "SutEthtoolModuleParser",
+    "SutIpmitoolFanParser",
+    "SutIpmitoolFanNameParser",
     "SutMlxlinkAmberParser",
     "SutMlxlinkParser",
     "SutMstStatusVersionParser",

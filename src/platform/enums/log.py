@@ -14,6 +14,9 @@ class LogName(Enum):
     SUT_ETHTOOL = "sut_ethtool"
     SUT_LINK_FLAP = "sut_link_flap"
     SUT_TX_ERRORS = "sut_tx_errors"
+    SUT_IPMITOOL_FAN = "sut_ipmitool_fan"
 
     SLX_EYE = "slx_eye"
     SLX_DSC = "slx_dsc"
+
+    TRAFFIC = "traffic"

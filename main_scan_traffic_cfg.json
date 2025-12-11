@@ -1,0 +1,34 @@
+{
+    "log_level": "info",
+    "jump": {
+        "host": "137.58.231.134",
+        "user": "emvekta",
+        "pass": "emvekta"
+    },
+    "server": {
+        "host": "172.16.225.1",
+        "user": "hts",
+        "pass": "hts",
+        "sudo_pass": "hts",
+        "port": 5201,
+        "connect_type": "remote"
+    },
+    "client": {
+        "host": "172.16.171.1",
+        "user": "admin",
+        "pass": "password",
+        "sudo_pass": "fibranne",
+        "connect_type": "remote"
+    },
+    "test": {
+        "duration_sec": 30,
+        "protocol": "tcp",
+        "bandwidth": "10G",
+        "parallel_streams": 1,
+        "interval_sec": 1,
+        "iterations": 5,
+        "delay_between_tests_sec": 5,
+        "bidir": false,
+        "reverse": false
+    }
+}

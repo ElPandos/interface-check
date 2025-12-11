@@ -21,7 +21,7 @@ from src.core.connect import SshConnection
 from src.core.enums.messages import LogMsg
 from src.core.helpers import get_attr_value
 from src.core.json import Json
-from src.core.log.rotation import check_and_rotate_log
+from src.core.log.rotation import _mark_logger_for_rotation, check_and_rotate_log
 from src.core.parser import SutTimeParser
 from src.core.sample import Sample
 from src.core.statistics import WorkerStatistics
@@ -36,6 +36,7 @@ class WorkerConfig:
     Attributes:
         command: Shell command to execute
         pre_command: Optional command to execute once before loop starts
+        attribute_command: Optional command to collect attribute names dynamically
         parser: Optional parser class to process command output
         attributes: List of attribute names to extract from parsed results
         logger: Logger for worker
@@ -48,6 +49,8 @@ class WorkerConfig:
 
     command: str = None
     pre_command: str | None = None
+    attribute_command: str | None = None
+    attribute_parser: Any = None
     parser: Any = None
     attributes: list[str] = None
     scan_interval_ms: int = 500
@@ -204,15 +207,25 @@ class Worker(Thread, ITime):
             sample.snapshot = ""
 
     def _log_flap_data(self, timestamp: str, parsed_ms: float, flap: Any) -> None:
-        """Log flap detection data.
+        """Log flap detection data and mark all active loggers for rotation.
 
         Args:
             timestamp: Begin timestamp
             parsed_ms: Parsed time in milliseconds
             flap: Flap object with interface, down_time, up_time, duration
         """
+        main_logger = logging.getLogger("main")
         self._shared_flap_state["flaps_detected"] = True
         self._shared_flap_state["last_flap_time"] = time.time()
+
+        # Mark ALL active loggers for rotation (not just flap logger)
+        if "active_loggers" in self._shared_flap_state:
+            active_count = len(self._shared_flap_state["active_loggers"])
+            main_logger.info(
+                f"Flap detected on {flap.interface}, marking {active_count} active loggers for rotation"
+            )
+            for logger_name in self._shared_flap_state["active_loggers"]:
+                _mark_logger_for_rotation(logger_name, self._shared_flap_state)
 
         row = [timestamp]
         if self._time_cmd_enabled:
@@ -257,9 +270,31 @@ class Worker(Thread, ITime):
             except Exception:
                 self._logger.exception("Pre-command execution failed")
 
+        # Collect attributes dynamically if configured
+        if self._worker_cfg.attribute_command and not self._worker_cfg.attributes:
+            try:
+                result = self._ssh.exec_cmd(self._worker_cfg.attribute_command)
+                if result.rcode == 0 and self._worker_cfg.attribute_parser:
+                    parsed_data = self._worker_cfg.attribute_parser.parse(result.stdout)
+                    if isinstance(parsed_data, dict):
+                        self._worker_cfg.attributes = list(parsed_data.keys())
+                        self._logger.debug(
+                            f"Collected {len(self._worker_cfg.attributes)} attributes"
+                        )
+            except Exception:
+                self._logger.exception("Attribute collection failed")
+
         # Write header unless skip_header is True
         if not self._worker_cfg.skip_header:
             self._write_raw_csv(self._build_csv_header())
+
+        # Register this logger as active (for flap rotation marking)
+        if not self._worker_cfg.is_flap_logger:
+            if "active_loggers" not in self._shared_flap_state:
+                self._shared_flap_state["active_loggers"] = set()
+            self._shared_flap_state["active_loggers"].add(self._logger.name)
+            main_logger = logging.getLogger("main")
+            main_logger.debug(f"Registered {self._logger.name} as active logger for flap rotation")
 
         reconnect = 0
         while not self._stop_event.is_set():
@@ -323,7 +358,7 @@ class Worker(Thread, ITime):
                 self._logger.exception(f"{LogMsg.WORKER_STOPPED.value}: {type(e).__name__}: {e}")
                 reconnect += 1
                 # Don't attempt reconnection - SSH connection is shared and managed externally
-                self._logger.error(
+                self._logger.exception(
                     f"Worker error - Attempt {reconnect}/{self.MAX_RECONNECT} - Command: {self._worker_cfg.command}"
                 )
                 if reconnect >= self.MAX_RECONNECT:

@@ -7,6 +7,7 @@ import time
 from typing import Any, ClassVar
 
 import paramiko
+from pydantic import SecretStr
 
 from src.core.connect.local import _log_exec_time
 from src.core.enums.connect import HostType
@@ -474,8 +475,6 @@ class SshConnection(IConnection):
                 "direct-tcpip", (self._host, 22), (self._jump_hosts[-1].ip, 22)
             )
             # Create temporary Host object for target
-            from pydantic import SecretStr  # noqa: PLC0415
-
             target_host = Host(
                 ip=self._host, username=self._username, password=SecretStr(self._password)
             )

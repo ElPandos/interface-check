@@ -49,4 +49,4 @@ class ShowPartType(str, Enum):
     NO_TX_ERRORS = "no_tx_errors"
     NO_SLX_EYE = "no_slx_eye"
     NO_SLX_DSC = "no_slx_dsc"
-    TOGGLE_SLX_SCANS = "toggle_slx_scans"
+    NO_FAN = "no_fan"

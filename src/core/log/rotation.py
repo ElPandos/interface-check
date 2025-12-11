@@ -57,57 +57,52 @@ def _init_rotation_state(
         log_rotation_count[logger_key] = 0
     if "last_flap_time" not in shared_flap_state:
         shared_flap_state["last_flap_time"] = None
+    if "logger_flap_states" not in shared_flap_state:
+        shared_flap_state["logger_flap_states"] = {}
 
 
-def _should_end_rotation_cycle(shared_flap_state: dict, timeout_sec: int) -> bool:
-    """Check if rotation cycle should end based on time since last flap.
+def _should_logger_rotate(logger_key: str, shared_flap_state: dict) -> bool:
+    """Check if specific logger should rotate based on its flap state.
 
     Args:
+        logger_key: Logger identifier
         shared_flap_state: Shared state dict
-        timeout_sec: Timeout in seconds
 
     Returns:
-        True if no flaps for timeout period
+        True if logger should rotate (has pending flap)
     """
-    last_flap = shared_flap_state.get("last_flap_time")
-    if last_flap is None:
-        return True
-    return time.time() - last_flap > timeout_sec
+    logger_states = shared_flap_state.get("logger_flap_states", {})
+    return logger_states.get(logger_key, False)
 
 
-def _start_rotation_cycle(shared_flap_state: dict, main_logger: logging.Logger) -> None:
-    """Start new rotation cycle.
+def _mark_logger_for_rotation(logger_key: str, shared_flap_state: dict) -> None:
+    """Mark logger as needing rotation due to flap.
 
     Args:
+        logger_key: Logger identifier
         shared_flap_state: Shared state dict
-        main_logger: Main logger for status messages
     """
-    shared_flap_state["flaps_detected"] = True
-    main_logger.info("Rotation: Starting new cycle (flaps detected)")
+    main_logger = logging.getLogger("main")
+    if "logger_flap_states" not in shared_flap_state:
+        shared_flap_state["logger_flap_states"] = {}
+    shared_flap_state["logger_flap_states"][logger_key] = True
+    main_logger.debug(f"Rotation: Marked {logger_key} for rotation (flap detected)")
 
 
-def _end_rotation_cycle(
-    shared_flap_state: dict,
-    has_rotated_since_flap: dict[str, bool],
-    log_rotation_count: dict[str, int],
-    main_logger: logging.Logger,
-    timeout_sec: int,
+def _clear_logger_flap_state(
+    logger_key: str, shared_flap_state: dict, has_rotated_since_flap: dict[str, bool]
 ) -> None:
-    """End rotation cycle and reset flap tracking.
+    """Clear flap state for specific logger after rotation.
 
     Args:
+        logger_key: Logger identifier
         shared_flap_state: Shared state dict
         has_rotated_since_flap: Rotation tracking dict
-        log_rotation_count: Counter dict (NOT reset to preserve file numbering)
-        main_logger: Main logger for status messages
-        timeout_sec: Timeout in seconds
     """
-    shared_flap_state["flaps_detected"] = False
-    shared_flap_state["last_flap_time"] = None
-    for logger_key in list(has_rotated_since_flap.keys()):
-        has_rotated_since_flap[logger_key] = False
-        # DO NOT reset log_rotation_count to prevent overwriting old files
-    main_logger.info(f"Rotation: Ending cycle (no flaps for {timeout_sec} s, counters preserved)")
+    logger_states = shared_flap_state.get("logger_flap_states", {})
+    if logger_key in logger_states:
+        logger_states[logger_key] = False
+    has_rotated_since_flap[logger_key] = False
 
 
 def check_and_rotate_log(
@@ -122,53 +117,58 @@ def check_and_rotate_log(
 ) -> None:
     """Check log file size and rotate if needed.
 
-    Rotation logic:
-    - If flaps detected recently: Rotate to new file with suffix
-    - If no flaps for timeout period: Clear file and reuse
-    - Timeout period: configurable seconds since last flap
+    Rotation logic (per-logger):
+    - If logger marked for rotation (flap occurred while filling): Rotate to new file
+    - Otherwise: Clear file and reuse
+    - Each logger tracks its own flap state independently
 
     Args:
         logger: Logger to check
         max_size_kb: Maximum log size in KB
-        shared_flap_state: Dict with 'flaps_detected', 'last_flap_time'
+        shared_flap_state: Dict with 'logger_flap_states' per logger
         has_rotated_since_flap: Dict tracking rotation state per logger
         log_rotation_count: Dict tracking rotation count per logger
         keep_header: Whether to preserve CSV header when clearing
         csv_header: CSV header string (required if keep_header=True)
-        timeout_sec: Timeout in seconds (default 300)
+        timeout_sec: Timeout in seconds (unused, kept for compatibility)
     """
     main_logger = logging.getLogger("main")
     log_file = _get_log_file(logger)
-    if not log_file or not _should_rotate(log_file, max_size_kb):
+    if not log_file:
         return
 
     logger_key = logger.name
+    file_size_kb = log_file.stat().st_size / 1024 if log_file.exists() else 0
+    should_rotate = _should_rotate(log_file, max_size_kb)
+    flap_state = _should_logger_rotate(logger_key, shared_flap_state)
+
+    main_logger.debug(
+        f"Rotation check: {logger_key} size={file_size_kb:.1f}KB "
+        f"limit={max_size_kb}KB should_rotate={should_rotate} flap_marked={flap_state}"
+    )
+
+    if not should_rotate:
+        return
+
     _init_rotation_state(logger_key, has_rotated_since_flap, log_rotation_count, shared_flap_state)
 
-    # Check if rotation cycle should end
-    if shared_flap_state.get("flaps_detected", False) and _should_end_rotation_cycle(
-        shared_flap_state, timeout_sec
-    ):
-        _end_rotation_cycle(
-            shared_flap_state, has_rotated_since_flap, log_rotation_count, main_logger, timeout_sec
-        )
-
-    # Rotate or clear based on flap state
-    if shared_flap_state.get("flaps_detected", False):
-        # Flaps detected recently - rotate to preserve data
-        last_flap = shared_flap_state.get("last_flap_time")
-        time_since_flap = int(time.time() - last_flap) if last_flap else 0
+    # Check if THIS logger should rotate based on its own flap state
+    if flap_state:
+        # This logger was filling during a flap - rotate to preserve data
         main_logger.info(
             f"Rotation: {logger_key} rotating to _{log_rotation_count[logger_key] + 1} "
-            f"(flaps_detected=True, time_since_last_flap={time_since_flap}s)"
+            f"(size={file_size_kb:.1f}KB, flap_marked=True)"
         )
         _rotate_to_new_file(
             log_file, logger, logger_key, log_rotation_count, keep_header, csv_header
         )
-        has_rotated_since_flap[logger_key] = True
+        # Clear this logger's flap state after rotation
+        _clear_logger_flap_state(logger_key, shared_flap_state, has_rotated_since_flap)
     else:
-        # No recent flaps - clear and reuse
-        main_logger.info(f"Rotation: {logger_key} clearing file (flaps_detected=False)")
+        # No flap for this logger - clear and reuse
+        main_logger.info(
+            f"Rotation: {logger_key} clearing file (size={file_size_kb:.1f}KB, flap_marked=False)"
+        )
         _clear_log_file(log_file, logger, keep_header, csv_header)
 
 

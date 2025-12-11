@@ -77,6 +77,7 @@ sut_mtemp_logger = loggers[LogName.SUT_MTEMP.value]
 sut_ethtool_logger = loggers[LogName.SUT_ETHTOOL.value]
 sut_link_flap_logger = loggers[LogName.SUT_LINK_FLAP.value]
 sut_tx_errors_logger = loggers[LogName.SUT_TX_ERRORS.value]
+sut_ipmitool_fan_logger = loggers[LogName.SUT_IPMITOOL_FAN.value]
 slx_eye_logger = loggers[LogName.SLX_EYE.value]
 slx_dsc_logger = loggers[LogName.SLX_DSC.value]
 
