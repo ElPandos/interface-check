@@ -49,31 +49,33 @@ class IperfClient(IperfBase):
         interval: int = 1,
         bidir: bool = False,
         reverse: bool = False,
+        infinite: bool = False,
     ) -> None:
         """Configure client parameters.
 
         Args:
-            duration: Test duration in seconds (default: 10)
+            duration: Test duration in seconds (default: 10, 0 for infinite)
             protocol: Protocol tcp/udp (default: tcp)
             bandwidth: Target bandwidth for UDP (e.g., "1G", "100M")
             parallel: Number of parallel streams (default: 1)
             use_json: Use JSON output format (default: False)
-            timeout_sec: Test abort timeout in seconds (default: None)
+            timeout_sec: Test abort timeout in seconds (default: None, ignored if infinite=True)
             interval: Reporting interval in seconds (default: 1)
             bidir: Run bidirectional test (default: False)
             reverse: Run reverse mode test (default: False)
+            infinite: Run test indefinitely until stopped (default: False)
         """
-        self._duration = duration
+        self._duration = 0 if infinite else duration
         self._protocol = protocol.lower()
         self._bandwidth = bandwidth
         self._parallel = parallel
         self._use_json = use_json
-        self._timeout_sec = timeout_sec or duration + 30
+        self._timeout_sec = None if infinite else (timeout_sec or duration + 30)
         self._interval = interval
         self._bidir = bidir
         self._reverse = reverse
         self._logger.debug(
-            f"Configured: duration={duration}s, protocol={protocol}, "
+            f"Configured: duration={self._duration}s{'(infinite)' if infinite else ''}, protocol={protocol}, "
             f"bandwidth={bandwidth}, parallel={parallel}, json={use_json}, "
             f"interval={interval}s, bidir={bidir}, reverse={reverse}"
         )

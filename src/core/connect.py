@@ -2,7 +2,7 @@
 
 from src.core.connect.local import LocalConnection
 from src.core.connect.ssh import SshConnection
-from src.core.enums.connect import HostType
+from src.core.enum.connect import HostType
 from src.models.config import Host
 
 __all__ = ["LocalConnection", "SshConnection", "create_ssh_connection"]

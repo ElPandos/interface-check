@@ -23,7 +23,7 @@ from typing import ClassVar
 
 from src.core.cli import PrettyFrame
 from src.core.connect import SshConnection
-from src.core.enums.messages import LogMsg
+from src.core.enum.messages import LogMsg
 from src.interfaces.software import IPackageManager, Package
 from src.platform.enums.log import LogName
 from src.platform.enums.software import PackageManagerType

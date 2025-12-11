@@ -4,6 +4,7 @@ import logging
 import subprocess
 import time
 
+from src.core.enum.messages import LogMsg
 from src.core.parser import SutTimeParser
 from src.core.result import CmdResult
 from src.interfaces.component import IConnection
@@ -73,12 +74,12 @@ class LocalConnection(IConnection):
         Returns:
             True
         """
-        self._logger.debug("Using local command execution (no SSH)")
+        self._logger.debug(LogMsg.LOCAL_EXEC.value)
         return True
 
     def disconnect(self) -> None:
         """Disconnect (no-op for local execution)."""
-        self._logger.debug("Local connection closed")
+        self._logger.debug(LogMsg.LOCAL_CLOSED.value)
 
     def is_connected(self) -> bool:
         """Check if connection is active.
@@ -120,7 +121,7 @@ class LocalConnection(IConnection):
         elif self._sudo_pass and not cmd.startswith("sudo"):
             exec_cmd = f"sudo -S {cmd}"
 
-        log.debug(f"Executing local command: '{exec_cmd}' (timeout: {timeout} s)")
+        log.debug(f"{LogMsg.LOCAL_CMD_EXEC.value}: '{exec_cmd}' (timeout: {timeout} s)")
 
         try:
             # Pass sudo password via stdin if needed (only when not using time_cmd)
@@ -158,7 +159,7 @@ class LocalConnection(IConnection):
             )
 
             if result.returncode != 0:
-                log.warning(f"Command stderr: {result.stderr[:200]}")
+                log.warning(f"{LogMsg.LOCAL_CMD_STDERR.value}: {result.stderr[:200]}")
 
             return CmdResult(
                 cmd=exec_cmd,
@@ -172,8 +173,8 @@ class LocalConnection(IConnection):
             )
 
         except subprocess.TimeoutExpired:
-            log.exception(f"Command timeout: {cmd}")
+            log.exception(f"{LogMsg.LOCAL_CMD_TIMEOUT.value}: {cmd}")
             return CmdResult(exec_cmd, "", "Timeout", -1)
         except Exception as e:
-            log.exception(f"Command execution failed: {cmd}")
+            log.exception(f"{LogMsg.LOCAL_CMD_FAILED.value}: {cmd}")
             return CmdResult(exec_cmd, "", f"Error: {e}", -1)

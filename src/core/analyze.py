@@ -48,12 +48,20 @@ class AnalyzeGraphs:
         """Interpolate dataframe to match timeline."""
         df_clean = df.drop_duplicates(subset=["timestamp"], keep="first").sort_values("timestamp")
 
+        # Get actual data range to avoid extrapolation
+        data_start = df_clean["timestamp"].min()
+        data_end = df_clean["timestamp"].max()
+
         timeline_df = pd.DataFrame({"timestamp": timeline})
         result = pd.merge_asof(timeline_df, df_clean, on="timestamp", direction="nearest")
 
-        # Set timestamp as index for time-weighted interpolation
+        # Set values outside actual data range to NaN (no extrapolation)
         numeric_cols = result.select_dtypes(include=["number"]).columns.tolist()
         if numeric_cols:
+            mask = (result["timestamp"] < data_start) | (result["timestamp"] > data_end)
+            result.loc[mask, numeric_cols] = pd.NA
+
+            # Time-weighted interpolation within data range
             result_indexed = result.set_index("timestamp")
             result_indexed[numeric_cols] = result_indexed[numeric_cols].interpolate(method="time")
             result = result_indexed.reset_index()

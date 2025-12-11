@@ -4,7 +4,7 @@ import logging
 import threading
 
 from src.core.connect import SshConnection
-from src.core.enums.messages import LogMsg
+from src.core.enum.messages import LogMsg
 from src.core.worker import Worker, WorkerConfig, WorkManager
 from src.interfaces.scanner import IScanner
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from nicegui import ui
 
-from src.core.enums.messages import LogMsg
+from src.core.enum.messages import LogMsg
 from src.core.log.formatter import create_formatter
 from src.models.config import Config
 from src.platform import platform

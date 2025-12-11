@@ -23,18 +23,15 @@ Configuration:
     - Port toggling settings
 """
 
-from dataclasses import dataclass
-import json
 import logging
-from pathlib import Path
 import signal
 import sys
 import threading
 import time
 
 from src.core.cli import PrettyFrame
-from src.core.enums.connect import ConnectType, ShowPartType
-from src.core.enums.messages import LogMsg
+from src.core.config import load_scan_config
+from src.core.enum.messages import LogMsg
 from src.core.log.setup import init_logging
 from src.core.scanner import SlxScanner, SutScanner
 from src.platform.enums.log import LogName
@@ -82,165 +79,6 @@ slx_eye_logger = loggers[LogName.SLX_EYE.value]
 slx_dsc_logger = loggers[LogName.SLX_DSC.value]
 
 # ---------------------------------------------------------------------------- #
-#                                  JSON config                                 #
-# ---------------------------------------------------------------------------- #
-
-
-@dataclass(frozen=True)
-class Config:
-    """Application configuration loaded from JSON.
-
-    Contains all settings for:
-    - Jump host connection
-    - SLX switch connection and scan settings
-    - SUT system connection and monitoring settings
-
-    Attributes:
-        jump_host/user/pass: Jump host credentials
-        slx_*: SLX switch settings (host, ports, intervals, toggling)
-        sut_*: SUT system settings (host, interfaces, packages, intervals)
-    """
-
-    log_level: str
-    log_rotation_timeout_sec: int
-
-    jump_host: str
-    jump_user: str
-    jump_pass: str
-
-    slx_host: str
-    slx_user: str
-    slx_pass: str
-    slx_sudo_pass: str
-    slx_scan_ports: list[str]
-    slx_scan_interval_sec: int
-    slx_port_toggle_limit: int
-    slx_port_toggle_wait_sec: int
-    slx_port_eyescan_wait_sec: int
-
-    sut_host: str
-    sut_user: str
-    sut_pass: str
-    sut_sudo_pass: str
-    sut_scan_interfaces: list[str]
-    sut_connect_type: ConnectType
-    sut_show_parts: list[ShowPartType]
-    sut_time_cmd: bool
-    sut_reload_driver: bool
-    sut_required_software_packages: list[str]
-    sut_scan_interval_low_res_ms: int
-    sut_scan_interval_high_res_ms: int
-    sut_scan_interval_tx_errors_ms: int
-    sut_scan_max_log_size_kb: int
-    worker_collect: bool
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "Config":
-        """Create Config from nested JSON structure.
-
-        Args:
-            data: Dictionary with jump, slx, and sut configuration sections
-
-        Returns:
-            Config: Configured Config instance
-        """
-        j, slx, sut = data["jump"], data["slx"], data["sut"]
-        return cls(
-            log_level=data.get("log_level", "info"),
-            log_rotation_timeout_sec=data.get("log_rotation_timeout_sec", 300),
-            jump_host=j["host"],
-            jump_user=j["user"],
-            jump_pass=j["pass"],
-            slx_host=slx["host"],
-            slx_user=slx["user"],
-            slx_pass=slx["pass"],
-            slx_sudo_pass=slx["sudo_pass"],
-            slx_scan_ports=slx["scan_ports"],
-            slx_scan_interval_sec=slx["scan_interval_sec"],
-            slx_port_toggle_limit=slx["port_toggle_limit"],
-            slx_port_toggle_wait_sec=slx["port_toggle_wait_sec"],
-            slx_port_eyescan_wait_sec=slx["port_eye_scan_wait_sec"],
-            sut_host=sut["host"],
-            sut_user=sut["user"],
-            sut_pass=sut["pass"],
-            sut_sudo_pass=sut["sudo_pass"],
-            sut_scan_interfaces=sut["scan_interfaces"],
-            sut_connect_type=ConnectType(sut.get("connect_type", "local")),
-            sut_show_parts=[ShowPartType(p) for p in sut.get("show_parts", [])],
-            sut_time_cmd=sut.get("time_cmd", False),
-            sut_reload_driver=sut.get("reload_driver", False),
-            sut_required_software_packages=sut["required_software_packages"],
-            sut_scan_interval_low_res_ms=sut["scan_interval_low_res_ms"],
-            sut_scan_interval_high_res_ms=sut["scan_interval_high_res_ms"],
-            sut_scan_interval_tx_errors_ms=sut["scan_interval_tx_errors_ms"],
-            sut_scan_max_log_size_kb=sut["scan_max_log_size_kb"],
-            worker_collect=data.get("worker_collect", False),
-        )
-
-
-def load_cfg(logger: logging.Logger) -> Config:
-    """Load configuration from JSON file.
-
-    Args:
-        logger: Logger instance for error reporting
-
-    Returns:
-        Config: Loaded configuration
-
-    Raises:
-        FileNotFoundError: If config file not found
-        json.JSONDecodeError: If config file has invalid JSON
-    """
-    logger.debug(LogMsg.CONFIG_START)
-
-    cfg_name = "main_scan_cfg.json"
-    # Handle PyInstaller bundled executable
-    if getattr(sys, "frozen", False):
-        # Running as PyInstaller bundle
-        config_file = Path(sys.executable).parent / cfg_name
-    else:
-        # Running as script
-        config_file = Path(__file__).parent / cfg_name
-    try:
-        with config_file.open() as f:
-            data = json.load(f)
-
-        logger.info(LogMsg.CONFIG_LOADED.value)
-
-        return Config.from_dict(data)
-    except FileNotFoundError:
-        logger.exception(f"{LogMsg.MAIN_CONFIG_NOT_FOUND.value}: {config_file}")
-        logger.exception(LogMsg.MAIN_CONFIG_SAME_DIR.value)
-        raise
-    except json.JSONDecodeError:
-        logger.exception(LogMsg.MAIN_CONFIG_INVALID_JSON.value)
-        raise
-
-
-def check_cfg(cfg: Config, logger: logging.Logger) -> bool:
-    """Validate configuration for SLX scanner requirements.
-
-    Args:
-        cfg: Configuration to validate
-        logger: Logger for error messages
-
-    Returns:
-        bool: True if valid, False otherwise
-    """
-    no_eye = ShowPartType.NO_SLX_EYE in cfg.sut_show_parts
-    no_dsc = ShowPartType.NO_SLX_DSC in cfg.sut_show_parts
-
-    if not no_eye and not no_dsc:
-        logger.error(
-            f"Neither '{ShowPartType.NO_SLX_EYE.value}' or '{ShowPartType.NO_SLX_DSC.value}' is set"
-        )
-        logger.error("Only one of the SLX scanner can be enabled at a time. Exiting...")
-        return False
-
-    return True
-
-
-# ---------------------------------------------------------------------------- #
 #                                MAIN function                                 #
 # ---------------------------------------------------------------------------- #
 
@@ -263,13 +101,13 @@ def main():  # noqa: PLR0915
     _logger = main_logger
 
     try:
-        cfg = load_cfg(_logger)
+        cfg = load_scan_config(_logger)
         _logger.debug(f"SLX host: {cfg.slx_host}, SUT host: {cfg.sut_host}")
     except Exception:
         _logger.exception(LogMsg.CONFIG_FAILED.value)
         return
 
-    if not check_cfg(cfg, _logger):
+    if not cfg.validate(_logger):
         return
 
     _logger.info(LogMsg.SCANNER_INIT.value)

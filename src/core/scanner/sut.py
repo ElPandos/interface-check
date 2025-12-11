@@ -6,8 +6,8 @@ import threading
 import time
 
 from src.core.connect import LocalConnection, create_ssh_connection
-from src.core.enums.connect import ConnectType, HostType, ShowPartType
-from src.core.enums.messages import LogMsg
+from src.core.enum.connect import ConnectType, HostType, ShowPartType
+from src.core.enum.messages import LogMsg
 from src.core.parser import (
     SutDmesgFlapParser,
     SutEthtoolModuleParser,

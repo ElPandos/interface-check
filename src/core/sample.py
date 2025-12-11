@@ -1,7 +1,7 @@
 from datetime import datetime as dt
 
 from src.core.connect import SshConnection
-from src.core.enums.messages import LogMsg
+from src.core.enum.messages import LogMsg
 from src.core.tool import Tool
 from src.interfaces.component import ITime
 from src.models.config import Config

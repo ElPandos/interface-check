@@ -23,9 +23,7 @@ Configuration:
 """
 
 import csv
-from dataclasses import dataclass
 from datetime import datetime
-import json
 import logging
 from pathlib import Path
 import signal
@@ -34,10 +32,14 @@ import threading
 import time
 
 from src.core.cli import PrettyFrame
+from src.core.config import load_traffic_config
+from src.core.config.traffic import TrafficConfig
 from src.core.connect import LocalConnection, SshConnection
-from src.core.log.formatter import create_formatter
+from src.core.enum.messages import LogMsg
+from src.core.log.setup import init_logging
 from src.core.traffic.iperf import IperfClient, IperfServer
 from src.models.config import Host
+from src.platform.enums.log import LogName
 
 # ---------------------------------------------------------------------------- #
 #                          Graceful shutdown handling                          #
@@ -48,7 +50,11 @@ _shutdown_triggered = False
 
 
 def signal_handler(_signum, _frame) -> None:
-    """Handle Ctrl+C signal for graceful shutdown."""
+    """Handle Ctrl+C signal for graceful shutdown.
+
+    Sets shutdown event to trigger cleanup. Does not perform I/O
+    to avoid reentrant call errors.
+    """
     global _shutdown_triggered
     if not _shutdown_triggered:
         _shutdown_triggered = True
@@ -61,147 +67,9 @@ signal.signal(signal.SIGINT, signal_handler)
 #                             Logging configuration                            #
 # ---------------------------------------------------------------------------- #
 
-
-def setup_logging(log_dir: Path, log_level: str) -> tuple[logging.Logger, logging.Logger]:
-    """Setup logging for traffic testing.
-
-    Args:
-        log_dir: Directory for log files
-        log_level: Log level string (debug, info, warning, error)
-
-    Returns:
-        Tuple of (main_logger, traffic_logger)
-    """
-    log_dir.mkdir(parents=True, exist_ok=True)
-
-    level = getattr(logging, log_level.upper(), logging.INFO)
-
-    # Main logger
-    main_logger = logging.getLogger("main")
-    main_logger.setLevel(level)
-    main_handler = logging.FileHandler(log_dir / "main.log")
-    main_handler.setFormatter(create_formatter("main"))
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(create_formatter("main"))
-    main_logger.addHandler(main_handler)
-    main_logger.addHandler(console_handler)
-
-    # Traffic logger (CSV format)
-    traffic_logger = logging.getLogger("traffic")
-    traffic_logger.setLevel(level)
-    traffic_logger.propagate = False
-
-    return main_logger, traffic_logger
-
-
-# ---------------------------------------------------------------------------- #
-#                                  Configuration                               #
-# ---------------------------------------------------------------------------- #
-
-
-@dataclass(frozen=True)
-class Config:
-    """Traffic test configuration."""
-
-    log_level: str
-    jump_host: str
-    jump_user: str
-    jump_pass: str
-    server_host: str
-    server_user: str
-    server_pass: str
-    server_sudo_pass: str
-    server_port: int
-    server_connect_type: str
-    client_host: str
-    client_user: str
-    client_pass: str
-    client_sudo_pass: str
-    client_connect_type: str
-    test_duration_sec: int
-    test_protocol: str
-    test_bandwidth: str
-    test_parallel_streams: int
-    test_interval_sec: int
-    test_iterations: int
-    test_delay_between_tests_sec: int
-    test_bidir: bool
-    test_reverse: bool
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "Config":
-        """Create Config from JSON dict.
-
-        Args:
-            data: Configuration dictionary
-
-        Returns:
-            Config instance
-        """
-        j, srv, cli, test = data["jump"], data["server"], data["client"], data["test"]
-        return cls(
-            log_level=data.get("log_level", "info"),
-            jump_host=j["host"],
-            jump_user=j["user"],
-            jump_pass=j["pass"],
-            server_host=srv["host"],
-            server_user=srv["user"],
-            server_pass=srv["pass"],
-            server_sudo_pass=srv.get("sudo_pass", ""),
-            server_port=srv.get("port", 5201),
-            server_connect_type=srv.get("connect_type", "remote"),
-            client_host=cli["host"],
-            client_user=cli["user"],
-            client_pass=cli["pass"],
-            client_sudo_pass=cli.get("sudo_pass", ""),
-            client_connect_type=cli.get("connect_type", "remote"),
-            test_duration_sec=test.get("duration_sec", 30),
-            test_protocol=test.get("protocol", "tcp"),
-            test_bandwidth=test.get("bandwidth", "10G"),
-            test_parallel_streams=test.get("parallel_streams", 1),
-            test_interval_sec=test.get("interval_sec", 1),
-            test_iterations=test.get("iterations", 5),
-            test_delay_between_tests_sec=test.get("delay_between_tests_sec", 5),
-            test_bidir=test.get("bidir", False),
-            test_reverse=test.get("reverse", False),
-        )
-
-
-def validate_config(cfg: Config, logger: logging.Logger) -> bool:
-    """Validate configuration values.
-
-    Args:
-        cfg: Configuration to validate
-        logger: Logger instance
-
-    Returns:
-        True if valid
-    """
-    errors = []
-
-    if cfg.test_duration_sec <= 0:
-        errors.append(f"Invalid duration: {cfg.test_duration_sec} (must be > 0)")
-    if cfg.test_protocol not in ["tcp", "udp"]:
-        errors.append(f"Invalid protocol: {cfg.test_protocol} (must be tcp or udp)")
-    if cfg.test_parallel_streams < 1:
-        errors.append(f"Invalid parallel streams: {cfg.test_parallel_streams} (must be >= 1)")
-    if cfg.test_interval_sec <= 0:
-        errors.append(f"Invalid interval: {cfg.test_interval_sec} (must be > 0)")
-    if cfg.test_iterations < 1:
-        errors.append(f"Invalid iterations: {cfg.test_iterations} (must be >= 1)")
-    if cfg.test_bidir and cfg.test_reverse:
-        errors.append("Cannot use both bidir and reverse mode simultaneously")
-    if cfg.server_port < 1 or cfg.server_port > 65535:
-        errors.append(f"Invalid port: {cfg.server_port} (must be 1-65535)")
-
-    if errors:
-        logger.error("Configuration validation failed:")
-        for error in errors:
-            logger.error(f"  - {error}")
-        return False
-
-    logger.info("Configuration validated successfully")
-    return True
+loggers = init_logging()
+main_logger = loggers[LogName.MAIN.value]
+traffic_logger = loggers[LogName.TRAFFIC.value]
 
 
 # ---------------------------------------------------------------------------- #
@@ -210,7 +78,7 @@ def validate_config(cfg: Config, logger: logging.Logger) -> bool:
 
 
 def create_connection(
-    cfg: Config, host_type: str, logger: logging.Logger
+    cfg: TrafficConfig, host_type: str, logger: logging.Logger
 ) -> SshConnection | LocalConnection:
     """Create connection based on configuration.
 
@@ -254,7 +122,7 @@ def create_connection(
 # ---------------------------------------------------------------------------- #
 
 
-def write_test_metadata(csv_file: Path, cfg: Config, logger: logging.Logger):
+def write_test_metadata(csv_file: Path, cfg: TrafficConfig, logger: logging.Logger):
     """Write test configuration metadata to CSV.
 
     Args:
@@ -383,34 +251,36 @@ def write_summary_stats(summaries: list[dict], csv_file: Path, logger: logging.L
 # ---------------------------------------------------------------------------- #
 
 
-def setup_connections(cfg: Config, logger: logging.Logger) -> tuple | None:
+def setup_connections(cfg: TrafficConfig, logger: logging.Logger) -> tuple | None:
     """Setup and validate connections."""
-    logger.info("Creating connections...")
+    logger.info(LogMsg.TRAFFIC_CONN_CREATE.value)
     server_conn = create_connection(cfg, "server", logger)
     client_conn = create_connection(cfg, "client", logger)
 
-    logger.info("Connecting to hosts...")
+    logger.info(LogMsg.CON_CONNECTING.value)
     if not server_conn.connect():
-        logger.error("Failed to connect to server host")
+        logger.error(LogMsg.MAIN_CONN_FAILED.value)
         return None
 
     if not client_conn.connect():
-        logger.error("Failed to connect to client host")
+        logger.error(LogMsg.MAIN_CONN_FAILED.value)
         server_conn.disconnect()
         return None
 
-    logger.info("Connections established")
+    logger.info(LogMsg.SSH_ESTABLISHED.value)
     return server_conn, client_conn
 
 
-def setup_iperf(cfg: Config, server_conn, client_conn, logger: logging.Logger) -> tuple | None:
+def setup_iperf(
+    cfg: TrafficConfig, server_conn, client_conn, logger: logging.Logger
+) -> tuple | None:
     """Setup and validate iperf instances."""
     server = IperfServer(server_conn, logger, cfg.server_port)
     client = IperfClient(client_conn, logger, cfg.server_host, cfg.server_port)
 
-    logger.info("Validating connections...")
+    logger.info(LogMsg.TRAFFIC_CONN_VALIDATE.value)
     if not server.validate_connection() or not client.validate_connection(cfg.server_host):
-        logger.error("Connection validation failed")
+        logger.error(LogMsg.MAIN_CONN_FAILED.value)
         return None
 
     server.configure(use_json=True)
@@ -425,12 +295,12 @@ def setup_iperf(cfg: Config, server_conn, client_conn, logger: logging.Logger) -
         reverse=cfg.test_reverse,
     )
 
-    logger.info("Connection validation passed")
+    logger.info(LogMsg.TRAFFIC_CONN_VALIDATE_PASS.value)
     return server, client
 
 
 def run_test_iterations(
-    cfg: Config, client: IperfClient, csv_file: Path, logger: logging.Logger
+    cfg: TrafficConfig, client: IperfClient, csv_file: Path, logger: logging.Logger
 ) -> tuple:
     """Run test iterations."""
     summaries = []
@@ -441,7 +311,7 @@ def run_test_iterations(
 
     for iteration in range(1, cfg.test_iterations + 1):
         if shutdown_event.is_set():
-            logger.info("Shutdown signal received, stopping tests")
+            logger.info(LogMsg.SHUTDOWN_SIGNAL.value)
             break
 
         logger.info(f"\n{'=' * 60}")
@@ -480,22 +350,22 @@ def run_test_iterations(
 
 def cleanup_resources(server, server_conn, client_conn, logger: logging.Logger):
     """Cleanup all resources."""
-    logger.info("\nCleaning up...")
+    logger.info(LogMsg.SHUTDOWN_START.value)
     if server:
         try:
             server.stop()
         except Exception:
-            logger.exception("Error stopping server")
+            logger.exception(LogMsg.TRAFFIC_SERVER_STOP.value)
 
     try:
         client_conn.disconnect()
     except Exception:
-        logger.exception("Error disconnecting client")
+        logger.exception(LogMsg.TRAFFIC_CLIENT_DISCONNECT.value)
 
     try:
         server_conn.disconnect()
     except Exception:
-        logger.exception("Error disconnecting server")
+        logger.exception(LogMsg.TRAFFIC_SERVER_DISCONNECT.value)
 
 
 def print_final_summary(
@@ -525,7 +395,7 @@ def print_final_summary(
 
     if _shutdown_triggered:
         frame = PrettyFrame()
-        msg = frame.build("SHUTDOWN", ["Traffic testing stopped by user"])
+        msg = frame.build("SHUTDOWN SIGNAL", ["Ctrl+C pressed. Shutting down gracefully..."])
         sys.stderr.write(msg)
         sys.stderr.flush()
 
@@ -537,53 +407,67 @@ def print_final_summary(
 # ---------------------------------------------------------------------------- #
 
 
-def main() -> int:
+def main():
     """Main execution for iperf traffic testing.
 
-    Returns:
-        Exit code (0=success, 1=failure)
+    Execution flow:
+    1. Load and validate configuration
+    2. Setup SSH connections to server and client
+    3. Initialize iperf server and client
+    4. Run test iterations with statistics collection
+    5. Write results to CSV files
+    6. Graceful cleanup and shutdown
     """
     start_time = datetime.now()
-    timestamp = start_time.strftime("%Y%m%d_%H%M%S_traffic")
-    log_dir = Path("logs") / timestamp
 
-    # Load config
+    # ---------------------------------------------------------------------------- #
+    #                                 Load config                                  #
+    # ---------------------------------------------------------------------------- #
+
     try:
-        cfg = Config.from_dict(
-            json.load(open(Path(__file__).parent / "main_scan_traffic_cfg.json"))
-        )
-    except FileNotFoundError:
-        print("ERROR: Configuration file 'main_scan_traffic_cfg.json' not found")
-        return 1
-    except Exception as e:
-        print(f"ERROR: Failed to load configuration: {e}")
-        return 1
+        cfg = load_traffic_config(main_logger)
+    except Exception:
+        main_logger.exception(LogMsg.CONFIG_FAILED.value)
+        return
 
-    main_logger, _ = setup_logging(log_dir, cfg.log_level)
     main_logger.info(PrettyFrame().build("IPERF TRAFFIC TESTING", ["Starting traffic test..."]))
 
-    if not validate_config(cfg, main_logger):
-        return 1
+    if not cfg.validate(main_logger):
+        return
 
-    # Setup connections
+    # ---------------------------------------------------------------------------- #
+    #                              Setup connections                               #
+    # ---------------------------------------------------------------------------- #
+
     conns = setup_connections(cfg, main_logger)
     if not conns:
-        return 1
+        return
     server_conn, client_conn = conns
 
-    # Setup iperf
+    # ---------------------------------------------------------------------------- #
+    #                               Setup iperf                                    #
+    # ---------------------------------------------------------------------------- #
+
     iperf = setup_iperf(cfg, server_conn, client_conn, main_logger)
     if not iperf:
         server_conn.disconnect()
         client_conn.disconnect()
-        return 1
+        return
     server, client = iperf
 
-    # Prepare test
+    # ---------------------------------------------------------------------------- #
+    #                              Prepare test files                              #
+    # ---------------------------------------------------------------------------- #
+
+    log_dir = Path("logs") / start_time.strftime("%Y%m%d_%H%M%S")
+    log_dir.mkdir(parents=True, exist_ok=True)
     csv_file = log_dir / "traffic_stats.csv"
     write_test_metadata(csv_file, cfg, main_logger)
 
-    # Initialize test results
+    # ---------------------------------------------------------------------------- #
+    #                                Run test loop                                 #
+    # ---------------------------------------------------------------------------- #
+
     summaries = []
     successful_tests = 0
     failed_tests = 0
@@ -591,26 +475,27 @@ def main() -> int:
     server_started = False
 
     try:
-        # Start server
-        main_logger.info("Starting iperf server...")
+        main_logger.info(LogMsg.TRAFFIC_SERVER_START.value)
         if not server.start(daemon=True):
-            main_logger.error("Failed to start server")
-            return 1
+            main_logger.error(LogMsg.MAIN_SCAN_FAILED_START.value)
+            return
         server_started = True
         main_logger.info(f"Server started on port {cfg.server_port}")
         time.sleep(2)
 
-        # Validate port reachability
         if not client.check_port_reachable(cfg.server_host, cfg.server_port):
-            main_logger.error("Server port not reachable from client")
-            return 1
+            main_logger.error(LogMsg.MAIN_CONN_FAILED.value)
+            return
 
-        # Run tests
         summaries, successful_tests, failed_tests, failed_iterations = run_test_iterations(
             cfg, client, csv_file, main_logger
         )
 
     finally:
+        # ---------------------------------------------------------------------------- #
+        #                                   Cleanup                                    #
+        # ---------------------------------------------------------------------------- #
+
         cleanup_resources(server if server_started else None, server_conn, client_conn, main_logger)
         if summaries:
             write_summary_stats(summaries, csv_file, main_logger)
@@ -624,8 +509,6 @@ def main() -> int:
             main_logger,
         )
 
-    return 0 if failed_tests == 0 else 1
-
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

@@ -8,7 +8,7 @@ from typing import Any
 from src.core import json
 from src.core.cli import PrettyFrame
 from src.core.connect import SshConnection
-from src.core.enums.messages import LogMsg
+from src.core.enum.messages import LogMsg
 from src.core.result import CmdResult
 from src.platform.enums.log import LogName
 from src.platform.enums.software import CmdInputType

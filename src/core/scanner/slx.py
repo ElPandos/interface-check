@@ -7,8 +7,8 @@ import threading
 import time
 
 from src.core.connect import create_ssh_connection
-from src.core.enums.connect import HostType, PortState, ShowPartType
-from src.core.enums.messages import LogMsg
+from src.core.enum.connect import HostType, PortState, ShowPartType
+from src.core.enum.messages import LogMsg
 from src.core.log.rotation import check_and_rotate_log
 from src.models.scanner import BaseScanner
 

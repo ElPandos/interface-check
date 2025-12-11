@@ -18,7 +18,7 @@ from typing import Any
 from pympler import asizeof
 
 from src.core.connect import SshConnection
-from src.core.enums.messages import LogMsg
+from src.core.enum.messages import LogMsg
 from src.core.helpers import get_attr_value
 from src.core.json import Json
 from src.core.log.rotation import _mark_logger_for_rotation, check_and_rotate_log

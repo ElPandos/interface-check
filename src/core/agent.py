@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from src.core.connect import SshConnection
-from src.core.enums.messages import LogMsg
+from src.core.enum.messages import LogMsg
 from src.platform.enums.log import LogName
 
 logger = logging.getLogger(LogName.MAIN.value)

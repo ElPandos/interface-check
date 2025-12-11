@@ -29,11 +29,21 @@ class LogMsg(Enum):
     SHELL_OPENED = "Shell opened successfully"
     SHELL_OPEN_SUCCESS = "Shell opened and configured"
     SHELL_CLOSED = "Shell closed"
+    SHELL_CLOSE_SUCCESS = "Shell closed successfully"
     SHELL_SKIP = "Skipping shell opening (using exec_cmd instead)"
     SHELL_NOT_CONNECTED = "Cannot open shell: not connected"
+    SHELL_NOT_OPENED = "Shell not opened"
     SHELL_ALREADY_OPEN = "Shell already open"
+    SHELL_ALREADY_CLOSED = "Shell already closed or not has not been opened"
     SHELL_CMD_NO_SHELL = "Cannot execute shell command: shell not opened"
     SHELL_CMD_NO_CON = "Cannot execute shell command: connection lost"
+    SHELL_INVOKE = "Shell invoked, waiting for banner"
+    SHELL_BUFFER_CLEAR = "Buffer cleared after config commands"
+    SHELL_BUFFER_CLEAR_FAIL = "Buffer clear failed, continuing anyway"
+    SHELL_BUFFER_CLEARING = "Clearing shell buffer"
+    SHELL_BUFFER_CLEARED = "Buffer cleared"
+    SHELL_CLOSING = "Closing shell"
+    SHELL_STOPPING_THREAD = "Stopping keepalive thread"
 
     # === COMMAND EXECUTION ===
     CMD_EXECUTING = "Executing command"
@@ -245,6 +255,14 @@ class LogMsg(Enum):
     SHUTDOWN_SUT_SCANNER = "Shutting SUT scanner"
     SHUTDOWN_EYE_SCANNER = "Shutting down eye scanner"
 
+    # === LOCAL CONNECTION ===
+    LOCAL_EXEC = "Using local command execution (no SSH)"
+    LOCAL_CLOSED = "Local connection closed"
+    LOCAL_CMD_EXEC = "Executing local command"
+    LOCAL_CMD_TIMEOUT = "Command timeout"
+    LOCAL_CMD_FAILED = "Command execution failed"
+    LOCAL_CMD_STDERR = "Command stderr"
+
     # === MAIN APPLICATION ===
     # Configuration
     MAIN_CONFIG_NOT_FOUND = "Config file not found"
@@ -296,6 +314,15 @@ class LogMsg(Enum):
     AGENT_SSH_UNAVAIL = "SSH connection not available"
     AGENT_CMD_FAIL = "Agent command execution failed"
 
+    # === TRAFFIC TESTING ===
+    TRAFFIC_CONN_CREATE = "Creating connections..."
+    TRAFFIC_CONN_VALIDATE = "Validating connections..."
+    TRAFFIC_CONN_VALIDATE_PASS = "Connection validation passed"
+    TRAFFIC_SERVER_START = "Starting iperf server..."
+    TRAFFIC_SERVER_STOP = "Error stopping server"
+    TRAFFIC_CLIENT_DISCONNECT = "Error disconnecting client"
+    TRAFFIC_SERVER_DISCONNECT = "Error disconnecting server"
+
     # === PARSER ===
     PARSER_TIMESTAMP_FAIL = "Failed to parse timestamp"
 
@@ -303,9 +330,12 @@ class LogMsg(Enum):
     SAMPLE_CMD_FAIL = "Sample command execution failed"
 
     # === KEEPALIVE ===
+    ALIVE_THREAD_START = "Keepalive thread started"
     ALIVE_THREAD_FAIL = "Keepalive thread encountered an error"
     ALIVE_THREAD_STOP = "Keepalive thread did not stop gracefully"
+    ALIVE_THREAD_STOPPING = "Stopping keepalive thread"
     ALIVE_NO_ACTIVE = "Keepalive thread did not find any active connections"
+    ALIVE_LOOP_STOP = "Keepalive loop stopped"
 
     # === STORAGE ===
     STORE_FAIL = "Failed to store results to"
@@ -318,6 +348,11 @@ class LogMsg(Enum):
     CON_TARGET_SUCCESS = "Successfully connected to target: "
     CON_HOST_SUCCESS = "Successfully connected to host: "
     CON_HOST_FAIL = "Failed to establish connection to host: "
+    CON_CONNECTING = "Connecting to hosts..."
+    CON_TRANSPORT_INACTIVE = "Connection established but transport is not active"
+    CON_TIMEOUT = "Connection timeout on host"
+    CON_AUTH_FAIL = "Authentication failed for host"
+    CON_PROTOCOL_FAIL = "Protocol error on host"
     PRE_HOST_CON = "Already connected to host: "
     POST_HOST_DISCON = "Already disconnected from host: "
     DISCON_HOST = "Disconnecting from host: "

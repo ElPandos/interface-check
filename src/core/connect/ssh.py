@@ -10,8 +10,8 @@ import paramiko
 from pydantic import SecretStr
 
 from src.core.connect.local import _log_exec_time
-from src.core.enums.connect import HostType
-from src.core.enums.messages import LogMsg
+from src.core.enum.connect import HostType
+from src.core.enum.messages import LogMsg
 from src.core.parser import SutTimeParser
 from src.core.result import CmdResult
 from src.interfaces.component import IConnection
@@ -244,7 +244,7 @@ class SshConnection(IConnection):
             self._logger.info(f"{LogMsg.DISCON_HOST_SUCCESS.value}{self._host}")
 
         except Exception:
-            self._logger.exception(f"Error during disconnect from {self._host}")
+            self._logger.exception(f"{LogMsg.SSH_DISCONNECTED.value}: {self._host}")
 
     def is_connected(self) -> bool:
         """Check if SSH connection is active.
@@ -490,7 +490,7 @@ class SshConnection(IConnection):
         self._stop_keepalive.clear()
         self._keepalive_thread = threading.Thread(target=self._keepalive_loop, daemon=True)
         self._keepalive_thread.start()
-        self._logger.debug("Keepalive thread started")
+        self._logger.debug(LogMsg.ALIVE_THREAD_START.value)
 
     def _keepalive_loop(self) -> None:
         """Keepalive loop that sends periodic packets to all connections.
@@ -498,7 +498,9 @@ class SshConnection(IConnection):
         Runs in daemon thread until stop event is set.
         Logs warnings if no active connections found.
         """
-        self._logger.debug(f"Keepalive loop started with {self._keepalive_interval}s interval")
+        self._logger.debug(
+            f"{LogMsg.ALIVE_THREAD_START.value} with {self._keepalive_interval}s interval"
+        )
 
         while not self._stop_keepalive.wait(self._keepalive_interval):
             try:
@@ -521,7 +523,7 @@ class SshConnection(IConnection):
             except Exception:
                 self._logger.exception(LogMsg.ALIVE_THREAD_FAIL.value)
 
-        self._logger.debug("Keepalive loop stopped")
+        self._logger.debug(LogMsg.ALIVE_LOOP_STOP.value)
 
     # ========================================================================
     # Interactive Shell Management
@@ -545,7 +547,7 @@ class SshConnection(IConnection):
 
         try:
             self._shell = self._ssh_client.invoke_shell(width=120, height=40)
-            self._logger.debug("Shell invoked, waiting for banner")
+            self._logger.debug(LogMsg.SHELL_INVOKE.value)
 
             # Wait longer for initial banner and send enter to activate prompt
             time.sleep(2)
@@ -558,7 +560,7 @@ class SshConnection(IConnection):
                 if output:
                     self._logger.debug(f"Banner preview:\n\n{output[:200]}...\n")
             except TimeoutError:
-                self._logger.warning("Initial prompt detection failed, but continuing")
+                self._logger.warning(LogMsg.SHELL_OPEN_FAILED.value)
                 output = ""
 
             # Configure SLX terminal - these commands may not work on all systems
@@ -577,15 +579,15 @@ class SshConnection(IConnection):
             # Clear buffer after config commands to prevent contamination
             try:
                 self._read_until_prompt(timeout=2)
-                self._logger.debug("Buffer cleared after config commands")
+                self._logger.debug(LogMsg.SHELL_BUFFER_CLEAR.value)
             except Exception:
-                self._logger.exception("Buffer clear failed, continuing anyway")
+                self._logger.exception(LogMsg.SHELL_BUFFER_CLEAR_FAIL.value)
 
             self._logger.info(LogMsg.SHELL_OPEN_SUCCESS.value)
             return True
 
         except Exception:
-            self._logger.exception("Failed to open shell")
+            self._logger.exception(LogMsg.SHELL_OPEN_FAILED.value)
             if self._shell:
                 try:  # noqa: SIM105
                     self._shell.close()
@@ -758,7 +760,7 @@ class SshConnection(IConnection):
         if not self._keepalive_thread:
             return
 
-        self._logger.debug("Stopping keepalive thread")
+        self._logger.debug(LogMsg.ALIVE_THREAD_STOPPING.value)
         self._keepalive_thread.join(timeout=1)
         if self._keepalive_thread.is_alive():
             self._logger.warning(LogMsg.ALIVE_THREAD_STOP.value)
@@ -784,27 +786,27 @@ class SshConnection(IConnection):
         """Close interactive shell session."""
         if self._shell:
             try:
-                self._logger.debug("Closing shell")
+                self._logger.debug(LogMsg.SHELL_CLOSING.value)
                 self._shell.close()
-                self._logger.debug("Shell closed successfully")
+                self._logger.debug(LogMsg.SHELL_CLOSE_SUCCESS.value)
             except Exception:
                 self._logger.exception("Error closing shell")
             finally:
                 self._shell = None
         else:
-            self._logger.debug("Shell already closed or not has not been opened")
+            self._logger.debug(LogMsg.SHELL_ALREADY_CLOSED.value)
 
     def clear_shell(self) -> None:
         """Clear shell buffer."""
         if not self._shell:
-            self._logger.error("Shell not opened")
+            self._logger.error(LogMsg.SHELL_NOT_OPENED.value)
             return
 
         try:
-            self._logger.debug("Clearing shell buffer")
+            self._logger.debug(LogMsg.SHELL_BUFFER_CLEARING.value)
             while self._shell.recv_ready():
                 self._shell.recv(65536)
                 time.sleep(0.1)
-            self._logger.debug("Buffer cleared")
+            self._logger.debug(LogMsg.SHELL_BUFFER_CLEARED.value)
         except Exception:
             self._logger.exception("Error clearing shell buffer")

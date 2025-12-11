@@ -3,7 +3,7 @@ from datetime import UTC, datetime as dt
 import re
 from typing import ClassVar
 
-from src.core.enums.messages import LogMsg
+from src.core.enum.messages import LogMsg
 from src.interfaces.component import IParser
 from src.platform.enums.log import LogName
 
