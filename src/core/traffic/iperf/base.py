@@ -2,12 +2,13 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+import datetime as dt
 import json
 import logging
 import re
 import statistics
 
+from src.core.enum.messages import LogMsg
 from src.interfaces.component import IConnection
 
 
@@ -28,7 +29,8 @@ class IperfStats:
 class IperfBase(ABC):
     """Base class for iperf server and client."""
 
-    REQUIRED_SW = ["iperf3", "net-tools"]
+    REQUIRED_SW = ["iperf"]
+
     UNIT_MULTIPLIERS_BYTES = {"K": 1024, "M": 1024**2, "G": 1024**3, "": 1}
     UNIT_MULTIPLIERS_BPS = {"K": 1000, "M": 1000**2, "G": 1000**3, "": 1}
 
@@ -61,6 +63,7 @@ class IperfBase(ABC):
         """
         if use_json:
             return self._parse_json_output(output)
+
         return self._parse_text_output(output)
 
     def _parse_json_output(self, output: str) -> list[IperfStats]:
@@ -75,7 +78,7 @@ class IperfBase(ABC):
         stats = []
         try:
             data = json.loads(output)
-            timestamp = datetime.now().isoformat()
+            timestamp = dt.datetime.now().isoformat()
 
             # Parse intervals from JSON
             for interval in data.get("intervals", []):
@@ -97,7 +100,7 @@ class IperfBase(ABC):
                     )
                 )
         except (json.JSONDecodeError, KeyError) as e:
-            self._logger.error(f"Failed to parse JSON output: {e}")
+            self._logger.error(f"{LogMsg.TRAFFIC_JSON_PARSE_FAIL.value}: {e}")
 
         return stats
 
@@ -111,7 +114,7 @@ class IperfBase(ABC):
             List of parsed statistics
         """
         stats = []
-        timestamp = datetime.now().isoformat()
+        timestamp = dt.datetime.now().isoformat()
 
         # Pattern for bandwidth line: [  3]  0.0- 1.0 sec  1.25 GBytes  10.7 Gbits/sec
         pattern = r"\[\s*\d+\]\s+([\d\.-]+)\s+sec\s+([\d\.]+)\s+([KMG]?)Bytes\s+([\d\.]+)\s+([KMG]?)bits/sec"
@@ -185,6 +188,7 @@ class IperfBase(ABC):
         transfers = [s.transfer_bytes for s in self._stats]
 
         return {
+            "begin_timestamp": dt.datetime.now(),
             "bandwidth_min_bps": min(bandwidths),
             "bandwidth_max_bps": max(bandwidths),
             "bandwidth_avg_bps": statistics.mean(bandwidths),
@@ -206,11 +210,11 @@ class IperfBase(ABC):
         return result.rcode == 0
 
     def _cleanup_existing_processes(self) -> None:
-        """Kill any existing iperf3 processes."""
-        self._logger.info("Checking for existing iperf3 processes...")
-        result = self._conn.exec_cmd("pkill -9 iperf3", timeout=5)
+        """Kill any existing iperf processes."""
+        self._logger.info(LogMsg.TRAFFIC_IPERF_CHECK.value)
+        result = self._conn.exec_cmd("pkill -9 iperf", timeout=5)
         if result.rcode == 0:
-            self._logger.info("Killed existing iperf3 processes")
+            self._logger.info(LogMsg.TRAFFIC_IPERF_KILLED.value)
 
     def _check_sw_installed(self, package: str) -> bool:
         """Check if software package is installed.
@@ -233,7 +237,7 @@ class IperfBase(ABC):
         Returns:
             True if installation successful
         """
-        self._logger.info(f"Installing {package}...")
+        self._logger.info(f"{LogMsg.TRAFFIC_SW_INSTALLING.value} {package}...")
 
         # Try apt first
         result = self._conn.exec_cmd("which apt-get", timeout=5)
@@ -242,9 +246,11 @@ class IperfBase(ABC):
                 f"apt-get update && apt-get install -y {package}", timeout=120
             )
             if result.rcode == 0:
-                self._logger.info(f"{package} installed successfully via apt")
+                self._logger.info(f"'{package}' {LogMsg.TRAFFIC_SW_INSTALL_SUCCESS_APT.value}")
                 return True
-            self._logger.error(f"Failed to install {package} via apt: {result.stderr}")
+            self._logger.error(
+                f"{LogMsg.TRAFFIC_SW_INSTALL_FAIL_APT.value} {package}: {result.stderr}"
+            )
             return False
 
         # Try yum
@@ -252,12 +258,14 @@ class IperfBase(ABC):
         if result.rcode == 0:
             result = self._conn.exec_cmd(f"yum install -y {package}", timeout=120)
             if result.rcode == 0:
-                self._logger.info(f"{package} installed successfully via yum")
+                self._logger.info(f"{package} {LogMsg.TRAFFIC_SW_INSTALL_SUCCESS_YUM.value}")
                 return True
-            self._logger.error(f"Failed to install {package} via yum: {result.stderr}")
+            self._logger.error(
+                f"{LogMsg.TRAFFIC_SW_INSTALL_FAIL_YUM.value} {package}: {result.stderr}"
+            )
             return False
 
-        self._logger.error("No supported package manager found (apt/yum)")
+        self._logger.error(LogMsg.TRAFFIC_SW_NO_PKG_MGR.value)
         return False
 
     def _verify_sw(self, package: str, version_flag: str = "--version") -> bool:
@@ -273,46 +281,52 @@ class IperfBase(ABC):
         result = self._conn.exec_cmd(f"{package} {version_flag}", timeout=5)
         if result.rcode == 0:
             version = result.stdout.split()[0] if result.stdout else "unknown"
-            self._logger.info(f"{package} verified: {version}")
+            self._logger.info(f"{package} {LogMsg.TRAFFIC_SW_VERIFIED.value}: {version}")
             return True
-        self._logger.error(f"{package} verification failed")
+        self._logger.error(f"{package} {LogMsg.TRAFFIC_SW_VERIFY_FAIL.value}")
         return False
 
-    def ensure_required_sw(self) -> bool:
+    def ensure_required_sw(self, skip_check: bool = False) -> bool:
         """Ensure required software packages are installed.
+
+        Args:
+            skip_check: Skip software check (assume already verified)
 
         Returns:
             True if all packages available
         """
+        if skip_check:
+            return True
+
         missing = []
 
-        self._logger.info("Checking required software...")
+        self._logger.info(LogMsg.TRAFFIC_SW_CHECK.value)
         for package in self.REQUIRED_SW:
             if not self._check_sw_installed(package):
-                self._logger.warning(f"{package} not found")
+                self._logger.warning(f"{package} {LogMsg.TRAFFIC_SW_MISSING.value}")
                 missing.append(package)
             else:
                 self._logger.debug(f"{package} is installed")
 
         if not missing:
-            self._logger.info("All required software is installed")
+            self._logger.info(LogMsg.TRAFFIC_SW_INSTALLED.value)
             return True
 
         # Install missing packages
-        self._logger.info(f"Installing missing software: {missing}")
+        self._logger.info(f"{LogMsg.TRAFFIC_SW_INSTALL_START.value}: {missing}")
         for package in missing:
             if not self._install_sw(package):
-                self._logger.error(f"Failed to install {package}")
+                self._logger.error(f"{LogMsg.TRAFFIC_SW_INSTALL_FAIL.value} {package}")
                 return False
 
         # Verify installations
-        self._logger.info("Verifying installations...")
+        self._logger.info(LogMsg.TRAFFIC_SW_VERIFY.value)
         for package in self.REQUIRED_SW:
             if not self._check_sw_installed(package):
-                self._logger.error(f"{package} verification failed")
+                self._logger.error(f"{package} {LogMsg.TRAFFIC_SW_VERIFY_FAIL.value}")
                 return False
 
-        self._logger.info("All required software installed and verified")
+        self._logger.info(LogMsg.TRAFFIC_SW_VERIFY_SUCCESS.value)
         return True
 
     def _check_port_available(self, port: int) -> bool:
@@ -325,6 +339,9 @@ class IperfBase(ABC):
             True if port is available
         """
         result = self._conn.exec_cmd(f"netstat -tuln | grep ':{port} '", timeout=5)
+        if result.success:
+            self._logger.info(f"{port} {LogMsg.TRAFFIC_PORT_REACHABLE.value}")
+
         return result.rcode != 0
 
     def _exec_cmd(self, cmd: str, timeout: int = 10) -> bool:
@@ -337,10 +354,10 @@ class IperfBase(ABC):
         Returns:
             True if command succeeded
         """
-        self._logger.info(f"Executing: {cmd}")
+        self._logger.info(f"{LogMsg.TRAFFIC_CMD_EXEC.value}: {cmd}")
         result = self._conn.exec_cmd(cmd, timeout=timeout)
         if result.rcode != 0:
-            self._logger.error(f"Command failed: {result.stderr}")
+            self._logger.error(f"{LogMsg.TRAFFIC_CMD_FAIL.value}: {result.stderr}")
             return False
         return True
 
@@ -354,19 +371,19 @@ class IperfBase(ABC):
             True if connection valid
         """
         if target_host:
-            self._logger.info(f"Validating connection to {target_host}...")
+            self._logger.info(f"{LogMsg.TRAFFIC_CONN_VALIDATE.value} to {target_host}...")
             result = self._conn.exec_cmd(f"ping -c 3 -W 2 {target_host}", timeout=10)
             if result.rcode != 0:
                 self._logger.error(f"Cannot reach {target_host}: {result.stderr}")
                 return False
-            self._logger.info(f"Connection to {target_host} validated")
+            self._logger.info(f"{LogMsg.TRAFFIC_CONN_VALIDATED.value} to {target_host}")
         else:
-            self._logger.info("Validating local connection...")
+            self._logger.info(LogMsg.TRAFFIC_CONN_VALIDATE_LOCAL.value)
             result = self._conn.exec_cmd("echo test", timeout=5)
             if result.rcode != 0:
-                self._logger.error("Local connection validation failed")
+                self._logger.error(LogMsg.TRAFFIC_CONN_LOCAL_FAILED.value)
                 return False
-            self._logger.info("Local connection validated")
+            self._logger.info(LogMsg.TRAFFIC_CONN_LOCAL_VALIDATED.value)
         return True
 
     def check_port_reachable(self, host: str, port: int, timeout: int = 5) -> bool:
@@ -380,15 +397,15 @@ class IperfBase(ABC):
         Returns:
             True if port is reachable
         """
-        self._logger.info(f"Checking port {port} on {host}...")
+        self._logger.info(f"{LogMsg.TRAFFIC_PORT_CHECK.value} {port} on {host}...")
         result = self._conn.exec_cmd(
             f"timeout {timeout} bash -c 'cat < /dev/null > /dev/tcp/{host}/{port}'",
             timeout=timeout + 2,
         )
         if result.rcode == 0:
-            self._logger.info(f"Port {port} on {host} is reachable")
+            self._logger.info(f"Port {port} on {host} {LogMsg.TRAFFIC_PORT_REACHABLE.value}")
             return True
-        self._logger.error(f"Port {port} on {host} is not reachable (firewall/network issue?)")
+        self._logger.error(f"Port {port} on {host} {LogMsg.TRAFFIC_PORT_UNREACHABLE.value}")
         return False
 
     def validate_results(self, stats: list[IperfStats]) -> tuple[bool, str]:
@@ -424,18 +441,24 @@ class IperfBase(ABC):
             True if stopped successfully
         """
         if not self._pid:
-            self._logger.warning("No PID found")
+            self._logger.debug(LogMsg.TRAFFIC_PID_NONE.value)
             return True
 
-        self._logger.info(f"Stopping process (PID {self._pid})")
+        self._logger.info(f"{LogMsg.TRAFFIC_PROCESS_STOP.value} (PID {self._pid})")
         result = self._conn.exec_cmd(f"kill {self._pid}", timeout=5)
 
         if result.rcode == 0:
             self._pid = None
-            self._logger.info("Process stopped")
+            self._logger.info(LogMsg.TRAFFIC_PROCESS_STOPPED.value)
             return True
 
-        self._logger.error(f"Failed to stop process: {result.stderr}")
+        # Process may have already exited - check if it's actually gone
+        if "No such process" in result.stderr:
+            self._logger.debug(f"Process {self._pid} already terminated")
+            self._pid = None
+            return True
+
+        self._logger.error(f"{LogMsg.TRAFFIC_PROCESS_STOP_FAIL.value}: {result.stderr}")
         return False
 
     def kill(self) -> bool:
@@ -447,7 +470,7 @@ class IperfBase(ABC):
         if not self._pid:
             return True
 
-        self._logger.warning(f"Force killing process (PID {self._pid})")
+        self._logger.warning(f"{LogMsg.TRAFFIC_PROCESS_KILL.value} (PID {self._pid})")
         result = self._conn.exec_cmd(f"kill -9 {self._pid}", timeout=5)
         self._pid = None
         return result.rcode == 0
@@ -456,7 +479,7 @@ class IperfBase(ABC):
         """Get PID of iperf process.
 
         Args:
-            pattern: Pattern to match process (e.g., 'iperf3 -s.*5201')
+            pattern: Pattern to match process (e.g., 'perf3 -s.*5001')
 
         Returns:
             True if PID found
@@ -464,7 +487,7 @@ class IperfBase(ABC):
         result = self._conn.exec_cmd(f"pgrep -f '{pattern}'", timeout=5)
         if result.rcode == 0 and result.stdout.strip():
             self._pid = int(result.stdout.strip().split()[0])
-            self._logger.info(f"Process started with PID {self._pid}")
+            self._logger.info(f"{LogMsg.TRAFFIC_PROCESS_STARTED.value} {self._pid}")
             return True
-        self._logger.error("Failed to get process PID")
+        self._logger.error(LogMsg.TRAFFIC_PROCESS_NO_PID.value)
         return False

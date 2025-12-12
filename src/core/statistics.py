@@ -178,12 +178,12 @@ class WorkerStatistics:
             cmd_preview = f"'{cmd[:72]}...'" if len(cmd) > 72 else f"'{cmd}'"
             rows.append(f"Command: {cmd_preview}")
             rows.append("---")
-            rows.append(f"Max avg. count no: {count} │ Manual delay: {delay:7.3f} ms")
+            rows.append(f"Max avg. count no: {count} │ Manual delay: {delay:7.3f}ms")
             rows.append("---")
-            rows.append(f"Min:  {min_dur:10.3f} ms │ Max:  {max_dur:10.3f} ms")
-            rows.append(f"Avg:  {mean:10.3f} ms │ Median: {median:8.3f} ms")
-            rows.append(f"Send: {send_avg:10.3f} ms │ Read: {read_avg:10.3f} ms")
-            rows.append(f"Cycle: {cycle_avg:9.3f} ms │ Time:   {parsed_avg:8.3f} ms")
+            rows.append(f"Min:  {min_dur:10.3f}ms │ Max:  {max_dur:10.3f}ms")
+            rows.append(f"Avg:  {mean:10.3f}ms │ Median: {median:8.3f}ms")
+            rows.append(f"Send: {send_avg:10.3f}ms │ Read: {read_avg:10.3f}ms")
+            rows.append(f"Cycle: {cycle_avg:9.3f}ms │ Time:   {parsed_avg:8.3f}ms")
             rows.append("---")
 
         # Add metric descriptions once at the end
@@ -207,12 +207,12 @@ class WorkerStatistics:
             max_idx = list(stats.durations).index(max_val)
             cmd_preview = f"'{cmd[:60]}...'" if len(cmd) > 60 else f"'{cmd}'"
             rows.append(f"  {cmd_preview}")
-            rows.append(f"    Max: {max_val:.3f} ms")
+            rows.append(f"    Max: {max_val:.3f}ms")
             if stats.timestamps and max_idx < len(stats.timestamps):
                 ts = list(stats.timestamps)[max_idx]
                 dt = datetime.fromtimestamp(ts, tz=UTC).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
                 rows.append(f"    Timestamp: {dt}")
             if stats.parsed_times and max_idx < len(stats.parsed_times):
-                rows.append(f"    Parsed time at max: {list(stats.parsed_times)[max_idx]:.3f} ms")
+                rows.append(f"    Parsed time at max: {list(stats.parsed_times)[max_idx]:.3f}ms")
 
         return frame.build("Worker Command Duration Statistics", rows)

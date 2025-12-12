@@ -237,7 +237,7 @@ def main():  # noqa: PLR0915
     #                                  Statistics                                  #
     # ---------------------------------------------------------------------------- #
 
-    _logger.info(LogMsg.SHUTDOWN_TOTAL_COMPLETED.value)
+    _logger.info(LogMsg.SHUTDOWN_ALL_COMPLETED.value)
     _logger.info(LogMsg.MAIN_LOGS_SAVED.value)
 
     stats_summary = sut_scanner.worker_manager.get_statistics_summary()

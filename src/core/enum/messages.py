@@ -6,102 +6,137 @@ from enum import Enum
 class LogMsg(Enum):
     """Log message constants for consistent logging across the application."""
 
-    # === SSH CONNECTION ===
+    # ---------------------------------------------------------------------------- #
+    #                         CConnections local or remote                         #
+    # ---------------------------------------------------------------------------- #
+
+    # Connection
+    CONN_ALREADY_CONNECTED = "Already connected to host"
+    CONN_ALREADY_DISCONNECTED = "Already disconnected from host"
+    CONN_DISCONNECTING = "Disconnecting from host"
+    CONN_DISCONNECT_FAILED = "Failed disconnecting from host"
+    CONN_DISCONNECTED = "Disconnected from host"
+    CONN_RECONNECT = "Attempting to reconnect"
+    CONN_RECONNECT_SUCCESS = "Reconnection successful"
+    CONN_RECONNECT_FAILED = "Reconnection failed"
+    CONN_NONE_AVAILABLE = "No connection available"
+    CONN_PROTOCOL_ERROR = "Protocol error on host"
+    CONN_AUTH_FAILED = "Authentication failed for host"
+    CONN_TIMEOUT = "Connection timeout on host"
+    CONN_TARGET_SUCCESS = "Successfully connected to target"
+    CONN_HOST_SUCCESS = "Successfully connected to host"
+    CONN_HOST_FAILED = "Failed to establish connection to host: "
+    CONN_FAILED = "Connection failed"
+    CONN_LOCAL_ESTABLISHED = "Local connection established"
+
+    # Connection
+    CONN_SLX_FAILED = "Failed to connect to SLX"
+
+    # Jump Host
+    CONN_JUMP_FAILED = "Failed to establish connection to jump host"
+    CONN_JUMP_SUCCESS = "Successfully connected to jump host"
+
+    # Target Connection
+    CONN_CONNECTING = "Connecting to hosts..."
+    CONN_ESTABLISHED = "Connection established to hosts..."
+    CONN_TRANSPORT_INACTIVE = "Connection established but transport is not active"
+
+    # SSH Connection
     SSH_CONN_SUCCESS = "SSH connection successful"
     SSH_CONN_FAILED = "SSH connection failed"
-    SSH_NO_CONN = "No SSH connection available"
-    SSH_ESTABLISHED = "SSH connection established"
-    SSH_DISCONNECTED = "SSH connection disconnected"
-    SSH_TIMEOUT = "Connection timeout on host"
-    SSH_AUTH_FAIL = "Authentication failed for host"
-    SSH_PROTOCOL_FAIL = "Protocol error on host"
-    SSH_TRANSPORT_INACTIVE = "Connection established but transport is not active"
-    SSH_ALREADY_CONNECTED = "Already connected to host"
-    SSH_ALREADY_DISCONNECTED = "Already disconnected from host"
-    SSH_DISCONNECTING = "Disconnecting from host"
-    SSH_DISCONNECT_SUCCESS = "Disconnected from host"
-    SSH_RECONNECT = "Attempting to reconnect"
-    SSH_RECONNECT_SUCCESS = "Reconnection successful"
-    SSH_RECONNECT_FAILED = "Reconnection failed"
+    SSH_CONN_NOT_AVAILABLE = "SSH connection not available"
+    SSH_CONN_ESTABLISHED = "SSH connection established"
+    SSH_CONN_DISCONNECTED = "SSH connection disconnected"
+    SSH_CONN_TIMEOUT = "SSH connection timeout"
+    SSH_CONN_AUTH_FAILED = "SSH authentication failed"
+    SSH_CONN_PROTOCOL_FAILED = "SSH protocol failed"
+    SSH_CONN_TRANSPORT_INACTIVE = "SSH connection established but transport is inactive"
 
-    # === SHELL ===
+    # Shell
     SHELL_OPEN_FAILED = "Failed to open shell"
-    SHELL_OPENED = "Shell opened successfully"
-    SHELL_OPEN_SUCCESS = "Shell opened and configured"
+    SHELL_OPENED_SUCCESS = "Shell opened successfully"
+    SHELL_OPENED_CONFIGURED = "Shell opened and configured"
     SHELL_CLOSED = "Shell closed"
-    SHELL_CLOSE_SUCCESS = "Shell closed successfully"
-    SHELL_SKIP = "Skipping shell opening (using exec_cmd instead)"
-    SHELL_NOT_CONNECTED = "Cannot open shell: not connected"
-    SHELL_NOT_OPENED = "Shell not opened"
-    SHELL_ALREADY_OPEN = "Shell already open"
-    SHELL_ALREADY_CLOSED = "Shell already closed or not has not been opened"
-    SHELL_CMD_NO_SHELL = "Cannot execute shell command: shell not opened"
-    SHELL_CMD_NO_CON = "Cannot execute shell command: connection lost"
-    SHELL_INVOKE = "Shell invoked, waiting for banner"
-    SHELL_BUFFER_CLEAR = "Buffer cleared after config commands"
-    SHELL_BUFFER_CLEAR_FAIL = "Buffer clear failed, continuing anyway"
-    SHELL_BUFFER_CLEARING = "Clearing shell buffer"
-    SHELL_BUFFER_CLEARED = "Buffer cleared"
     SHELL_CLOSING = "Closing shell"
+    SHELL_CLOSED_SUCCESS = "Shell closed successfully"
+    SHELL_SKIP = "Skipping shell opening (using exec_cmd instead)"
+    SHELL_NOT_CONNECTED = "Cannot open shell: Not connected"
+    SHELL_NOT_OPENED = "Shell not opened"
+    SHELL_ALREADY_OPENED = "Shell already opened"
+    SHELL_ALREADY_CLOSED = "Shell already closed or have not been opened"
+    SHELL_INVOKED_BANNER = "Shell invoked, waiting for banner"
     SHELL_STOPPING_THREAD = "Stopping keepalive thread"
 
-    # === COMMAND EXECUTION ===
-    CMD_EXECUTING = "Executing command"
-    CMD_RESULT = "Command result"
-    CMD_FAILED = "Command execution failed"
-    CMD_TIMEOUT = "Command execution timeout"
-    CMD_SUCCESS = "Successfully executed command"
-    CMD_NO_CONNECTION = "No active connection available"
-    CMD_EXEC_FAIL = "Can not execute command"
+    # Command Execution
+    CMD_EXEC = "Executing command"
+    CMD_EXEC_FAILED = "Command execution failed"
+    CMD_EXEC_TIMEOUT = "Command execution timeout"
+    CMD_EXEC_FAIL = "Failed to execute command"
+    CMD_EXEC_SUCCESS = "Successfully executed command"
+    CMD_EXEC_RESULT = "Command execution result"
+    CMD_LOCAL_EXEC_USED = "Using local command execution (no SSH)"
 
-    # === FBR-CLI ===
-    FBR_ENTERING = "Entering fbr-CLI"
-    FBR_ENTERED = "Entered fbr-CLI successfully"
-    FBR_EXITED = "Exited fbr-CLI"
-    FBR_EXIT_CTRL_C = "Sending 'Ctrl+C' to exit fbr-CLI"
+    # FBR-CLI
+    FBR_CLI_ENTERING = "Entering fbr-CLI"
+    FBR_CLI_ENTERED = "Entered fbr-CLI successfully"
+    FBR_CLI_EXITED = "Exited fbr-CLI"
+    FBR_CLI_EXIT_CTRL_C = "Exiting fbr-CLI, sending 'Ctrl+C' to exit"
 
-    # === INTERFACE LOOKUP ===
+    # Interface Lookup
     INTERFACE_LOOKUP = "Looking up interface"
     INTERFACE_FOUND = "Interface found"
     INTERFACE_NOT_FOUND = "Interface not found"
+
+    # Port ID
     PORT_ID_FOUND = "Port ID found"
     PORT_ID_NOT_FOUND = "Port ID not found"
+
+    # Pattern
     PATTERN_SEARCH = "Searching with pattern"
 
-    # === PORT TOGGLE ===
-    TOGGLE_ENABLED = "Port toggling enabled"
-    TOGGLE_EXECUTING = "Executing toggle"
-    TOGGLE_WAITING = "Waiting after toggle"
-    TOGGLE_FAILED = "Port toggle failed"
+    # Port Toggle
+    PORT_TOGGLE_ENABLED = "Port toggling enabled"
+    PORT_TOGGLE_FAILED = "Port toggle failed"
+    PORT_TOGGLE_EXECUTING = "Executing toggle"
+    PORT_TOGGLE_WAITING = "Waiting after toggle"
 
-    # === CACHE ===
+    # Cache
     CACHE_HIT = "Cache hit"
     CACHE_MISS = "Cache miss"
 
-    # === BUFFER ===
-    BUFFER_CLEARING = "Clearing buffer before scan"
+    # Buffer
+    BUFFER_CLEARING = "Clearing buffer"
     BUFFER_CLEARED = "Buffer cleared"
+    BUFFER_CLEAR_FAILED = "Buffer clear failed, continuing anyway"
 
-    # === SCAN OPERATIONS ===
-    SCAN_START = "Starting scan"
-    SCAN_COMPLETE = "Scan complete"
-    SCAN_PROCESSING = "Processing scan"
-    SCAN_SKIPPING = "Skipping scan"
-    SCAN_NO_INTERFACES = "No interfaces to scan"
-    SCAN_ITERATION_FAILED = "Scan iteration failed"
+    # ---------------------------------------------------------------------------- #
+    #                                      SLX                                     #
+    # ---------------------------------------------------------------------------- #
 
-    # === EYE SCAN ===
-    EYE_SCAN_START = "Starting eye scan"
-    EYE_SCAN_COMPLETE = "Eye scan complete"
-    EYE_SCAN_FAILED = "Eye scan failed"
-    EYE_SCAN_WAITING = "Waiting for eye scan to complete"
+    # Scan Operations
+    SLX_SCAN_START = "Starting SLX scan"
+    SLX_SCAN_COMPLETE = "SLX scan complete"
+    SLX_SCAN_PROCESSING = "Processing SLX scan"
+    SLX_SCAN_SKIPPING = "Skipping SLX scan"
+    SLX_SCAN_NO_INTERFACES = "No SLX interfaces to scan"
+    SLX_SCAN_ITERATION_FAILED = "SLX scan iteration failed"
 
-    # === DSC SCAN ===
-    DSC_SCAN_START = "Starting DSC scan"
-    DSC_SCAN_COMPLETE = "DSC scan complete"
-    DSC_SCAN_FAILED = "DSC scan failed"
+    # SLX Eye Scan
+    SLX_EYE_SCAN_START = "Starting SLX eye scan"
+    SLX_EYE_SCAN_COMPLETE = "SLX eye scan complete"
+    SLX_EYE_SCAN_FAILED = "SLX eye scan failed"
+    SLX_EYE_SCAN_WAITING = "Waiting for eye scan to complete"
 
-    # === SOFTWARE MANAGER ===
+    # DSLX Dsc Scan
+    SLX_DSC_SCAN_STARTING = "Starting DSC scan"
+    SLX_DSC_SCAN_COMPLETE = "DSC scan complete"
+    SLX_DSC_SCAN_FAILED = "DSC scan failed"
+
+    # ---------------------------------------------------------------------------- #
+    #                                      SUT                                     #
+    # ---------------------------------------------------------------------------- #
+
+    # Software Manager
     SW_MGR_INIT = "Initializing Software Manager"
     SW_MGR_INIT_FAILED = "Failed to initialize software manager"
     SW_MGR_DETECT = "Detecting available package manager"
@@ -160,13 +195,13 @@ class LogMsg(Enum):
         "Some required packages are missing. Consider installing them manually."
     )
 
-    # === SYSTEM INFO ===
+    # System Info
     SYS_INFO_LOG = "Logging system information"
     SYS_INFO_FAILED = "Failed to log system information"
     SYS_INFO_START = "Start system information scan"
     SYS_INFO_SKIP = "Skipping system information scan (not in local mode or disabled)"
 
-    # === WORKER MANAGEMENT ===
+    # Worker Management
     WORKER_START = "Starting workers"
     WORKER_FAILED = "Worker startup failed"
     WORKER_STOPPED = "Worker thread stopped unexpectedly"
@@ -178,13 +213,13 @@ class LogMsg(Enum):
     WORKER_ALREADY_EXISTS = "Worker already exists for command"
 
     # Worker Pool
-    WORKER_POOL_CLEAR = "Clearing workers from pool"
+    WORKER_POOL_CLEARING = "Clearing worker pool"
     WORKER_POOL_CLEARED = "Work pool cleared"
-    WORKER_POOL_STOP = "Stopping all workers in pool"
+    WORKER_POOL_STOP = "Stopping workers in pool"
 
-    # Worker Operations
-    WORKER_EXTRACT = "Extracting worker samples"
-    WORKER_SHUTDOWN = "Shutting down workers"
+    # Worker
+    WORKER_EXTRACT_SAMPLE = "Extracting worker samples"
+    WORKER_SHUTDOWN = "Shutting down worker(s)"
     WORKER_CLEAR_SAMPLES = "Clearing extracted samples"
     WORKER_RESET = "Reset work manager"
     WORKER_RESET_DONE = "Work manager has been resetted"
@@ -199,14 +234,14 @@ class LogMsg(Enum):
     WORKER_LOG_HEADER_FAIL = "Failed to read header from log file"
     WORKER_LOG_CLEAR_FAIL = "Failed to clear log file"
 
-    # === SCANNER - GENERAL ===
+    # Scanner - General
     SCANNER_INIT = "Initializing scanners"
     SCANNER_CONN_FAILED = "Scanner connection failed"
     SCANNER_NOT_INIT = "Scanner not initialized"
     SCANNER_START_FAILED = "Failed to start workers"
     SCANNER_WORKERS_CREATED = "Workers created"
 
-    # === SCANNER - SLX ===
+    # Scanner - SLX
     SCANNER_SLX_SKIP = "SLX scanning skipped (both NO_SLX_EYE and NO_SLX_DSC set)"
     SCANNER_SLX_PORTS = "Scanning ports"
     SCANNER_SLX_CONN_HOST = "Connecting to SLX host"
@@ -224,11 +259,10 @@ class LogMsg(Enum):
     SCANNER_DSC_ITER_COMPLETE = "Completed DSC scan"
     SCANNER_DSC_ITER_FAILED = "DSC scan iteration failed"
 
-    # === SCANNER - SUT ===
+    # Scanner - SUT
     SCANNER_SUT_CONN_HOST = "Connecting to SUT host"
     SCANNER_SUT_JUMP_HOST = "Using jump host"
     SCANNER_SUT_TEST_CONN = "Testing connection"
-    SCANNER_SUT_CMD_FAILED = "Command failed"
     SCANNER_SUT_SCAN_INTERFACES = "Scanning interfaces"
     SCANNER_SUT_SETUP_INTERFACE = "Setting up workers for interface"
     SCANNER_SUT_PCI_ID = "PCI ID"
@@ -246,34 +280,35 @@ class LogMsg(Enum):
     SCANNER_SUT_TOOL_EXEC = "Executing tool"
     SCANNER_SUT_TOOL_COMPLETE = "Tool completed"
 
-    # === SHUTDOWN ===
+    # Shutdown
     SHUTDOWN_SIGNAL = "Shutdown signal received"
     SHUTDOWN_START = "Starting shutdown"
     SHUTDOWN_COMPLETE = "Shutdown complete"
-    SHUTDOWN_TOTAL_COMPLETED = "Shutdown completed"
+    SHUTDOWN_GRACEFUL = "Ctrl+C pressed. Shutting down gracefully..."
+    SHUTDOWN_ALL_COMPLETED = "Shutdown all completed"
     SHUTDOWN_SLX_SCANNER = "Shutting SLX scanner"
     SHUTDOWN_SUT_SCANNER = "Shutting SUT scanner"
-    SHUTDOWN_EYE_SCANNER = "Shutting down eye scanner"
 
-    # === LOCAL CONNECTION ===
+    # Command
+    COMMAND_EXEC_FAILED = "Command execution failed"
+    COMMAND_NO_SHELL = "Cannot execute shell command: shell not opened"
+    COMMAND_NO_CONNNECT = "Cannot execute shell command: connection lost"
+    # ------------------- COMMAND_TIMEOUT< = "Command timeout" ------------------- #
+
+    # Local Connection
     LOCAL_EXEC = "Using local command execution (no SSH)"
     LOCAL_CLOSED = "Local connection closed"
     LOCAL_CMD_EXEC = "Executing local command"
-    LOCAL_CMD_TIMEOUT = "Command timeout"
-    LOCAL_CMD_FAILED = "Command execution failed"
     LOCAL_CMD_STDERR = "Command stderr"
 
-    # === MAIN APPLICATION ===
+    # ---------------------------------------------------------------------------- #
+    #                               Main Application                               #
+    # ---------------------------------------------------------------------------- #
+
     # Configuration
     MAIN_CONFIG_NOT_FOUND = "Config file not found"
     MAIN_CONFIG_SAME_DIR = "Make sure config.json is in the same directory as the executable"
-    MAIN_CONFIG_INVALID_JSON = "Invalid JSON in config file"
-
-    # Connection
-    MAIN_CONN_FAILED = "Connection failed"
-    MAIN_LOCAL_EXEC = "Using local command execution (no SSH)"
-    MAIN_LOCAL_CONN_ESTABLISHED = "Local connection established"
-    MAIN_SLX_CONN_FAILED = "Failed to connect to SLX eye scanner"
+    MAIN_CONFIG_INVALID_JSON = "Config file has an invalid JSON"
 
     # Authentication
     MAIN_SUDO_PASSWORD = "Providing sudo password"
@@ -300,13 +335,15 @@ class LogMsg(Enum):
     MAIN_EXEC_FAILED = "Main execution failed"
     MAIN_LOGS_SAVED = "Logs saved to logs/ directory"
 
-    # === CONFIGURATION ===
+    # Configuration
     CONFIG_START = "Loading configuration from file"
     CONFIG_LOADED = "Configuration loaded successfully"
     CONFIG_FAILED = "Configuration loading failed"
     CONFIG_CREATED = "Config created"
+    CONFIG_VALIDATION_FAILED = "Configuration validation failed"
+    CONFIG_VALIDATION_SUCCESS = "Configuration validated successfully"
 
-    # === AGENT ===
+    # Agent
     AGENT_NO_SSH = "Cannot start agent: SSH connection not available"
     AGENT_STARTED = "Network agent started"
     AGENT_STOPPED = "Network agent stopped"
@@ -314,22 +351,76 @@ class LogMsg(Enum):
     AGENT_SSH_UNAVAIL = "SSH connection not available"
     AGENT_CMD_FAIL = "Agent command execution failed"
 
-    # === TRAFFIC TESTING ===
+    # Traffic Testing
     TRAFFIC_CONN_CREATE = "Creating connections..."
     TRAFFIC_CONN_VALIDATE = "Validating connections..."
     TRAFFIC_CONN_VALIDATE_PASS = "Connection validation passed"
-    TRAFFIC_SERVER_START = "Starting iperf server..."
-    TRAFFIC_SERVER_STOP = "Error stopping server"
+    TRAFFIC_CONN_VALIDATE_LOCAL = "Validating local connection..."
+    TRAFFIC_CONN_VALIDATED = "Connection validated"
+    TRAFFIC_CONN_LOCAL_VALIDATED = "Local connection validated"
+
+    TRAFFIC_SERVER_START = "Starting iperf server on port"
+    TRAFFIC_SERVER_STOP = "Iperf server stopped"
+
     TRAFFIC_CLIENT_DISCONNECT = "Error disconnecting client"
     TRAFFIC_SERVER_DISCONNECT = "Error disconnecting server"
 
-    # === PARSER ===
+    TRAFFIC_TEST_START = "Starting traffic test..."
+    TRAFFIC_TEST_COMPLETE = "Test completed"
+    TRAFFIC_TEST_FAILED = "Test iteration failed"
+    TRAFFIC_TEST_ABORT = "3 consecutive failures detected, aborting tests"
+    TRAFFIC_TEST_WAIT = "Waiting before next test..."
+
+    TRAFFIC_METADATA_START = "Start writing metadata to file"
+    TRAFFIC_METADATA_STOPP = "Metadata written to file"
+    TRAFFIC_METADATA_NONE = "No metadata to write"
+
+    TRAFFIC_STATS_START = "Start writing stats to file"
+    TRAFFIC_STATS_STOP = "Stats written to file"
+    TRAFFIC_STATS_NONE = "No statistics to write"
+
+    TRAFFIC_SUMMARY_START = "Start writing summary to file"
+    TRAFFIC_SUMMARY_STOP = "Summary written to file"
+    TRAFFIC_SUMMARY_NONE = "No summary to write for iteration"
+
+    TRAFFIC_JSON_PARSE_FAIL = "Failed to parse JSON output"
+    TRAFFIC_IPERF_CHECK = "Checking for existing iperf processes..."
+    TRAFFIC_IPERF_KILLED = "Killed existing iperf processes"
+    TRAFFIC_SW_CHECK = "Checking required software..."
+    TRAFFIC_SW_MISSING = "not found"
+    TRAFFIC_SW_INSTALLED = "All required software is installed"
+    TRAFFIC_SW_INSTALL_START = "Installing missing software"
+    TRAFFIC_SW_INSTALL_FAIL = "Failed to install"
+    TRAFFIC_SW_VERIFY = "Verifying installations..."
+    TRAFFIC_SW_VERIFY_FAIL = "verification failed"
+    TRAFFIC_SW_VERIFY_SUCCESS = "All required software installed and verified"
+    TRAFFIC_SW_VERIFIED = "verified"
+    TRAFFIC_SW_INSTALLING = "Installing"
+    TRAFFIC_SW_INSTALL_SUCCESS_APT = "installed successfully via apt"
+    TRAFFIC_SW_INSTALL_SUCCESS_YUM = "installed successfully via yum"
+    TRAFFIC_SW_INSTALL_FAIL_APT = "Failed to install via apt"
+    TRAFFIC_SW_INSTALL_FAIL_YUM = "Failed to install via yum"
+    TRAFFIC_SW_NO_PKG_MGR = "No supported package manager found (apt/yum)"
+    TRAFFIC_CMD_EXEC = "Executing"
+    TRAFFIC_CMD_FAIL = "Command failed"
+    TRAFFIC_PORT_CHECK = "Checking port"
+    TRAFFIC_PORT_REACHABLE = "is reachable"
+    TRAFFIC_PORT_UNREACHABLE = "is not reachable (firewall/network issue?)"
+    TRAFFIC_PROCESS_STOP = "Stopping process"
+    TRAFFIC_PROCESS_STOPPED = "Process stopped"
+    TRAFFIC_PROCESS_STOP_FAIL = "Failed to stop process"
+    TRAFFIC_PROCESS_KILL = "Force killing process"
+    TRAFFIC_PROCESS_STARTED = "Process started with PID"
+    TRAFFIC_PROCESS_NO_PID = "Failed to get process PID"
+    TRAFFIC_PID_NONE = "No PID found"
+
+    # Parser
     PARSER_TIMESTAMP_FAIL = "Failed to parse timestamp"
 
-    # === SAMPLE ===
+    # Sample
     SAMPLE_CMD_FAIL = "Sample command execution failed"
 
-    # === KEEPALIVE ===
+    # Keepalive
     ALIVE_THREAD_START = "Keepalive thread started"
     ALIVE_THREAD_FAIL = "Keepalive thread encountered an error"
     ALIVE_THREAD_STOP = "Keepalive thread did not stop gracefully"
@@ -337,23 +428,5 @@ class LogMsg(Enum):
     ALIVE_NO_ACTIVE = "Keepalive thread did not find any active connections"
     ALIVE_LOOP_STOP = "Keepalive loop stopped"
 
-    # === STORAGE ===
+    # Storage
     STORE_FAIL = "Failed to store results to"
-
-    # === JUMP HOST ===
-    CON_JUMP_FAIL = "Failed to establish connection to jump host: "
-    CON_JUMP_SUCCESS = "Successfully connected to jump host: "
-
-    # === TARGET CONNECTION ===
-    CON_TARGET_SUCCESS = "Successfully connected to target: "
-    CON_HOST_SUCCESS = "Successfully connected to host: "
-    CON_HOST_FAIL = "Failed to establish connection to host: "
-    CON_CONNECTING = "Connecting to hosts..."
-    CON_TRANSPORT_INACTIVE = "Connection established but transport is not active"
-    CON_TIMEOUT = "Connection timeout on host"
-    CON_AUTH_FAIL = "Authentication failed for host"
-    CON_PROTOCOL_FAIL = "Protocol error on host"
-    PRE_HOST_CON = "Already connected to host: "
-    POST_HOST_DISCON = "Already disconnected from host: "
-    DISCON_HOST = "Disconnecting from host: "
-    DISCON_HOST_SUCCESS = "Disconnected from host: "

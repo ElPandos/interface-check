@@ -31,12 +31,12 @@ def _log_exec_time(
     """
     exec_ms = exec_time * 1000
     if send_time is not None and read_time is not None:
-        time_str = f", time={time_cmd_ms:.1f} ms" if time_cmd_ms else ""
+        time_str = f", time={time_cmd_ms:.1f}ms" if time_cmd_ms else ""
         logger.debug(
-            f"Command execution times (send={send_time:.1f} ms, read={read_time:.1f} ms{time_str}, exit:{exit_code})"
+            f"Command execution times (send={send_time:.1f}ms, read={read_time:.1f}ms{time_str}, exit:{exit_code})"
         )
     else:
-        logger.debug(f"Command completed in {exec_ms:.1f} ms with exit status: {exit_code}")
+        logger.debug(f"Command completed in {exec_ms:.1f}ms with exit status: {exit_code}")
 
 
 class LocalConnection(IConnection):
@@ -121,7 +121,7 @@ class LocalConnection(IConnection):
         elif self._sudo_pass and not cmd.startswith("sudo"):
             exec_cmd = f"sudo -S {cmd}"
 
-        log.debug(f"{LogMsg.LOCAL_CMD_EXEC.value}: '{exec_cmd}' (timeout: {timeout} s)")
+        log.debug(f"{LogMsg.LOCAL_CMD_EXEC.value}: '{exec_cmd}' (timeout: {timeout}s)")
 
         try:
             # Pass sudo password via stdin if needed (only when not using time_cmd)
@@ -173,7 +173,7 @@ class LocalConnection(IConnection):
             )
 
         except subprocess.TimeoutExpired:
-            log.exception(f"{LogMsg.LOCAL_CMD_TIMEOUT.value}: {cmd}")
+            log.exception(f"{LogMsg.COMMAND_TIMEOUT.value}: {cmd}")
             return CmdResult(exec_cmd, "", "Timeout", -1)
         except Exception as e:
             log.exception(f"{LogMsg.LOCAL_CMD_FAILED.value}: {cmd}")

@@ -21,16 +21,13 @@
     },
     "test": {
         "server_ip": "10.101.226.30",
-        "port": 5001,
-        "duration_sec": 0,
+        "server_port": 5001,
+        "duration_sec": 10,
         "protocol": "tcp",
         "bandwidth": "10G",
         "parallel_streams": 2,
         "interval_sec": 1,
-        "iterations": 5,
-        "delay_between_tests_sec": 5,
-        "bidir": false,
-        "reverse": false,
-        "infinite": false
+        "iterations": 0,
+        "delay_between_tests_sec": 5
     }
 }

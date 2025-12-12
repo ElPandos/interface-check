@@ -76,8 +76,8 @@ class PrettyFrame:
         self._width = max_len + 4  # Add space for "║ " and " ║"
         self._content_width = self._width - 4
 
-        lines = ["", "╔" + "═" * (self._width - 2) + "╗"]
-        lines.append("║ " + title.ljust(self._content_width) + " ║")
+        lines = ["╔" + "═" * (self._width - 2) + "╗"]
+        lines.append("║ " + title.center(self._content_width) + " ║")
 
         if rows:  # Only add separator if there are rows
             lines.append("╠" + "═" * (self._width - 2) + "╣")

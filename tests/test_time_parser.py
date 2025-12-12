@@ -12,7 +12,7 @@ parser = SutTimeParser()
 parser.parse(bash_output)
 bash_result = parser.get_result()
 
-print(f"Bash format: {bash_result:.3f} ms (expected: 2.000 ms)")
+print(f"Bash format: {bash_result:.3f}ms (expected: 2.000 ms)")
 assert abs(bash_result - 2.0) < 0.001, "Bash parsing failed"
 
 # Test zsh format
@@ -22,7 +22,7 @@ parser2 = SutTimeParser()
 parser2.parse(zsh_output)
 zsh_result = parser2.get_result()
 
-print(f"Zsh format: {zsh_result:.3f} ms (expected: 27.000 ms)")
+print(f"Zsh format: {zsh_result:.3f}ms (expected: 27.000 ms)")
 assert abs(zsh_result - 27.0) < 0.001, "Zsh parsing failed"
 
 print("\n✅ Both formats parsed successfully!")

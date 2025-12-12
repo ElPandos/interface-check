@@ -200,8 +200,8 @@ if "loss_percent" in df.columns:
 
 ### Server Won't Start
 
-- Check if port is already in use: `netstat -tulpn | grep 5201`
-- Verify iperf3 is installed: `which iperf3`
+- Check if port is already in use: `netstat -tulpn | grep 5001`
+- Verify iperf is installed: `which iperf`
 - Check firewall rules
 
 ### Connection Failures
@@ -212,13 +212,13 @@ if "loss_percent" in df.columns:
 
 ### No Statistics Collected
 
-- Check iperf3 output format
+- Check iperf output format
 - Verify test duration is sufficient
 - Review logs in `logs/<timestamp>/main.log`
 
 ## Requirements
 
 - Python 3.10+
-- iperf3 installed on both server and client hosts
+- iperf installed on both server and client hosts
 - SSH access to remote hosts
 - Network connectivity between hosts

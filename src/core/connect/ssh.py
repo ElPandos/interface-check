@@ -182,10 +182,10 @@ class SshConnection(IConnection):
             True if connection successful, False otherwise
         """
         if self.is_connected():
-            self._logger.debug(f"{LogMsg.PRE_HOST_CON.value}{self._host}")
+            self._logger.debug(f"{LogMsg.PRE_HOST_CON.value}: {self._host}")
             return True
 
-        self._logger.info(f"Connecting to {self._host} via {len(self._jump_hosts)} jump hosts")
+        self._logger.info(f"Connecting to {self._host} via {len(self._jump_hosts)} jump host(s)")
         conn_start = time.perf_counter()
 
         try:
@@ -207,23 +207,23 @@ class SshConnection(IConnection):
 
             # Verify connection
             if not self.is_connected():
-                self._logger.error(LogMsg.CON_TRANSPORT_INACTIVE.value)
+                self._logger.error(LogMsg.CONN_TRANSPORT_INACTIVE.value)
                 return False
 
             conn_time = (time.perf_counter() - conn_start) * 1000
-            self._logger.debug(f"SSH connection established in {conn_time:.1f} ms")
+            self._logger.debug(f"SSH connection established in {conn_time:.1f}ms")
             self._start_keepalive()
-            self._logger.info(f"{LogMsg.CON_HOST_SUCCESS.value}{self._host}")
+            self._logger.info(f"{LogMsg.CONN_HOST_SUCCESS.value}: {self._host}")
             return True
 
         except TimeoutError:
-            self._logger.exception(f"{LogMsg.CON_TIMEOUT.value}{self._host}")
+            self._logger.exception(f"{LogMsg.CONN_TIMEOUT.value}: {self._host}")
         except paramiko.AuthenticationException:
-            self._logger.exception(f"{LogMsg.CON_AUTH_FAIL.value}{self._host}")
+            self._logger.exception(f"{LogMsg.CONN_AUTH_FAILED.value}: {self._host}")
         except paramiko.SSHException:
-            self._logger.exception(f"{LogMsg.CON_PROTOCOL_FAIL.value}{self._host}")
+            self._logger.exception(f"{LogMsg.CONN_PROTOCOL_ERROR.value}: {self._host}")
         except Exception:
-            self._logger.exception(f"{LogMsg.CON_HOST_FAIL.value}{self._host}")
+            self._logger.exception(f"{LogMsg.CONN_HOST_FAILED.value}: {self._host}")
 
         self.disconnect()
         return False
@@ -231,20 +231,22 @@ class SshConnection(IConnection):
     def disconnect(self) -> None:
         """Disconnect from host and cleanup resources."""
         if not self._ssh_client:
-            self._logger.debug(f"{LogMsg.POST_HOST_DISCON.value}{self._host}")
+            self._logger.debug(f"{LogMsg.CONN_ALREADY_DISCONNECTED.value}: {self._host}")
             return
 
-        self._logger.info(f"{LogMsg.DISCON_HOST.value}{self._host}")
-
         try:
+            self._logger.info(f"{LogMsg.CONN_DISCONNECTING.value}: {self._host}")
+
             self._stop_keepalive.set()
+
             self._stop_keepalive_thread()
             self.close_shell()
             self._close_all_clients()
-            self._logger.info(f"{LogMsg.DISCON_HOST_SUCCESS.value}{self._host}")
+
+            self._logger.info(f"{LogMsg.CONN_DISCONNECTED.value}: {self._host}")
 
         except Exception:
-            self._logger.exception(f"{LogMsg.SSH_DISCONNECTED.value}: {self._host}")
+            self._logger.exception(f"{LogMsg.CONN_DISCONNECT_FAILED.value}: {self._host}")
 
     def is_connected(self) -> bool:
         """Check if SSH connection is active.
@@ -320,9 +322,14 @@ class SshConnection(IConnection):
                     escaped_cmd = cmd.replace("'", "'\"'\"'")
                     exec_cmd = f"time bash -c '{escaped_cmd}'"
             elif self._sudo_pass and "sudo -S" not in cmd:
-                exec_cmd = f'echo "{self._sudo_pass}" | sudo -S {cmd}'
+                # Wrap compound commands (with &&, ||, ;) in bash -c for proper sudo handling
+                if any(op in cmd for op in ["&&", "||", ";"]):
+                    escaped_cmd = cmd.replace('"', '\\"')
+                    exec_cmd = f'echo "{self._sudo_pass}" | sudo -S bash -c "{escaped_cmd}"'
+                else:
+                    exec_cmd = f'echo "{self._sudo_pass}" | sudo -S {cmd}'
 
-            timeout_str = f" (timeout: {timeout} s)" if timeout is not None else ""
+            timeout_str = f" (timeout: {timeout}s)" if timeout is not None else ""
             log.debug(f"Executing command: '{exec_cmd}'{timeout_str}")
 
             try:
@@ -353,7 +360,7 @@ class SshConnection(IConnection):
                     time_cmd_ms if time_cmd_ms > 0 else None,
                     log,
                 )
-                if rcode != 0:
+                if rcode != 0 and stderr_data and "[sudo] password for" not in stderr_data:
                     log.warning(f"Command stderr: {stderr_data[:200]}")
 
                 return CmdResult(
@@ -368,7 +375,7 @@ class SshConnection(IConnection):
                 )
 
             except Exception as e:
-                self._logger.exception(f"{LogMsg.AGENT_CMD_FAIL.value}{cmd}")
+                self._logger.exception(f"{LogMsg.AGENT_CMD_FAIL.value}: {cmd}")
                 return CmdResult(exec_cmd, "", f"Error: {e}", -1)
 
     def _clean(self, data: str) -> str:
@@ -456,10 +463,10 @@ class SshConnection(IConnection):
                     raise RuntimeError(msg)  # noqa: TRY301
 
                 transport.set_keepalive(self._keepalive_interval)
-                self._logger.info(f"{LogMsg.CON_JUMP_SUCCESS.value}{jump.ip}")
+                self._logger.info(f"{LogMsg.CONN_JUMP_SUCCESS.value}: {jump.ip}")
 
             except Exception:
-                self._logger.exception(f"{LogMsg.CON_JUMP_FAIL.value}{jump.ip}")
+                self._logger.exception(f"{LogMsg.CONN_JUMP_FAILED.value}: {jump.ip}")
                 raise
 
         # Connect to target through final jump host
@@ -479,10 +486,10 @@ class SshConnection(IConnection):
                 ip=self._host, username=self._username, password=SecretStr(self._password)
             )
             self._connect_to_host(self._ssh_client, target_host, channel)
-            self._logger.debug(f"{LogMsg.CON_TARGET_SUCCESS.value}{self._host}")
+            self._logger.debug(f"{LogMsg.CONN_TARGET_SUCCESS.value}: {self._host}")
 
         except Exception:
-            self._logger.exception(f"{LogMsg.CON_HOST_FAIL.value}{self._host}")
+            self._logger.exception(f"{LogMsg.CONN_HOST_FAILED.value}: {self._host}")
             raise
 
     def _start_keepalive(self) -> None:
@@ -540,14 +547,14 @@ class SshConnection(IConnection):
             return False
 
         if self._shell:
-            self._logger.debug(LogMsg.SHELL_ALREADY_OPEN.value)
+            self._logger.debug(LogMsg.SHELL_ALREADY_OPENED.value)
             return True
 
         self._logger.info(f"Opening shell on {self._host}")
 
         try:
             self._shell = self._ssh_client.invoke_shell(width=120, height=40)
-            self._logger.debug(LogMsg.SHELL_INVOKE.value)
+            self._logger.debug(LogMsg.SHELL_INVOKED_BANNER.value)
 
             # Wait longer for initial banner and send enter to activate prompt
             time.sleep(2)
@@ -583,7 +590,7 @@ class SshConnection(IConnection):
             except Exception:
                 self._logger.exception(LogMsg.SHELL_BUFFER_CLEAR_FAIL.value)
 
-            self._logger.info(LogMsg.SHELL_OPEN_SUCCESS.value)
+            self._logger.info(LogMsg.SHELL_OPENED_CONFIGURED.value)
             return True
 
         except Exception:
@@ -661,7 +668,7 @@ class SshConnection(IConnection):
                             return buffer.decode(errors="ignore").strip()
                 time.sleep(0.1)
 
-        self._logger.error(f"Timeout after {timeout:.1f} s. Buffer length: {len(buffer)}")
+        self._logger.error(f"Timeout after {timeout:.1f}s. Buffer length: {len(buffer)}")
         if buffer:
             content = buffer.decode(errors="ignore")
             self._logger.error(f"Final buffer content: {content[-500:]}")
@@ -690,12 +697,12 @@ class SshConnection(IConnection):
         log = logger or self._logger
 
         if not self._shell:
-            log.error(LogMsg.SHELL_CMD_NO_SHELL.value)
+            log.error(LogMsg.COMMAND_NO_SHELL.value)
             msg = "Shell not opened"
             raise ConnectionError(msg)
 
         if not self.is_connected():
-            log.error(LogMsg.SHELL_CMD_NO_CON.value)
+            log.error(LogMsg.COMMAND_NO_CONNNECT.value)
             msg = "Connection lost"
             raise ConnectionError(msg)
 
@@ -788,7 +795,7 @@ class SshConnection(IConnection):
             try:
                 self._logger.debug(LogMsg.SHELL_CLOSING.value)
                 self._shell.close()
-                self._logger.debug(LogMsg.SHELL_CLOSE_SUCCESS.value)
+                self._logger.debug(LogMsg.SHELL_CLOSED_SUCCESS.value)
             except Exception:
                 self._logger.exception("Error closing shell")
             finally:

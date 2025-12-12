@@ -57,7 +57,7 @@ class SutTimeParser(IParser):
             seconds = float(match.group(2).replace(",", "."))
             self._real_time_ms = (minutes * 60 + seconds) * 1000
             self._logger.debug(
-                f"[{self.name}] Bash format: {minutes} m {seconds} s -> {self._real_time_ms:.3f} ms"
+                f"[{self.name}] Bash format: {minutes} m {seconds}s -> {self._real_time_ms:.3f}ms"
             )
             return
 
@@ -67,7 +67,7 @@ class SutTimeParser(IParser):
             seconds = float(match.group(1).replace(",", "."))
             self._real_time_ms = seconds * 1000
             self._logger.debug(
-                f"[{self.name}] Zsh format: {seconds} s -> {self._real_time_ms:.3f} ms"
+                f"[{self.name}] Zsh format: {seconds}s -> {self._real_time_ms:.3f}ms"
             )
             return
 
@@ -80,7 +80,7 @@ class SutTimeParser(IParser):
             total_seconds = minutes * 60 + seconds + subseconds
             self._real_time_ms = total_seconds * 1000
             self._logger.debug(
-                f"[{self.name}] GNU format: {minutes}:{seconds}.{match.group(3)} -> {self._real_time_ms:.3f} ms"
+                f"[{self.name}] GNU format: {minutes}:{seconds}.{match.group(3)} -> {self._real_time_ms:.3f}ms"
             )
             return
 
@@ -96,4 +96,4 @@ class SutTimeParser(IParser):
 
     def log(self) -> None:
         """Log parsed time."""
-        self._logger.debug(f"Real time: {self._real_time_ms:.3f} ms")
+        self._logger.debug(f"Real time: {self._real_time_ms:.3f}ms")

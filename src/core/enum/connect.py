@@ -17,6 +17,13 @@ class HostType(str, Enum):
     SUT = "sut"
 
 
+class IperfHostType(str, Enum):
+    """Iperf host type for traffic testing."""
+
+    SERVER = "server"
+    CLIENT = "client"
+
+
 class PortState(str, Enum):
     """Port/interface state for toggling."""
 

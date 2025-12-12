@@ -112,7 +112,7 @@ class Tool:
                 )
 
             if cmd_result.success:
-                log.debug(f"{LogMsg.CMD_SUCCESS.value}: '{cmd}'")
+                log.debug(f"{LogMsg.CMD_EXEC_SUCCESS.value}: '{cmd}'")
             else:
                 cmd_result = CmdResult.error(cmd, cmd_result.stderr)
         except (OSError, TimeoutError) as e:

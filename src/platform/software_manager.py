@@ -78,7 +78,7 @@ class AptManager(IPackageManager):
             bool: True if installation successful, False otherwise
         """
         if not self._ssh:
-            self._logger.error(LogMsg.SSH_NO_CONN.value)
+            self._logger.error(LogMsg.SSH_CONN_NOT_AVAILABLE.value)
             return False
 
         self._logger.info(f"{LogMsg.SW_PKG_INSTALL.value} '{package}' using APT")
@@ -103,7 +103,7 @@ class AptManager(IPackageManager):
             bool: True if removal successful, False otherwise
         """
         if not self._ssh:
-            self._logger.error(LogMsg.SSH_NO_CONN.value)
+            self._logger.error(LogMsg.SSH_CONN_NOT_AVAILABLE.value)
             return False
 
         if not package:
@@ -132,7 +132,7 @@ class AptManager(IPackageManager):
             Package: Package information or None if not found
         """
         if not self._ssh:
-            self._logger.error(LogMsg.SSH_NO_CONN.value)
+            self._logger.error(LogMsg.SSH_CONN_NOT_AVAILABLE.value)
             return None
 
         self._logger.debug(LogMsg.SW_PKG_LIST.value)
@@ -173,7 +173,7 @@ class AptManager(IPackageManager):
             bool: True if apt-get command is available, False otherwise
         """
         if not self._ssh:
-            self._logger.debug(LogMsg.SSH_NO_CONN.value)
+            self._logger.debug(LogMsg.SSH_CONN_NOT_AVAILABLE.value)
             return False
 
         self._logger.debug(LogMsg.SW_MGR_APT_CHECK.value)
@@ -224,7 +224,7 @@ class YumManager(IPackageManager):
             bool: True if installation successful, False otherwise
         """
         if not self._ssh:
-            self._logger.error(LogMsg.SSH_NO_CONN.value)
+            self._logger.error(LogMsg.SSH_CONN_NOT_AVAILABLE.value)
             return False
 
         self._logger.info(f"{LogMsg.SW_PKG_INSTALL.value} '{package}' using YUM")
@@ -249,7 +249,7 @@ class YumManager(IPackageManager):
             bool: True if removal successful, False otherwise
         """
         if not self._ssh:
-            self._logger.error(LogMsg.SSH_NO_CONN.value)
+            self._logger.error(LogMsg.SSH_CONN_NOT_AVAILABLE.value)
             return False
 
         if not package:
@@ -281,7 +281,7 @@ class YumManager(IPackageManager):
         return None
 
         if not self._ssh:
-            self._logger.error(LogMsg.SSH_NO_CONN.value)
+            self._logger.error(LogMsg.SSH_CONN_NOT_AVAILABLE.value)
             return []
 
         self._logger.debug("Retrieving list of installed packages using rpm")
@@ -338,7 +338,7 @@ class YumManager(IPackageManager):
             bool: True if yum command is available, False otherwise
         """
         if not self._ssh:
-            self._logger.debug(LogMsg.SSH_NO_CONN.value)
+            self._logger.debug(LogMsg.SSH_CONN_NOT_AVAILABLE.value)
             return False
 
         self._logger.debug(LogMsg.SW_MGR_YUM_CHECK.value)
@@ -446,7 +446,7 @@ class SoftwareManager:
             bool: True if SSH connection exists, False otherwise
         """
         if not self._ssh:
-            self._logger.debug(LogMsg.SSH_NO_CONN.value)
+            self._logger.debug(LogMsg.SSH_CONN_NOT_AVAILABLE.value)
             return False
         return True
 

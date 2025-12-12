@@ -44,13 +44,13 @@ class IperfServer(IperfBase):
             self._logger.error("Cannot start server: required software not available")
             return False
 
-        if not self._check_port_available(self._port):
-            self._logger.error(f"Port {self._port} is already in use")
-            return False
-
         self._cleanup_existing_processes()
 
-        cmd = f"iperf3 -s -p {self._port}"
+        if not self._check_port_available(self._port):
+            self._logger.error(f"Port {self._port} is already in use after cleanup")
+            return False
+
+        cmd = f"iperf -s -p {self._port}"
         if daemon:
             cmd += " -D"
         if self._use_json:
@@ -59,4 +59,4 @@ class IperfServer(IperfBase):
         if not self._exec_cmd(cmd):
             return False
 
-        return self._get_pid(f"iperf3 -s.*{self._port}")
+        return self._get_pid(f"iperf -s.*{self._port}")

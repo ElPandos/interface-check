@@ -57,9 +57,9 @@ class SutScanner(BaseScanner):
         Returns:
             tuple[str, int]: Command output and return code
         """
-        logger.debug(f"{LogMsg.CMD_EXECUTING.value}: '{cmd}'")
+        logger.debug(f"{LogMsg.CMD_EXEC.value}: '{cmd}'")
         result = self._ssh.exec_cmd(cmd)
-        logger.debug(f"{LogMsg.CMD_RESULT.value}:\n\n{result.stdout}\n")
+        logger.debug(f"{LogMsg.CMD_EXEC_RESULT.value}:\n\n{result.stdout}\n")
         return result.stdout, result.rcode
 
     def connect(self) -> bool:
@@ -70,7 +70,7 @@ class SutScanner(BaseScanner):
         """
         try:
             if self._cfg.sut_connect_type == ConnectType.LOCAL:
-                self._logger.info(LogMsg.MAIN_LOCAL_EXEC.value)
+                self._logger.info(LogMsg.CMD_LOCAL_EXEC_USED.value)
                 self._ssh = LocalConnection(
                     host=self._cfg.sut_host, sudo_pass=self._cfg.sut_sudo_pass
                 )
@@ -84,9 +84,9 @@ class SutScanner(BaseScanner):
                 return False
 
             if self._cfg.sut_connect_type == ConnectType.LOCAL:
-                self._logger.debug(LogMsg.MAIN_LOCAL_CONN_ESTABLISHED.value)
+                self._logger.debug(LogMsg.CONN_LOCAL_ESTABLISHED.value)
             else:
-                self._logger.debug(LogMsg.SSH_ESTABLISHED.value)
+                self._logger.debug(LogMsg.SSH_CONN_ESTABLISHED.value)
                 self._logger.debug(LogMsg.SHELL_SKIP.value)
 
             test_commands = ["whoami", "pwd"]
@@ -97,12 +97,12 @@ class SutScanner(BaseScanner):
                 if rcode != 0:
                     result = self._ssh.exec_cmd(cmd)
                     self._logger.warning(
-                        f"{LogMsg.SCANNER_SUT_CMD_FAILED.value} '{cmd}' (rc={rcode}): {result.stderr}"
+                        f"{LogMsg.COMMAND_EXEC_FAILED.value} '{cmd}' (rc={rcode}): {result.stderr}"
                     )
 
             self._logger.info(LogMsg.SSH_CONN_SUCCESS.value)
         except Exception:
-            self._logger.exception(LogMsg.MAIN_CONN_FAILED.value)
+            self._logger.exception(LogMsg.CONN_FAILED.value)
             return False
         else:
             return True

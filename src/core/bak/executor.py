@@ -75,7 +75,7 @@ class ProcessManager:
                     proc.terminate()
 
                 return ExecutionResult(
-                    cmd_str, "", f"Timeout after {timeout} s", -1, exec_time, False
+                    cmd_str, "", f"Timeout after {timeout}s", -1, exec_time, False
                 )
 
     def execute_shell(self, command: str, **kwargs) -> ExecutionResult:

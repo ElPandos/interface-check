@@ -2,7 +2,6 @@
 
 import logging
 from pathlib import Path
-import time
 
 from src.core.log.formatter import create_formatter
 
@@ -197,7 +196,7 @@ def _rotate_to_new_file(
         else log_file.stem
     )
     new_log_file = log_file.with_name(
-        f"{base_stem}_{log_rotation_count[logger_key]}{log_file.suffix}"
+        f"{base_stem}_{log_rotation_count[logger_key]}: {log_file.suffix}"
     )
 
     for handler in logger.handlers[:]:

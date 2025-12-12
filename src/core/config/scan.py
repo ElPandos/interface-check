@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from src.core.enum.connect import ConnectType, ShowPartType
+from src.core.enum.messages import LogMsg
 
 
 @dataclass(frozen=True)
@@ -84,7 +85,7 @@ class ScanConfig:
             sut_pass=sut["pass"],
             sut_sudo_pass=sut["sudo_pass"],
             sut_scan_interfaces=sut["scan_interfaces"],
-            sut_connect_type=ConnectType(sut.get("connect_type", "local")),
+            sut_connect_type=ConnectType(sut.get("connect_type", ConnectType.LOCAL.value)),
             sut_show_parts=[ShowPartType(p) for p in sut.get("show_parts", [])],
             sut_time_cmd=sut.get("time_cmd", False),
             sut_reload_driver=sut.get("reload_driver", False),
@@ -105,8 +106,6 @@ class ScanConfig:
         Returns:
             bool: True if valid, False otherwise
         """
-        from src.core.enum.connect import ShowPartType
-
         errors = []
 
         no_eye = ShowPartType.NO_SLX_EYE in self.sut_show_parts
@@ -119,10 +118,14 @@ class ScanConfig:
             errors.append("Only one of the SLX scanner can be enabled at a time")
 
         if self.log_rotation_timeout_sec <= 0:
-            errors.append(f"Invalid log_rotation_timeout_sec: {self.log_rotation_timeout_sec} (must be > 0)")
+            errors.append(
+                f"Invalid log_rotation_timeout_sec: {self.log_rotation_timeout_sec} (must be > 0)"
+            )
 
         if self.slx_scan_interval_sec <= 0:
-            errors.append(f"Invalid slx_scan_interval_sec: {self.slx_scan_interval_sec} (must be > 0)")
+            errors.append(
+                f"Invalid slx_scan_interval_sec: {self.slx_scan_interval_sec} (must be > 0)"
+            )
 
         if not self.slx_scan_ports:
             errors.append("slx_scan_ports cannot be empty")
@@ -131,19 +134,25 @@ class ScanConfig:
             errors.append("sut_scan_interfaces cannot be empty")
 
         if self.sut_scan_interval_low_res_ms <= 0:
-            errors.append(f"Invalid sut_scan_interval_low_res_ms: {self.sut_scan_interval_low_res_ms} (must be > 0)")
+            errors.append(
+                f"Invalid sut_scan_interval_low_res_ms: {self.sut_scan_interval_low_res_ms} (must be > 0)"
+            )
 
         if self.sut_scan_interval_high_res_ms <= 0:
-            errors.append(f"Invalid sut_scan_interval_high_res_ms: {self.sut_scan_interval_high_res_ms} (must be > 0)")
+            errors.append(
+                f"Invalid sut_scan_interval_high_res_ms: {self.sut_scan_interval_high_res_ms} (must be > 0)"
+            )
 
         if self.sut_scan_max_log_size_kb <= 0:
-            errors.append(f"Invalid sut_scan_max_log_size_kb: {self.sut_scan_max_log_size_kb} (must be > 0)")
+            errors.append(
+                f"Invalid sut_scan_max_log_size_kb: {self.sut_scan_max_log_size_kb} (must be > 0)"
+            )
 
         if errors:
-            logger.error("Configuration validation failed:")
+            logger.error(f"{LogMsg.CONFIG_VALIDATION_FAILED.value}:")
             for error in errors:
                 logger.error(f"  - {error}")
             return False
 
-        logger.info("Configuration validated successfully")
+        logger.info(LogMsg.CONFIG_VALIDATION_SUCCESS.value)
         return True

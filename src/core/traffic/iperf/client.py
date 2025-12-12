@@ -15,7 +15,7 @@ class IperfClient(IperfBase):
         connection: IConnection,
         logger: logging.Logger,
         server_host: str,
-        port: int = 5201,
+        port: int = 5001,
     ):
         """Initialize iperf client.
 
@@ -35,8 +35,6 @@ class IperfClient(IperfBase):
         self._use_json = False
         self._timeout_sec = None
         self._interval = 1
-        self._bidir = False
-        self._reverse = False
 
     def configure(
         self,
@@ -47,9 +45,6 @@ class IperfClient(IperfBase):
         use_json: bool = False,
         timeout_sec: int | None = None,
         interval: int = 1,
-        bidir: bool = False,
-        reverse: bool = False,
-        infinite: bool = False,
     ) -> None:
         """Configure client parameters.
 
@@ -61,23 +56,18 @@ class IperfClient(IperfBase):
             use_json: Use JSON output format (default: False)
             timeout_sec: Test abort timeout in seconds (default: None, ignored if infinite=True)
             interval: Reporting interval in seconds (default: 1)
-            bidir: Run bidirectional test (default: False)
-            reverse: Run reverse mode test (default: False)
-            infinite: Run test indefinitely until stopped (default: False)
         """
-        self._duration = 0 if infinite else duration
+        self._duration = duration
         self._protocol = protocol.lower()
         self._bandwidth = bandwidth
         self._parallel = parallel
         self._use_json = use_json
-        self._timeout_sec = None if infinite else (timeout_sec or duration + 30)
+        self._timeout_sec = None if self._duration == 0 else (timeout_sec or duration + 30)
         self._interval = interval
-        self._bidir = bidir
-        self._reverse = reverse
         self._logger.debug(
-            f"Configured: duration={self._duration}s{'(infinite)' if infinite else ''}, protocol={protocol}, "
+            f"Configured: duration={self._duration}s{'(infinite)' if self._duration == 0 else ''}, protocol={protocol}, "
             f"bandwidth={bandwidth}, parallel={parallel}, json={use_json}, "
-            f"interval={interval}s, bidir={bidir}, reverse={reverse}"
+            f"interval={interval}s"
         )
 
     def start(self, retry_count: int = 0) -> bool:
@@ -92,14 +82,14 @@ class IperfClient(IperfBase):
         Returns:
             True if test completed successfully
         """
-        if not self.ensure_required_sw():
+        if not self.ensure_required_sw(skip_check=True):
             self._logger.error("Cannot start client: required software not available")
             return False
 
         self._cleanup_existing_processes()
 
         cmd = (
-            f"iperf3 -c {self._server_host} -p {self._port} -t {self._duration} "
+            f"iperf -c {self._server_host} -p {self._port} -t {self._duration} "
             f"-P {self._parallel} -i {self._interval}"
         )
 
@@ -110,11 +100,6 @@ class IperfClient(IperfBase):
 
         if self._use_json:
             cmd += " -J"
-
-        if self._bidir:
-            cmd += " --bidir"
-        elif self._reverse:
-            cmd += " -R"
 
         self._logger.info(f"Starting iperf client: {cmd}")
         result = self._conn.exec_cmd(cmd, timeout=self._timeout_sec)  # Blocking call
@@ -134,16 +119,16 @@ class IperfClient(IperfBase):
         # Validate results
         is_valid, error_msg = self.validate_results(self._stats)
         if not is_valid:
-            self._logger.error(f"Result validation failed: {error_msg}")
+            self._logger.error(f"Results validation failed: {error_msg}")
             return False
 
         # Log summary
         summary = self.get_stats_summary()
         if summary:
             self._logger.info(
-                f"Summary: avg={summary['bandwidth_avg_bps'] / 1e9:.2f} Gbps, "
-                f"min={summary['bandwidth_min_bps'] / 1e9:.2f} Gbps, "
-                f"max={summary['bandwidth_max_bps'] / 1e9:.2f} Gbps"
+                f"Summary: avg={summary['bandwidth_avg_bps'] / 1e9:.2f}Gbps, "
+                f"min={summary['bandwidth_min_bps'] / 1e9:.2f}Gbps, "
+                f"max={summary['bandwidth_max_bps'] / 1e9:.2f}Gbps"
             )
 
         return True

@@ -27,23 +27,29 @@ def get_log_directory() -> Path:
     return timestamped_dir
 
 
-def get_log_level() -> int:
+def get_log_level(config_file: str | None = None) -> int:
     """Load log level from config file.
+
+    Args:
+        config_file: Optional config file name (default: main_scan_cfg.json)
 
     Returns:
         int: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     """
     try:
+        if config_file is None:
+            config_file = "main_scan_cfg.json"
+        
         if getattr(sys, "frozen", False):
-            config_file = Path(sys.executable).parent / "main_scan_cfg.json"
+            config_path = Path(sys.executable).parent / config_file
         else:
-            config_file = Path(__file__).parent.parent.parent.parent / "main_scan_cfg.json"
+            config_path = Path(__file__).parent.parent.parent.parent / config_file
 
-        if not config_file.exists():
-            print(f"Config file not found: {config_file}", file=sys.stderr)
+        if not config_path.exists():
+            print(f"Config file not found: {config_path}", file=sys.stderr)
             return logging.INFO
 
-        with config_file.open() as f:
+        with config_path.open() as f:
             config_data = json.load(f)
         log_level_str = config_data.get("log_level", "info").upper()
         level = getattr(logging, log_level_str, logging.INFO)
@@ -114,10 +120,11 @@ def setup_component_loggers(log_dir: Path, log_level: int) -> dict[str, logging.
     return loggers
 
 
-def init_logging() -> dict[str, logging.Logger | Path]:
+def init_logging(config_file: str | None = None) -> dict[str, logging.Logger | Path]:
     """Initialize complete logging system.
 
-    Sets up root logger, component loggers, and returns logger references.
+    Args:
+        config_file: Optional config file name (default: main_scan_cfg.json)
 
     Returns:
         dict[str, logging.Logger | Path]: Dictionary with keys:
@@ -125,7 +132,7 @@ def init_logging() -> dict[str, logging.Logger | Path]:
             - log_dir: Path to log directory
     """
     log_dir = get_log_directory()
-    log_level = get_log_level()
+    log_level = get_log_level(config_file)
 
     setup_root_logger(log_dir, log_level)
     loggers = setup_component_loggers(log_dir, log_level)

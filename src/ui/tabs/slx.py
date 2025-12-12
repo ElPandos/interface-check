@@ -447,7 +447,7 @@ class SlxContent:
             # Send command and wait (like main_eye_optimized.py)
             ssh._shell.send(cmd + "\n")
             eyescan_wait = 20
-            logger.info(f"Waiting {eyescan_wait} seconds for eye scan to complete...")
+            logger.info(f"Waiting {eyescan_wait}s for eye scan to complete...")
             time.sleep(eyescan_wait)
 
             # Get results by sending newline and reading available data

@@ -98,7 +98,7 @@ class GraphView:
         """Toggle auto-update."""
         if self._auto_update.value:
             self._auto_update_timer = ui.timer(self._cfg.gui.get_graph_update_value(), self.update)
-            logger.debug(f"Auto update enabled each: {self._cfg.gui.get_graph_update_value()} sec")
+            logger.debug(f"Auto update enabled each: {self._cfg.gui.get_graph_update_value()}s")
         else:
             self._auto_update_timer.cancel()
             logger.debug("Auto update disabled")

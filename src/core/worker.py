@@ -606,7 +606,7 @@ class WorkManager:
     def clear(self) -> None:
         """Clear worker pool."""
         self._logger.debug(
-            f"{LogMsg.WORKER_POOL_CLEAR.value} {len(self._work_pool)} workers from pool"
+            f"{LogMsg.WORKER_POOL_CLEARING.value} {len(self._work_pool)} workers from pool"
         )
         self._work_pool.clear()
         self._logger.debug(LogMsg.WORKER_POOL_CLEARED.value)
