@@ -19,9 +19,10 @@ dependencies = [
     "pympler>=1.1",
     "pandas>=2.3.3",
     "pyinstaller>=6.17.0",
-    "uv>=0.9.15",
+    "uv>=0.9.18",
     "pyinstall>=0.1.4",
     "ace-tools>=0.0",
+    "argparse>=1.4.0",
 ]
 
 [dependency-groups]

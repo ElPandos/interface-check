@@ -348,7 +348,7 @@ class LogMsg(Enum):
     AGENT_STARTED = "Network agent started"
     AGENT_STOPPED = "Network agent stopped"
     AGENT_TASK_EXEC = "Executing task"
-    AGENT_SSH_UNAVAIL = "SSH connection not available"
+    AGENT_SSH_NOT_AVAILABLE = "SSH connection not available"
     AGENT_CMD_FAIL = "Agent command execution failed"
 
     # Traffic Testing
@@ -372,7 +372,7 @@ class LogMsg(Enum):
     TRAFFIC_TEST_WAIT = "Waiting before next test..."
 
     TRAFFIC_METADATA_START = "Start writing metadata to file"
-    TRAFFIC_METADATA_STOPP = "Metadata written to file"
+    TRAFFIC_METADATA_STOP = "Metadata written to file"
     TRAFFIC_METADATA_NONE = "No metadata to write"
 
     TRAFFIC_STATS_START = "Start writing stats to file"

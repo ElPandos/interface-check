@@ -307,7 +307,7 @@ class SshConnection(IConnection):
             Command execution result
         """
         if not self.is_connected():
-            return self.get_cr_msg_connection(cmd, LogMsg.CMD_CON)
+            return self.get_cr_msg_connection(cmd, LogMsg.CONN_FAILED)
 
         with self._exec_lock:
             log = logger or self._logger

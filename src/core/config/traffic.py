@@ -24,21 +24,22 @@ class TrafficConfig:
     server_user: str
     server_pass: str
     server_sudo_pass: str
-    server_ip: str
-    server_port: int
+    client_server_ips: list[str]
+    server_server_ips: list[str]
+    client_start_port: int
     server_connect_type: str
     client_host: str
     client_user: str
     client_pass: str
     client_sudo_pass: str
     client_connect_type: str
-    test_duration_sec: int
-    test_protocol: str
-    test_bandwidth: str
-    test_parallel_streams: int
-    test_interval_sec: int
-    test_iterations: int
-    test_delay_between_tests_sec: int
+    setup_traffic_duration_sec: int
+    setup_protocol: str
+    setup_bandwidth: str
+    setup_parallel_streams: int
+    setup_stats_poll_sec: int
+    web_enabled: bool
+    web_port: int
 
     @classmethod
     def from_dict(cls, data: dict) -> "TrafficConfig":
@@ -50,7 +51,8 @@ class TrafficConfig:
         Returns:
             TrafficConfig instance
         """
-        j, srv, cli, test = data["jump"], data["server"], data["client"], data["test"]
+        j, srv, cli, test = data["jump"], data["server"], data["client"], data["setup"]
+        web = data.get("web", {})
         return cls(
             log_level=data.get("log_level", "info"),
             jump_host=j["host"],
@@ -60,21 +62,24 @@ class TrafficConfig:
             server_user=srv["user"],
             server_pass=srv["pass"],
             server_sudo_pass=srv.get("sudo_pass", ""),
-            server_ip=test.get("server_ip", srv["host"]),
-            server_port=test.get("port", 5001),
+            client_server_ips=cli.get("server_ip", [srv["host"]]),
+            server_server_ips=srv.get("server_ip", []),
+            client_start_port=test.get("start_port", 5001),
             server_connect_type=srv.get("connect_type", ConnectType.REMOTE.value),
             client_host=cli["host"],
             client_user=cli["user"],
             client_pass=cli["pass"],
             client_sudo_pass=cli.get("sudo_pass", ""),
             client_connect_type=cli.get("connect_type", ConnectType.REMOTE.value),
-            test_duration_sec=test.get("duration_sec", 30),
-            test_protocol=test.get("protocol", "tcp"),
-            test_bandwidth=test.get("bandwidth", "10G"),
-            test_parallel_streams=test.get("parallel_streams", 1),
-            test_interval_sec=test.get("interval_sec", 1),
-            test_iterations=test.get("iterations", 5),
-            test_delay_between_tests_sec=test.get("delay_between_tests_sec", 5),
+            setup_traffic_duration_sec=test.get(
+                "traffic_duration_sec", test.get("it_duration_sec", test.get("duration_sec", 30))
+            ),
+            setup_protocol=test.get("protocol", "tcp"),
+            setup_bandwidth=test.get("bandwidth", "10G"),
+            setup_parallel_streams=test.get("parallel_streams", 1),
+            setup_stats_poll_sec=test.get("stats_poll_sec", test.get("interval_sec", 1)),
+            web_enabled=web.get("enabled", False),
+            web_port=web.get("port", 8080),
         )
 
     def validate(self, logger) -> bool:
@@ -90,8 +95,15 @@ class TrafficConfig:
 
         if not self.server_host:
             errors.append("server_host cannot be empty")
-        if not self.server_ip:
-            errors.append("server_ip cannot be empty")
+        if not self.client_host:
+            errors.append("client_host cannot be empty")
+        if not self.client_server_ips:
+            errors.append("client_server_ips cannot be empty")
+        if self.server_server_ips and len(self.server_server_ips) != len(self.client_server_ips):
+            errors.append(
+                f"server_server_ips length ({len(self.server_server_ips)}) "
+                f"must match client_server_ips length ({len(self.client_server_ips)})"
+            )
         if not self.client_host:
             errors.append("client_host cannot be empty")
         valid_types = [t.value for t in ConnectType]
@@ -103,22 +115,18 @@ class TrafficConfig:
             errors.append(
                 f"Invalid client_connect_type: {self.client_connect_type} (must be {' or '.join(valid_types)})"
             )
-        if self.test_duration_sec <= 0:
-            errors.append(f"Invalid duration: {self.test_duration_sec} (must be >= 1)")
-        if self.test_protocol not in ["tcp", "udp"]:
-            errors.append(f"Invalid protocol: {self.test_protocol} (must be tcp or udp)")
-        if self.test_parallel_streams < 1:
-            errors.append(f"Invalid parallel streams: {self.test_parallel_streams} (must be >= 1)")
-        if self.test_interval_sec <= 0:
-            errors.append(f"Invalid interval: {self.test_interval_sec} (must be > 0)")
-        if self.test_iterations < 0:
+        if self.setup_traffic_duration_sec < 0:
             errors.append(
-                f"Invalid iterations: {self.test_iterations} (must be >= 0, 0 will use infinite traffic)"
+                f"Invalid traffic_duration_sec: {self.setup_traffic_duration_sec} (must be >= 0, 0 = infinite)"
             )
-        if self.test_delay_between_tests_sec < 0:
-            errors.append(f"Invalid delay: {self.test_delay_between_tests_sec} (must be >= 0)")
-        if self.server_port < 1 or self.server_port > 65535:
-            errors.append(f"Invalid port: {self.server_port} (must be 1-65535)")
+        if self.setup_protocol not in ["tcp", "udp"]:
+            errors.append(f"Invalid protocol: {self.setup_protocol} (must be tcp or udp)")
+        if self.setup_parallel_streams < 1:
+            errors.append(f"Invalid parallel streams: {self.setup_parallel_streams} (must be >= 1)")
+        if self.setup_stats_poll_sec < 0:
+            errors.append(f"Invalid stats_poll_sec: {self.setup_stats_poll_sec} (must be >= 0)")
+        if self.client_start_port < 1 or self.client_start_port > 65535:
+            errors.append(f"Invalid port: {self.client_start_port} (must be 1-65535)")
 
         if errors:
             logger.error(f"{LogMsg.CONFIG_VALIDATION_FAILED.value}:")

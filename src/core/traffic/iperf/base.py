@@ -397,15 +397,37 @@ class IperfBase(ABC):
         Returns:
             True if port is reachable
         """
-        self._logger.info(f"{LogMsg.TRAFFIC_PORT_CHECK.value} {port} on {host}...")
-        result = self._conn.exec_cmd(
-            f"timeout {timeout} bash -c 'cat < /dev/null > /dev/tcp/{host}/{port}'",
-            timeout=timeout + 2,
+        conn_type = type(self._conn).__name__
+        self._logger.info(
+            f"{LogMsg.TRAFFIC_PORT_CHECK.value} {port} on {host}... (via {conn_type})"
         )
+        self._logger.debug(f"Connection details: {conn_type} checking {host}:{port}")
+
+        # First check if we can reach the host at all
+        ping_result = self._conn.exec_cmd(f"ping -c 1 -W 2 {host}", timeout=5)
+        if ping_result.rcode != 0:
+            self._logger.error(f"Cannot ping {host}: {ping_result.stderr[:200]}")
+            self._logger.debug(f"Ping failed - host {host} unreachable from connection")
+        else:
+            self._logger.debug(f"Ping to {host} successful")
+
+        cmd = f"nc -z -w {timeout} {host} {port}"
+        self._logger.debug(f"Port check command: {cmd}")
+        self._logger.debug(f"Executing from: {getattr(self._conn, '_host', 'local')}")
+
+        result = self._conn.exec_cmd(cmd, timeout=timeout + 2)
+
         if result.rcode == 0:
             self._logger.info(f"Port {port} on {host} {LogMsg.TRAFFIC_PORT_REACHABLE.value}")
             return True
+
         self._logger.error(f"Port {port} on {host} {LogMsg.TRAFFIC_PORT_UNREACHABLE.value}")
+        self._logger.error(f"Return code: {result.rcode}")
+        self._logger.error(f"Stdout: {result.stdout[:200] if result.stdout else 'empty'}")
+        self._logger.error(f"Stderr: {result.stderr[:200] if result.stderr else 'empty'}")
+        self._logger.debug(
+            f"Port check failed from {getattr(self._conn, '_host', 'local')} to {host}:{port}"
+        )
         return False
 
     def validate_results(self, stats: list[IperfStats]) -> tuple[bool, str]:
@@ -491,3 +513,17 @@ class IperfBase(ABC):
             return True
         self._logger.error(LogMsg.TRAFFIC_PROCESS_NO_PID.value)
         return False
+
+    @classmethod
+    def kill_all_processes(cls, conn: IConnection, logger: logging.Logger) -> None:
+        """Kill all iperf processes on a host.
+
+        Args:
+            conn: Connection instance
+            logger: Logger instance
+        """
+        logger.info("Cleaning up iperf processes...")
+        try:
+            conn.exec_cmd("pkill -9 iperf", timeout=5)
+        except Exception:
+            logger.exception("Failed to cleanup iperf processes")

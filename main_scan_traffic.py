@@ -22,6 +22,7 @@ Configuration:
     - Test parameters (protocol, duration, bandwidth, etc.)
 """
 
+import argparse
 import csv
 from datetime import datetime
 import logging
@@ -39,6 +40,8 @@ from src.core.enum.connect import ConnectType, IperfHostType
 from src.core.enum.messages import LogMsg
 from src.core.log.setup import init_logging
 from src.core.traffic.iperf import IperfClient, IperfServer
+from src.core.traffic.iperf.base import IperfBase
+from src.core.traffic.iperf.gui import IperfMonitor
 from src.interfaces.component import IConnection
 from src.models.config import Host
 from src.platform.enums.log import LogName
@@ -66,70 +69,63 @@ def signal_handler(_signum, _frame) -> None:
 # Register signal handler for SIGINT (Ctrl+C)
 signal.signal(signal.SIGINT, signal_handler)
 
-# ---------------------------------------------------------------------------- #
-#                             Logging configuration                            #
-# ---------------------------------------------------------------------------- #
-
-# Note: Logging is initialized in main() to use same timestamp as CSV files
-traffic_logger = None
 
 # ---------------------------------------------------------------------------- #
 #                              Connection Management                           #
 # ---------------------------------------------------------------------------- #
 
 
+def _get_host_credentials(cfg: TrafficConfig, is_server: bool) -> tuple[str, str, str, str, str]:
+    """Extract host credentials from config.
+
+    Returns:
+        Tuple of (host, user, password, sudo_pass, connect_type)
+    """
+    if is_server:
+        return (
+            cfg.server_host,
+            cfg.server_user,
+            cfg.server_pass,
+            cfg.server_sudo_pass,
+            cfg.server_connect_type,
+        )
+    return (
+        cfg.client_host,
+        cfg.client_user,
+        cfg.client_pass,
+        cfg.client_sudo_pass,
+        cfg.client_connect_type,
+    )
+
+
 def create_connection(
-    cfg: TrafficConfig, host_type: IperfHostType
+    cfg: TrafficConfig, host_type: IperfHostType, logger: logging.Logger
 ) -> SshConnection | LocalConnection:
     """Create connection based on configuration.
 
     Args:
         cfg: Configuration
         host_type: Server or client host type
+        logger: Logger instance
 
     Returns:
         Connection instance
     """
-    # Create jump host configuration for SSH tunneling
-    jump_host = Host(ip=cfg.jump_host, username=cfg.jump_user, password=cfg.jump_pass)
-    traffic_logger.debug(f"Creating {host_type.value} connection via jump host {cfg.jump_host}")
+    is_server = host_type == IperfHostType.SERVER
+    host, user, password, sudo_pass, connect_type = _get_host_credentials(cfg, is_server)
 
-    if host_type == IperfHostType.SERVER:
-        connect_type = cfg.server_connect_type
-        traffic_logger.debug(f"Server connection type: {connect_type}")
+    logger.debug(f"Creating {host_type.value} connection to {host} ({connect_type})")
 
-        # Use local execution if server is on same machine
-        if connect_type == ConnectType.LOCAL.value:
-            traffic_logger.debug(f"Creating local connection to {cfg.server_host}")
-            return LocalConnection(cfg.server_host, cfg.server_sudo_pass)
-
-        # Create SSH connection through jump host
-        traffic_logger.debug(f"Creating SSH connection to server {cfg.server_host}")
-        return SshConnection(
-            host=cfg.server_host,
-            username=cfg.server_user,
-            password=cfg.server_pass,
-            jump_hosts=[jump_host],
-            sudo_pass=cfg.server_sudo_pass,
-        )
-
-    # Client connection setup
-    connect_type = cfg.client_connect_type
-    traffic_logger.debug(f"Client connection type: {connect_type}")
-
-    # Use local execution if client is on same machine
     if connect_type == ConnectType.LOCAL.value:
-        traffic_logger.debug(f"Creating local connection to {cfg.client_host}")
-        return LocalConnection(cfg.client_host, cfg.client_sudo_pass)
+        return LocalConnection(host, sudo_pass)
 
-    # Create SSH connection through jump host
-    traffic_logger.debug(f"Creating SSH connection to client {cfg.client_host}")
+    jump_host = Host(ip=cfg.jump_host, username=cfg.jump_user, password=cfg.jump_pass)
     return SshConnection(
-        host=cfg.client_host,
-        username=cfg.client_user,
-        password=cfg.client_pass,
+        host=host,
+        username=user,
+        password=password,
         jump_hosts=[jump_host],
-        sudo_pass=cfg.client_sudo_pass,
+        sudo_pass=sudo_pass,
     )
 
 
@@ -154,20 +150,20 @@ def write_metadata_to_csv(csv_file: Path, cfg: TrafficConfig, logger: logging.Lo
 
     with csv_file.open("w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["server_ip", cfg.server_ip])
-        writer.writerow(["server_port", cfg.server_port])
+        writer.writerow(["server_ips", ",".join(cfg.client_server_ips)])
+        if cfg.server_server_ips:
+            writer.writerow(["server_reverse_ips", ",".join(cfg.server_server_ips)])
+        writer.writerow(["start_port", cfg.client_start_port])
         writer.writerow(["parameter", "value"])
-        writer.writerow(["duration_sec", cfg.test_duration_sec])
-        writer.writerow(["protocol", cfg.test_protocol])
-        writer.writerow(["bandwidth", cfg.test_bandwidth])
-        writer.writerow(["parallel_streams", cfg.test_parallel_streams])
-        writer.writerow(["interval_sec", cfg.test_interval_sec])
-        writer.writerow(["iterations", cfg.test_iterations])
-        writer.writerow(["delay_between_tests_sec", cfg.test_delay_between_tests_sec])
+        writer.writerow(["traffic_duration_sec", cfg.setup_traffic_duration_sec])
+        writer.writerow(["protocol", cfg.setup_protocol])
+        writer.writerow(["bandwidth", cfg.setup_bandwidth])
+        writer.writerow(["parallel_streams", cfg.setup_parallel_streams])
+        writer.writerow(["stats_poll_sec", cfg.setup_stats_poll_sec])
         writer.writerow(["server_host", cfg.server_host])
         writer.writerow(["client_host", cfg.client_host])
 
-    logger.info(f"{LogMsg.TRAFFIC_METADATA_STOPP.value}")
+    logger.info(f"{LogMsg.TRAFFIC_METADATA_STOP.value}")
 
 
 def write_stats_to_csv(stats: list, csv_file: Path, iteration: int, logger: logging.Logger):
@@ -283,7 +279,24 @@ def write_summary_to_csv(summaries: list[dict], csv_file: Path, logger: logging.
 # ---------------------------------------------------------------------------- #
 
 
-def setup_connections(cfg: TrafficConfig, logger: logging.Logger) -> tuple | None:
+def _connect_to_host(conn: IConnection, host: str, host_type: str, logger: logging.Logger) -> bool:
+    """Establish connection to a single host.
+
+    Returns:
+        True if connection successful, False otherwise
+    """
+    logger.debug(f"Connecting to {host_type} {host}...")
+    if not conn.connect():
+        logger.error(f"Failed to connect to {host_type} {host}")
+        logger.error(LogMsg.CONN_FAILED.value)
+        return False
+    logger.debug(f"{host_type.capitalize()} connection established: {host}")
+    return True
+
+
+def setup_connections(
+    cfg: TrafficConfig, logger: logging.Logger
+) -> tuple[IConnection, IConnection] | None:
     """Setup and validate connections to server and client hosts.
 
     Creates SSH/local connections and validates connectivity before proceeding.
@@ -294,31 +307,19 @@ def setup_connections(cfg: TrafficConfig, logger: logging.Logger) -> tuple | Non
     logger.info(LogMsg.TRAFFIC_CONN_CREATE.value)
     logger.debug(f"Server: {cfg.server_host}, Client: {cfg.client_host}")
 
-    # Create connection objects (doesn't establish connection yet)
-    server_conn = create_connection(cfg, IperfHostType.SERVER)
-    client_conn = create_connection(cfg, IperfHostType.CLIENT)
+    server_conn = create_connection(cfg, IperfHostType.SERVER, logger)
+    client_conn = create_connection(cfg, IperfHostType.CLIENT, logger)
     logger.debug("Connection objects created successfully")
 
     logger.info(LogMsg.CONN_CONNECTING.value)
 
-    # Establish server connection first
-    logger.debug(f"Connecting to server {cfg.server_host}...")
-    if not server_conn.connect():
-        logger.error(f"Failed to connect to server {cfg.server_host}")
-        logger.error(LogMsg.CONN_FAILED.value)
+    if not _connect_to_host(server_conn, cfg.server_host, "server", logger):
         return None
-    logger.debug(f"Server connection established: {cfg.server_host}")
 
-    # Establish client connection
-    logger.debug(f"Connecting to client {cfg.client_host}...")
-    if not client_conn.connect():
-        logger.error(f"Failed to connect to client {cfg.client_host}")
-        logger.error(LogMsg.CONN_FAILED.value)
-        # Clean up server connection before returning
+    if not _connect_to_host(client_conn, cfg.client_host, "client", logger):
         logger.debug("Disconnecting server due to client connection failure")
         server_conn.disconnect()
         return None
-    logger.debug(f"Client connection established: {cfg.client_host}")
 
     logger.info(LogMsg.CONN_ESTABLISHED.value)
     logger.debug("Both connections ready for iperf testing")
@@ -326,275 +327,170 @@ def setup_connections(cfg: TrafficConfig, logger: logging.Logger) -> tuple | Non
     return server_conn, client_conn
 
 
-def setup_iperf(
-    cfg: TrafficConfig, server_conn: IConnection, client_conn: IConnection, logger: logging.Logger
-) -> tuple | None:
-    """Setup and validate iperf server and client instances.
-
-    Creates iperf instances, validates connectivity, and configures test parameters.
+def _create_iperf_pair(
+    server_conn: IConnection,
+    client_conn: IConnection,
+    server_ip: str,
+    port: int,
+    cfg: TrafficConfig,
+    logger: logging.Logger,
+    log_dir: Path,
+) -> tuple[IperfServer, IperfClient] | None:
+    """Create and configure iperf server/client pair.
 
     Returns:
         Tuple of (server, client) or None on failure
     """
-    # Create iperf server and client instances
-    logger.debug(f"Creating iperf server on port {cfg.server_port}")
-    server = IperfServer(server_conn, logger, cfg.server_port)
+    server = IperfServer.create_and_configure(server_conn, logger, server_ip, port, cfg, "/tmp")
+    client = IperfClient.create_and_configure(client_conn, logger, server_ip, port, cfg, "/tmp")
 
-    logger.debug(f"Creating iperf client targeting: {cfg.server_ip}:{cfg.server_port}")
-    client = IperfClient(client_conn, logger, cfg.server_ip, cfg.server_port)
-
-    # Validate that iperf is installed and connections work
-    logger.info(LogMsg.TRAFFIC_CONN_VALIDATE.value)
-    logger.debug("Validating server connection and iperf availability...")
-
-    if not server.validate_connection():
-        logger.error("Server validation failed - iperf may not be installed")
-        logger.error(LogMsg.CONN_FAILED.value)
+    if not IperfClient.validate_pair(server, client, server_ip, port, logger):
         return None
-    logger.debug("Server validation passed")
 
-    logger.debug(f"Validating client connection to: {cfg.server_ip}...")
-    if not client.validate_connection(cfg.server_ip):
-        logger.error(f"Client validation failed - cannot reach {cfg.server_ip}")
-        logger.error(LogMsg.CONN_FAILED.value)
-        return None
-    logger.debug("Client validation passed")
-
-    # Configure server (minimal config, no JSON output)
-    logger.debug("Configuring iperf server...")
-    server.configure(use_json=False)
-
-    # Configure client with test parameters
-    logger.debug(
-        f"Configuring iperf client: protocol={cfg.test_protocol}, duration={cfg.test_duration_sec}s"
-    )
-    logger.debug(
-        f"  bandwidth={cfg.test_bandwidth}, parallel={cfg.test_parallel_streams}, interval={cfg.test_interval_sec}s"
-    )
-    client.configure(
-        duration=cfg.test_duration_sec,
-        protocol=cfg.test_protocol,
-        bandwidth=cfg.test_bandwidth if cfg.test_protocol == "udp" else None,  # Only for UDP
-        parallel=cfg.test_parallel_streams,
-        use_json=False,  # Use text output for iperf2 compatibility
-        interval=cfg.test_interval_sec,
-    )
-
-    logger.info(LogMsg.TRAFFIC_CONN_VALIDATE_PASS.value)
-    logger.debug("Iperf setup complete and ready for testing")
     return server, client
 
 
-def update_timer(
-    duration: int,
-    logger: logging.Logger,
-    stop_event: threading.Event,
-    csv_file: Path,
+def _setup_forward_iperf(
     cfg: TrafficConfig,
-):
-    """Display countdown in terminal with single line updates."""
-    remaining = duration
-
-    while remaining > 0 and not stop_event.is_set():
-        # Read last line from CSV for live bandwidth stats
-        bw_str = ""
-        try:
-            if csv_file.exists():
-                with csv_file.open("r") as f:
-                    lines = f.readlines()
-                    if len(lines) > 1:  # Skip header
-                        last = lines[-1].strip()
-                        parts = last.split(",")
-                        if len(parts) > 5 and parts[5]:
-                            bw_str = f" @ {float(parts[5]):.1f} Gbps"
-        except Exception:
-            pass
-
-        msg = f"{cfg.client_host} -> {cfg.server_ip}:{cfg.server_port}{bw_str} | Time: {remaining}s"
-        sys.stderr.write(f"\r{msg}" + " " * 20)
-        sys.stderr.flush()
-        time.sleep(1)
-        remaining -= 1
-
-    sys.stderr.write("\r" + " " * 100 + "\nTraffic test(s) completed!\n")
-    sys.stderr.flush()
-
-
-def display_iteration_frame(iteration: int, cfg: TrafficConfig, infinite_mode: bool):
-    """Display iteration progress frame."""
-    if infinite_mode:
-        frame = PrettyFrame().build(
-            "TRAFFIC",
-            ["Mode: Infinit", "To quit use: Ctrl+C"],
-        )
-    else:
-        frame = PrettyFrame().build(
-            f"ITERATION {iteration}/{cfg.test_iterations}",
-            [
-                f"Progress: {iteration * 100 // cfg.test_iterations}%",
-                f"Test duration: {cfg.test_duration_sec}s",
-            ],
-        )
-    sys.stderr.write(frame)
-    sys.stderr.flush()
-
-
-def run_single_test(
-    client: IperfClient, stats_csv_file: Path, iteration: int, logger: logging.Logger
-) -> tuple[list, dict | None]:
-    """Run single test iteration and return stats."""
-    if not client.start():
-        return [], None
-
-    stats = client.get_stats()
-    logger.info(f"{LogMsg.TRAFFIC_TEST_COMPLETE.value}: {len(stats)} samples collected")
-    summary = client.get_stats_summary()
-    write_stats_to_csv(stats, stats_csv_file, iteration, logger)
-    return stats, summary
-
-
-def wait_between_tests(delay_sec: int, logger: logging.Logger):
-    """Wait between test iterations with shutdown check."""
-    logger.info(f"{LogMsg.TRAFFIC_TEST_WAIT.value} {delay_sec}s...")
-    for _ in range(delay_sec):
-        if shutdown_event.is_set():
-            break
-        time.sleep(1)
-
-
-def run_test_iterations(
-    cfg: TrafficConfig, client: IperfClient, stats_csv_file: Path, logger: logging.Logger
-) -> tuple:
-    """Run iperf test iterations with progress tracking and error handling.
-
-    Executes multiple test iterations, collecting statistics and handling failures.
-    Supports both finite and infinite iteration modes.
+    server_conn: IConnection,
+    client_conn: IConnection,
+    logger: logging.Logger,
+    log_dir: Path,
+) -> tuple[list[IperfServer], list[IperfClient]] | None:
+    """Setup forward direction iperf instances (client -> server).
 
     Returns:
-        Tuple of (summaries, successful_tests, failed_tests, failed_iterations)
+        Tuple of (servers, clients) or None on failure
     """
-    # Initialize tracking variables
-    summaries = []
-    successful_tests = 0
-    failed_tests = 0
-    failed_iterations = []
-    consecutive_failures = 0
+    servers, clients = [], []
 
-    iteration = 0
-    # Infinite mode: iterations=0 means run continuously until manuel, ctrl+c
-    infinite_iterations = cfg.test_iterations == 0
-    max_iterations = None if infinite_iterations else cfg.test_iterations
+    for idx, server_ip in enumerate(cfg.client_server_ips):
+        port = cfg.client_start_port + idx
+        logger.debug(f"Creating forward iperf on {server_ip}:{port}")
 
-    logger.debug(
-        f"Starting test loop: infinite={infinite_iterations}, max_iterations={max_iterations}"
-    )
+        pair = _create_iperf_pair(server_conn, client_conn, server_ip, port, cfg, logger, log_dir)
+        if not pair:
+            logger.error(LogMsg.CONN_FAILED.value)
+            return None
 
-    gen_frame = True
-    # Main test loop - continues until max iterations or shutdown
-    while not shutdown_event.is_set():  # Fixed: was checking is_set() instead of not is_set()
-        iteration += 1
-        logger.debug(f"Starting iteration {iteration}")
+        servers.append(pair[0])
+        clients.append(pair[1])
+        logger.debug(f"Forward setup complete for {server_ip}:{port}")
 
-        # Check for shutdown signal
-        if shutdown_event.is_set():
-            logger.info(LogMsg.SHUTDOWN_SIGNAL.value)
-            logger.debug(f"Shutdown requested at iteration {iteration}")
-            break
+    return servers, clients
 
-        # Check if we've reached max iterations (finite mode only)
-        if max_iterations and iteration > max_iterations:
-            logger.debug(f"Reached max iterations: {max_iterations}")
-            break
 
-        if gen_frame:
-            gen_frame = False
-            display_iteration_frame(iteration, cfg, infinite_iterations)
+def _setup_reverse_iperf(
+    cfg: TrafficConfig,
+    server_conn: IConnection,
+    client_conn: IConnection,
+    num_forward: int,
+    logger: logging.Logger,
+    log_dir: Path,
+) -> tuple[list[IperfServer], list[IperfClient]] | None:
+    """Setup reverse direction iperf instances (server -> client).
 
-        if not infinite_iterations:
-            # Start countdown timer thread for live progress updates
-            logger.debug(f"Starting countdown timer for {cfg.test_duration_sec}s")
-            timer_stop = threading.Event()
-            timer_thread = threading.Thread(
-                target=update_timer,
-                args=(cfg.test_duration_sec, logger, timer_stop, stats_csv_file, cfg),
-                daemon=True,
-            )
-            timer_thread.start()
-        else:
-            timer_stop = None
+    Returns:
+        Tuple of (reverse_servers, reverse_clients) or None on failure
+    """
+    reverse_servers, reverse_clients = [], []
 
-        # Execute the actual iperf test
-        logger.debug(f"Running test iteration {iteration}")
-        stats, summary = run_single_test(client, stats_csv_file, iteration, logger)
+    for idx, reverse_ip in enumerate(cfg.server_server_ips):
+        port = cfg.client_start_port + num_forward + idx
+        logger.debug(f"Creating reverse iperf on {reverse_ip}:{port}")
 
-        # Process test results
-        if stats:
-            # Test succeeded - stop timer and record results
-            if timer_stop:
-                timer_stop.set()
-            logger.debug(f"Test {iteration} succeeded with {len(stats)} samples")
+        pair = _create_iperf_pair(client_conn, server_conn, reverse_ip, port, cfg, logger, log_dir)
+        if not pair:
+            logger.error(LogMsg.CONN_FAILED.value)
+            return None
 
-            if summary:
-                summaries.append(summary)
-                successful_tests += 1
-                consecutive_failures = 0  # Reset failure counter
-                logger.debug(
-                    f"Summary recorded: avg_bw={summary['bandwidth_avg_bps'] / 1e9:.2f} Gbps"
-                )
-        else:
-            # Test failed - track failure and check abort condition
-            logger.error(f"{LogMsg.TRAFFIC_TEST_FAILED.value} {iteration}")
-            logger.debug(f"Test {iteration} failed - no stats collected")
-            failed_tests += 1
-            failed_iterations.append(iteration)
-            consecutive_failures += 1
+        reverse_servers.append(pair[0])
+        reverse_clients.append(pair[1])
+        logger.debug(f"Reverse setup complete for {reverse_ip}:{port}")
 
-            # Abort after 3 consecutive failures to prevent infinite retry
-            if consecutive_failures >= 3:
-                logger.error(LogMsg.TRAFFIC_TEST_ABORT.value)
-                logger.debug(f"Aborting after {consecutive_failures} consecutive failures")
-                break
+    return reverse_servers, reverse_clients
 
-        # Wait between tests if not shutting down and more tests remain (skip in infinite mode)
-        if not shutdown_event.is_set() and not infinite_iterations and iteration < max_iterations:
-            logger.debug(f"Waiting {cfg.test_delay_between_tests_sec}s before next test")
-            wait_between_tests(cfg.test_delay_between_tests_sec, logger)
 
-    logger.debug(f"Test loop complete: {successful_tests} passed, {failed_tests} failed")
-    return summaries, successful_tests, failed_tests, failed_iterations
+def setup_iperf(
+    cfg: TrafficConfig,
+    server_conn: IConnection,
+    client_conn: IConnection,
+    logger: logging.Logger,
+    log_dir: Path,
+) -> tuple[list[IperfServer], list[IperfClient], list[IperfServer], list[IperfClient]] | None:
+    """Setup and validate iperf server and client instances.
+
+    Creates multiple iperf instances for parallel testing across all server IPs.
+    If reverse IPs configured, creates bidirectional traffic setup.
+
+    Returns:
+        Tuple of (servers, clients, reverse_servers, reverse_clients) or None on failure
+    """
+    logger.info(LogMsg.TRAFFIC_CONN_VALIDATE.value)
+
+    forward = _setup_forward_iperf(cfg, server_conn, client_conn, logger, log_dir)
+    if not forward:
+        return None
+    servers, clients = forward
+
+    reverse_servers, reverse_clients = [], []
+    if cfg.server_server_ips:
+        reverse = _setup_reverse_iperf(cfg, server_conn, client_conn, len(servers), logger, log_dir)
+        if not reverse:
+            return None
+        reverse_servers, reverse_clients = reverse
+
+    logger.info(LogMsg.TRAFFIC_CONN_VALIDATE_PASS.value)
+    return servers, clients, reverse_servers, reverse_clients
 
 
 def kill_iperf_processes(conn, host_type: IperfHostType, logger: logging.Logger):
     """Kill all iperf processes on a host."""
+    logger.info(f"Cleaning up iperf processes on {host_type}...")
+    IperfBase.kill_all_processes(conn, logger)
+
+
+def _stop_servers(servers: list[IperfServer], logger: logging.Logger) -> None:
+    """Stop all iperf servers."""
+    for server in servers:
+        try:
+            server.stop()
+        except Exception as e:
+            logger.exception(f"{LogMsg.TRAFFIC_SERVER_STOPP.value}: {e}")
+
+
+def _disconnect_connection(conn: IConnection, conn_type: str, logger: logging.Logger) -> None:
+    """Disconnect a single connection with error handling."""
     try:
-        logger.info(f"Cleaning up iperf processes on {host_type}...")
-        conn.exec_cmd("pkill -9 iperf", timeout=5)
-    except Exception:
-        logger.exception(f"Failed to cleanup {host_type} iperf processes")
+        conn.disconnect()
+    except Exception as e:
+        msg = (
+            LogMsg.TRAFFIC_CLIENT_DISCONNECT.value
+            if conn_type == "client"
+            else LogMsg.TRAFFIC_SERVER_DISCONNECT.value
+        )
+        logger.exception(f"{msg}: {e}")
 
 
-def cleanup_resources(server, server_conn, client_conn, logger: logging.Logger):
+def cleanup_resources(
+    servers: list[IperfServer] | None,
+    reverse_servers: list[IperfServer] | None,
+    server_conn: IConnection,
+    client_conn: IConnection,
+    logger: logging.Logger,
+) -> None:
     """Cleanup all resources."""
     logger.info(LogMsg.SHUTDOWN_START.value)
 
     kill_iperf_processes(server_conn, IperfHostType.SERVER, logger)
     kill_iperf_processes(client_conn, IperfHostType.CLIENT, logger)
 
-    if server:
-        try:
-            server.stop()
-        except Exception:
-            logger.exception(LogMsg.TRAFFIC_SERVER_STOPP.value)
+    all_servers = (servers or []) + (reverse_servers or [])
+    if all_servers:
+        _stop_servers(all_servers, logger)
 
-    try:
-        client_conn.disconnect()
-    except Exception:
-        logger.exception(LogMsg.TRAFFIC_CLIENT_DISCONNECT.value)
-
-    try:
-        server_conn.disconnect()
-    except Exception:
-        logger.exception(LogMsg.TRAFFIC_SERVER_DISCONNECT.value)
+    _disconnect_connection(client_conn, "client", logger)
+    _disconnect_connection(server_conn, "server", logger)
 
 
 def build_summary_lines(
@@ -623,8 +519,8 @@ def build_summary_lines(
             lines.append(f"Failed iterations: {failed_iterations}")
 
     if summaries:
-        avg_bw = sum(s["bandwidth_avg_bps"] for s in summaries) / len(summaries) / 1e9
-        lines.append(f"Overall avg: {avg_bw:.2f}Gbps")
+        total_bw = sum(s["bandwidth_avg_bps"] for s in summaries) / 1e9
+        lines.append(f"Overall avg: {total_bw:.2f}Gbps")
     lines.append(f"Statistics: {stats_csv_file}")
     lines.append(f"Summary: {summary_csv_file}")
     return lines
@@ -666,6 +562,180 @@ def print_final_summary(
 # ---------------------------------------------------------------------------- #
 
 
+def _parse_arguments() -> str:
+    """Parse command line arguments.
+
+    Returns:
+        Config file path
+    """
+    parser = argparse.ArgumentParser(description="Iperf traffic testing with SSH")
+    parser.add_argument(
+        "--json",
+        type=str,
+        metavar="CONFIG",
+        help="Config file (default: main_scan_traffic_cfg.json)",
+    )
+    args = parser.parse_args()
+    return args.json or "main_scan_traffic_cfg.json"
+
+
+def _initialize_logging(
+    config_file: str, logger_name: str = LogName.TRAFFIC.value
+) -> tuple[Path, datetime, logging.Logger]:
+    """Initialize logging and create log directory.
+
+    Returns:
+        Tuple of (log_dir, start_time)
+    """
+    start_time = datetime.now()
+    log_dir = Path("logs") / start_time.strftime("%Y%m%d_%H%M%S")
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    loggers = init_logging(config_file)
+    logger = loggers[logger_name]
+
+    return log_dir, start_time, logger
+
+
+def _load_and_validate_config(logger: logging.Logger) -> TrafficConfig | None:
+    """Load and validate configuration.
+
+    Returns:
+        Config object or None on failure
+    """
+    try:
+        cfg = load_traffic_config(logger)
+    except Exception:
+        logger.exception(LogMsg.CONFIG_FAILED.value)
+        return None
+
+    logger.info(PrettyFrame().build("IPERF TRAFFIC", [LogMsg.TRAFFIC_TEST_START.value]))
+
+    if not cfg.validate(logger):
+        return None
+
+    return cfg
+
+
+def _prepare_csv_files(
+    log_dir: Path, cfg: TrafficConfig, logger: logging.Logger
+) -> tuple[Path, Path, Path]:
+    """Prepare CSV files for statistics and metadata.
+
+    Returns:
+        Tuple of (stats_csv_file, metadata_csv_file, summary_csv_file)
+    """
+    stats_csv_file = log_dir / "traffic_stats.csv"
+    metadata_csv_file = log_dir / "traffic_metadata.csv"
+    summary_csv_file = log_dir / "traffic_summary.csv"
+
+    write_metadata_to_csv(metadata_csv_file, cfg, logger)
+
+    return stats_csv_file, metadata_csv_file, summary_csv_file
+
+
+def _start_web_monitor(
+    cfg: TrafficConfig,
+    server_conn: IConnection,
+    client_conn: IConnection,
+    logger: logging.Logger,
+    csv_file: Path,
+) -> IperfMonitor | None:
+    """Start web monitor if enabled.
+
+    Returns:
+        Monitor instance or None if disabled
+    """
+    if not cfg.web_enabled:
+        return None
+
+    monitor = IperfMonitor(
+        server_conn,
+        client_conn,
+        logger,
+        cfg.web_port,
+        shutdown_callback=lambda: shutdown_event.set(),
+        server_host=cfg.server_host,
+        client_host=cfg.client_host,
+        csv_file=csv_file,
+    )
+    monitor.start()
+    monitor.log("Iperf monitor started")
+    return monitor
+
+
+def _check_software_and_cleanup(
+    servers: list,
+    reverse_servers: list,
+    server_conn: IConnection,
+    client_conn: IConnection,
+    logger: logging.Logger,
+) -> bool:
+    """Check required software and cleanup existing processes.
+
+    Returns:
+        True if successful, False otherwise
+    """
+    logger.info("Checking required software on server host...")
+    if not servers[0].ensure_required_sw():
+        logger.error("Required software not available on server host")
+        return False
+    logger.info("Cleaning up existing iperf processes on server host...")
+    kill_iperf_processes(server_conn, IperfHostType.SERVER, logger)
+
+    if reverse_servers:
+        logger.info("Checking required software on client host...")
+        if not reverse_servers[0].ensure_required_sw():
+            logger.error("Required software not available on client host")
+            return False
+        logger.info("Cleaning up existing iperf processes on client host...")
+        kill_iperf_processes(client_conn, IperfHostType.CLIENT, logger)
+
+    return True
+
+
+def _start_single_server(
+    server: IperfServer,
+    server_ip: str,
+    direction: str,
+    monitor: IperfMonitor | None,
+) -> bool:
+    """Start a single iperf server.
+
+    Returns:
+        True if started successfully, False otherwise
+    """
+    return server.start_with_logging(server_ip, direction, monitor)
+
+
+def _start_iperf_servers(
+    servers: list,
+    reverse_servers: list,
+    cfg: TrafficConfig,
+    logger: logging.Logger,
+    monitor: IperfMonitor | None,
+) -> bool:
+    """Start all iperf servers (forward and reverse).
+
+    Returns:
+        True if all servers started successfully, False otherwise
+    """
+    for idx, server in enumerate(servers):
+        server_ip = cfg.client_server_ips[idx]
+        if not _start_single_server(server, server_ip, "forward", monitor):
+            return False
+
+    if reverse_servers:
+        for idx, server in enumerate(reverse_servers):
+            reverse_ip = cfg.server_server_ips[idx]
+            if not _start_single_server(server, reverse_ip, "reverse", monitor):
+                return False
+
+    time.sleep(2)
+    logger.info("Servers verified listening via netstat - starting tests")
+    return True
+
+
 def main():
     """Main execution for iperf traffic testing.
 
@@ -677,64 +747,28 @@ def main():
     5. Write results to CSV files
     6. Graceful cleanup and shutdown
     """
-    # ---------------------------------------------------------------------------- #
-    #                          Initialize logging and config                       #
-    # ---------------------------------------------------------------------------- #
+    config_file = _parse_arguments()
+    log_dir, start_time, logger = _initialize_logging(config_file)
 
-    # Create timestamped log directory first
-    start_time = datetime.now()
-    log_dir = Path("logs") / start_time.strftime("%Y%m%d_%H%M%S")
-    log_dir.mkdir(parents=True, exist_ok=True)
-
-    # Initialize logging to use the same directory
-    global traffic_logger
-    loggers = init_logging("main_scan_traffic_cfg.json")
-    traffic_logger = loggers[LogName.TRAFFIC.value]
-
-    try:
-        cfg = load_traffic_config(traffic_logger)
-    except Exception:
-        traffic_logger.exception(LogMsg.CONFIG_FAILED.value)
+    cfg = _load_and_validate_config(logger)
+    if not cfg:
         return
 
-    traffic_logger.info(PrettyFrame().build("IPERF TRAFFIC", [LogMsg.TRAFFIC_TEST_START.value]))
-
-    if not cfg.validate(traffic_logger):
-        return
-
-    # ---------------------------------------------------------------------------- #
-    #                              Setup connections                               #
-    # ---------------------------------------------------------------------------- #
-
-    conns = setup_connections(cfg, traffic_logger)
+    conns = setup_connections(cfg, logger)
     if not conns:
         return
     server_conn, client_conn = conns
 
-    # ---------------------------------------------------------------------------- #
-    #                               Setup iperf                                    #
-    # ---------------------------------------------------------------------------- #
-
-    iperf = setup_iperf(cfg, server_conn, client_conn, traffic_logger)
+    iperf = setup_iperf(cfg, server_conn, client_conn, logger, log_dir)
     if not iperf:
         server_conn.disconnect()
         client_conn.disconnect()
         return
-    server, client = iperf
+    servers, clients, reverse_servers, reverse_clients = iperf
 
-    # ---------------------------------------------------------------------------- #
-    #                              Prepare CSV files                               #
-    # ---------------------------------------------------------------------------- #
+    stats_csv_file, metadata_csv_file, summary_csv_file = _prepare_csv_files(log_dir, cfg, logger)
 
-    stats_csv_file = log_dir / "traffic_stats.csv"
-    metadata_csv_file = log_dir / "traffic_metadata.csv"
-    summary_csv_file = log_dir / "traffic_summary.csv"
-
-    write_metadata_to_csv(metadata_csv_file, cfg, traffic_logger)
-
-    # ---------------------------------------------------------------------------- #
-    #                                   MAIN loop                                  #
-    # ---------------------------------------------------------------------------- #
+    monitor = _start_web_monitor(cfg, server_conn, client_conn, logger, stats_csv_file)
 
     summaries = []
     successful_tests = 0
@@ -743,35 +777,53 @@ def main():
     server_started = False
 
     try:
-        traffic_logger.info(f"{LogMsg.TRAFFIC_SERVER_START.value}: {cfg.server_port}")
-
-        if not server.start(daemon=True):
-            traffic_logger.error(LogMsg.MAIN_SCAN_FAILED_START.value)
+        if not _check_software_and_cleanup(
+            servers, reverse_servers, server_conn, client_conn, logger
+        ):
             return
+
+        if not _start_iperf_servers(servers, reverse_servers, cfg, logger, monitor):
+            return
+
         server_started = True
-        time.sleep(2)
 
-        if not client.check_port_reachable(cfg.server_ip, cfg.server_port):
-            traffic_logger.error(LogMsg.CONN_FAILED.value)
-            return
+        # Start all clients once in background for infinite duration
+        if monitor:
+            monitor.log("Starting traffic clients...")
+        for client in clients + reverse_clients:
+            if shutdown_event.is_set():
+                break
+            client.start(background=True)
 
-        summaries, successful_tests, failed_tests, failed_iterations = run_test_iterations(
-            cfg, client, stats_csv_file, traffic_logger
-        )
+        logger.info("All clients started, traffic running...")
+        if monitor:
+            monitor.log("Traffic running - monitor will show live process stats")
+
+        # Wait until shutdown
+        while not shutdown_event.is_set():
+            time.sleep(1)
+
+        summaries, successful_tests, failed_tests, failed_iterations = [], 0, 0, []
 
     finally:
-        # ---------------------------------------------------------------------------- #
-        #                                   Cleanup                                    #
-        # ---------------------------------------------------------------------------- #
+        msg = LogMsg.TRAFFIC_SERVER_STOP.value
+        logger.info(msg)
+        if monitor:
+            monitor.log(msg)
+            monitor.log("Traffic testing completed")
+            monitor.stop()
+            time.sleep(1)
 
         cleanup_resources(
-            server if server_started else None, server_conn, client_conn, traffic_logger
+            servers if server_started else None,
+            reverse_servers if server_started else None,
+            server_conn,
+            client_conn,
+            logger,
         )
 
-        traffic_logger.info(f"{LogMsg.TRAFFIC_SERVER_STOP.value}")
-
         if summaries:
-            write_summary_to_csv(summaries, summary_csv_file, traffic_logger)
+            write_summary_to_csv(summaries, summary_csv_file, logger)
 
         print_final_summary(
             start_time,
@@ -781,7 +833,7 @@ def main():
             failed_iterations,
             stats_csv_file,
             summary_csv_file,
-            traffic_logger,
+            logger,
         )
 
 
