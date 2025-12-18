@@ -40,6 +40,7 @@ class TrafficConfig:
     setup_stats_poll_sec: int
     web_enabled: bool
     web_port: int
+    web_poll_rate_ms: int
 
     @classmethod
     def from_dict(cls, data: dict) -> "TrafficConfig":
@@ -80,6 +81,7 @@ class TrafficConfig:
             setup_stats_poll_sec=test.get("stats_poll_sec", test.get("interval_sec", 1)),
             web_enabled=web.get("enabled", False),
             web_port=web.get("port", 8080),
+            web_poll_rate_ms=web.get("poll_rate_ms", 2000),
         )
 
     def validate(self, logger) -> bool:

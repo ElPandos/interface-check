@@ -30,6 +30,7 @@ class IperfBase(ABC):
     """Base class for iperf server and client."""
 
     REQUIRED_SW = ["iperf"]
+    DEFAULT_LOG_DIR = "/tmp"
 
     UNIT_MULTIPLIERS_BYTES = {"K": 1024, "M": 1024**2, "G": 1024**3, "": 1}
     UNIT_MULTIPLIERS_BPS = {"K": 1000, "M": 1000**2, "G": 1000**3, "": 1}
@@ -99,8 +100,8 @@ class IperfBase(ABC):
                         loss_percent=stream.get("lost_percent"),
                     )
                 )
-        except (json.JSONDecodeError, KeyError) as e:
-            self._logger.error(f"{LogMsg.TRAFFIC_JSON_PARSE_FAIL.value}: {e}")
+        except (json.JSONDecodeError, KeyError):
+            self._logger.exception(f"{LogMsg.TRAFFIC_JSON_PARSE_FAIL.value}")
 
         return stats
 
@@ -207,13 +208,13 @@ class IperfBase(ABC):
             return False
 
         result = self._conn.exec_cmd(f"ps -p {self._pid}", timeout=5)
-        return result.rcode == 0
+        return result.success
 
     def _cleanup_existing_processes(self) -> None:
         """Kill any existing iperf processes."""
         self._logger.info(LogMsg.TRAFFIC_IPERF_CHECK.value)
         result = self._conn.exec_cmd("pkill -9 iperf", timeout=5)
-        if result.rcode == 0:
+        if result.success:
             self._logger.info(LogMsg.TRAFFIC_IPERF_KILLED.value)
 
     def _check_sw_installed(self, package: str) -> bool:
@@ -226,7 +227,7 @@ class IperfBase(ABC):
             True if installed
         """
         result = self._conn.exec_cmd(f"which {package}", timeout=5)
-        return result.rcode == 0
+        return result.success
 
     def _install_sw(self, package: str) -> bool:
         """Install software package.
@@ -241,11 +242,11 @@ class IperfBase(ABC):
 
         # Try apt first
         result = self._conn.exec_cmd("which apt-get", timeout=5)
-        if result.rcode == 0:
+        if result.success:
             result = self._conn.exec_cmd(
                 f"apt-get update && apt-get install -y {package}", timeout=120
             )
-            if result.rcode == 0:
+            if result.success:
                 self._logger.info(f"'{package}' {LogMsg.TRAFFIC_SW_INSTALL_SUCCESS_APT.value}")
                 return True
             self._logger.error(
@@ -255,9 +256,9 @@ class IperfBase(ABC):
 
         # Try yum
         result = self._conn.exec_cmd("which yum", timeout=5)
-        if result.rcode == 0:
+        if result.success:
             result = self._conn.exec_cmd(f"yum install -y {package}", timeout=120)
-            if result.rcode == 0:
+            if result.success:
                 self._logger.info(f"{package} {LogMsg.TRAFFIC_SW_INSTALL_SUCCESS_YUM.value}")
                 return True
             self._logger.error(
@@ -279,7 +280,7 @@ class IperfBase(ABC):
             True if package is working
         """
         result = self._conn.exec_cmd(f"{package} {version_flag}", timeout=5)
-        if result.rcode == 0:
+        if result.success:
             version = result.stdout.split()[0] if result.stdout else "unknown"
             self._logger.info(f"{package} {LogMsg.TRAFFIC_SW_VERIFIED.value}: {version}")
             return True
@@ -417,7 +418,7 @@ class IperfBase(ABC):
 
         result = self._conn.exec_cmd(cmd, timeout=timeout + 2)
 
-        if result.rcode == 0:
+        if result.success:
             self._logger.info(f"Port {port} on {host} {LogMsg.TRAFFIC_PORT_REACHABLE.value}")
             return True
 
@@ -469,7 +470,7 @@ class IperfBase(ABC):
         self._logger.info(f"{LogMsg.TRAFFIC_PROCESS_STOP.value} (PID {self._pid})")
         result = self._conn.exec_cmd(f"kill {self._pid}", timeout=5)
 
-        if result.rcode == 0:
+        if result.success:
             self._pid = None
             self._logger.info(LogMsg.TRAFFIC_PROCESS_STOPPED.value)
             return True
@@ -495,7 +496,7 @@ class IperfBase(ABC):
         self._logger.warning(f"{LogMsg.TRAFFIC_PROCESS_KILL.value} (PID {self._pid})")
         result = self._conn.exec_cmd(f"kill -9 {self._pid}", timeout=5)
         self._pid = None
-        return result.rcode == 0
+        return result.success
 
     def _get_pid(self, pattern: str) -> bool:
         """Get PID of iperf process.
@@ -507,11 +508,37 @@ class IperfBase(ABC):
             True if PID found
         """
         result = self._conn.exec_cmd(f"pgrep -f '{pattern}'", timeout=5)
-        if result.rcode == 0 and result.stdout.strip():
+        if result.success and result.stdout.strip():
             self._pid = int(result.stdout.strip().split()[0])
             self._logger.info(f"{LogMsg.TRAFFIC_PROCESS_STARTED.value} {self._pid}")
             return True
         self._logger.error(LogMsg.TRAFFIC_PROCESS_NO_PID.value)
+        return False
+
+    def _cleanup_log_file(self, log_file: str) -> None:
+        """Remove old log file.
+
+        Args:
+            log_file: Path to log file
+        """
+        self._conn.exec_cmd(f"rm -f {log_file}", timeout=5)
+
+    def _verify_port_listening(self, port: int) -> bool:
+        """Verify port is listening.
+
+        Args:
+            port: Port number to verify
+
+        Returns:
+            True if port is listening
+        """
+        self._logger.debug(f"Verifying server is listening on port {port}...")
+        result = self._conn.exec_cmd(f"netstat -tuln | grep ':{port} '", timeout=5)
+        if result.success:
+            self._logger.debug(f"Server confirmed listening: {result.stdout.strip()}")
+            return True
+        self._logger.error(f"Server not listening on port {port} after start")
+        self._logger.error(f"netstat output: {result.stdout}")
         return False
 
     @classmethod
@@ -525,5 +552,6 @@ class IperfBase(ABC):
         logger.info("Cleaning up iperf processes...")
         try:
             conn.exec_cmd("pkill -9 iperf", timeout=5)
+            logger.info("Iperf processes is closed...")
         except Exception:
             logger.exception("Failed to cleanup iperf processes")

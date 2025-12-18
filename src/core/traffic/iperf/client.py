@@ -3,7 +3,6 @@
 import logging
 import time
 
-from src.core.config.traffic import TrafficConfig
 from src.core.traffic.iperf.base import IperfBase
 from src.interfaces.component import IConnection
 
@@ -15,18 +14,16 @@ class IperfClient(IperfBase):
         self,
         connection: IConnection,
         logger: logging.Logger,
-        server_host: str,
         port: int = 5001,
-        log_dir: str | None = None,
+        server_host: str | None = None,
     ):
         """Initialize iperf client.
 
         Args:
             connection: Connection instance
             logger: Logger instance
+            port: Server port (default: 5001)
             server_host: Server IP address
-            port: Server port (default: 5201)
-            log_dir: Directory for output logs
         """
         super().__init__(connection, logger)
         self._server_host = server_host
@@ -37,7 +34,7 @@ class IperfClient(IperfBase):
         self._parallel = 1
         self._timeout_sec = None
         self._interval = 1
-        self._log_dir = log_dir or "/tmp"
+        self._log_dir = self.DEFAULT_LOG_DIR
 
     def configure(
         self,
@@ -70,12 +67,11 @@ class IperfClient(IperfBase):
             f"interval={interval}s"
         )
 
-    def start(self, retry_count: int = 0, background: bool = False) -> bool:
+    def start(self, retry_count: int = 0) -> bool:
         """Start iperf client test.
 
         Args:
             retry_count: Number of retries attempted (internal use)
-            background: Run client in background (default: False)
 
         Returns:
             True if test started/completed successfully
@@ -83,6 +79,11 @@ class IperfClient(IperfBase):
         if not self.ensure_required_sw(skip_check=True):
             self._logger.error("Cannot start client: required software not available")
             return False
+
+        # Log file name
+        log_file = f"{self._log_dir}/iperf_client_{self._server_host}_{self._port}.log"
+
+        self._cleanup_log_file(log_file)
 
         cmd = (
             f"iperf -c {self._server_host} -p {self._port} -t {self._duration} "
@@ -96,20 +97,18 @@ class IperfClient(IperfBase):
 
         self._logger.info(f"Starting iperf client to {self._server_host}:{self._port}")
 
-        if background:
-            log_file = f"{self._log_dir}/iperf_client_{self._server_host}_{self._port}.log"
+        # For infinite duration, run in background
+        if self._duration == 0:
             bg_cmd = f"nohup {cmd} > {log_file} 2>&1 &"
-            self._logger.debug(f"Executing: {bg_cmd}")
             result = self._conn.exec_cmd(bg_cmd, timeout=5)
             if result.rcode == 0:
                 self._logger.info("Client started in background")
                 return True
             self._logger.error(f"Failed to start background client (rcode={result.rcode})")
-            self._logger.error(f"Stdout: {result.stdout}")
-            self._logger.error(f"Stderr: {result.stderr}")
             return False
 
-        result = self._conn.exec_cmd(cmd, timeout=self._timeout_sec)  # Blocking call
+        # For finite duration, run blocking
+        result = self._conn.exec_cmd(cmd, timeout=self._timeout_sec)
 
         self._logger.debug(f"Client return code: {result.rcode}")
         self._logger.debug(f"Client stdout length: {len(result.stdout)}")
@@ -160,39 +159,6 @@ class IperfClient(IperfBase):
             )
 
         return True
-
-    @classmethod
-    def create_and_configure(
-        cls,
-        conn: IConnection,
-        logger: logging.Logger,
-        server_ip: str,
-        port: int,
-        cfg: TrafficConfig,
-        log_dir: str | None = None,
-    ) -> "IperfClient":
-        """Factory method to create and configure client.
-
-        Args:
-            conn: Connection instance
-            logger: Logger instance
-            server_ip: Server IP address
-            port: Port number
-            cfg: Traffic configuration
-            log_dir: Directory for output logs
-
-        Returns:
-            Configured IperfClient instance
-        """
-        client = cls(conn, logger, server_ip, port, log_dir)
-        client.configure(
-            duration=cfg.setup_traffic_duration_sec,
-            protocol=cfg.setup_protocol,
-            bandwidth=cfg.setup_bandwidth if cfg.setup_protocol == "udp" else None,
-            parallel=cfg.setup_parallel_streams,
-            interval=cfg.setup_stats_poll_sec,
-        )
-        return client
 
     @staticmethod
     def validate_pair(

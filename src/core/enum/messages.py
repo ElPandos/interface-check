@@ -359,7 +359,7 @@ class LogMsg(Enum):
     TRAFFIC_CONN_VALIDATED = "Connection validated"
     TRAFFIC_CONN_LOCAL_VALIDATED = "Local connection validated"
 
-    TRAFFIC_SERVER_START = "Starting iperf server on port"
+    TRAFFIC_SERVER_START = "Starting iperf server"
     TRAFFIC_SERVER_STOP = "Iperf server stopped"
 
     TRAFFIC_CLIENT_DISCONNECT = "Error disconnecting client"

@@ -279,18 +279,20 @@ def write_summary_to_csv(summaries: list[dict], csv_file: Path, logger: logging.
 # ---------------------------------------------------------------------------- #
 
 
-def _connect_to_host(conn: IConnection, host: str, host_type: str, logger: logging.Logger) -> bool:
+def _connect_to_host(
+    conn: IConnection, host: str, host_type: IperfHostType, logger: logging.Logger
+) -> bool:
     """Establish connection to a single host.
 
     Returns:
         True if connection successful, False otherwise
     """
-    logger.debug(f"Connecting to {host_type} {host}...")
+    logger.debug(f"Connecting to {host_type.value} {host}...")
     if not conn.connect():
-        logger.error(f"Failed to connect to {host_type} {host}")
+        logger.error(f"Failed to connect to {host_type.value} {host}")
         logger.error(LogMsg.CONN_FAILED.value)
         return False
-    logger.debug(f"{host_type.capitalize()} connection established: {host}")
+    logger.debug(f"{host_type.value.capitalize()} connection established: {host}")
     return True
 
 
@@ -313,10 +315,10 @@ def setup_connections(
 
     logger.info(LogMsg.CONN_CONNECTING.value)
 
-    if not _connect_to_host(server_conn, cfg.server_host, "server", logger):
+    if not _connect_to_host(server_conn, cfg.server_host, IperfHostType.SERVER, logger):
         return None
 
-    if not _connect_to_host(client_conn, cfg.client_host, "client", logger):
+    if not _connect_to_host(client_conn, cfg.client_host, IperfHostType.CLIENT, logger):
         logger.debug("Disconnecting server due to client connection failure")
         server_conn.disconnect()
         return None
@@ -341,8 +343,15 @@ def _create_iperf_pair(
     Returns:
         Tuple of (server, client) or None on failure
     """
-    server = IperfServer.create_and_configure(server_conn, logger, server_ip, port, cfg, "/tmp")
-    client = IperfClient.create_and_configure(client_conn, logger, server_ip, port, cfg, "/tmp")
+    server = IperfServer(server_conn, logger, port, server_ip)
+    client = IperfClient(client_conn, logger, port, server_ip)
+    client.configure(
+        duration=cfg.setup_traffic_duration_sec,
+        protocol=cfg.setup_protocol,
+        bandwidth=cfg.setup_bandwidth if cfg.setup_protocol == "udp" else None,
+        parallel=cfg.setup_parallel_streams,
+        interval=cfg.setup_stats_poll_sec,
+    )
 
     if not IperfClient.validate_pair(server, client, server_ip, port, logger):
         return None
@@ -640,6 +649,7 @@ def _start_web_monitor(
     client_conn: IConnection,
     logger: logging.Logger,
     csv_file: Path,
+    summary_csv_file: Path,
 ) -> IperfMonitor | None:
     """Start web monitor if enabled.
 
@@ -658,6 +668,8 @@ def _start_web_monitor(
         server_host=cfg.server_host,
         client_host=cfg.client_host,
         csv_file=csv_file,
+        summary_csv_file=summary_csv_file,
+        poll_rate_ms=cfg.web_poll_rate_ms,
     )
     monitor.start()
     monitor.log("Iperf monitor started")
@@ -768,7 +780,7 @@ def main():
 
     stats_csv_file, metadata_csv_file, summary_csv_file = _prepare_csv_files(log_dir, cfg, logger)
 
-    monitor = _start_web_monitor(cfg, server_conn, client_conn, logger, stats_csv_file)
+    monitor = _start_web_monitor(cfg, server_conn, client_conn, logger, stats_csv_file, summary_csv_file)
 
     summaries = []
     successful_tests = 0
@@ -793,11 +805,11 @@ def main():
         for client in clients + reverse_clients:
             if shutdown_event.is_set():
                 break
-            client.start(background=True)
+            client.start()
 
         logger.info("All clients started, traffic running...")
         if monitor:
-            monitor.log("Traffic running - monitor will show live process stats")
+            monitor.log("Traffic running - Monitor will show live process stats")
 
         # Wait until shutdown
         while not shutdown_event.is_set():

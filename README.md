@@ -1,10 +1,10 @@
 # Interface Check
 
-Network interface monitoring and diagnostic tool with SSH-based remote management and web-based GUI.
+Network interface monitoring and traffic testing tool with SSH-based remote management and web-based GUI.
 
 ## Overview
 
-Interface Check provides real-time monitoring and diagnostics for network interfaces on remote systems via SSH. It features:
+Interface Check provides real-time monitoring, diagnostics, and traffic testing for network interfaces on remote systems via SSH. It features:
 
 - **Multi-hop SSH connections** through jump hosts
 - **Web-based GUI** built with NiceGUI
@@ -12,29 +12,42 @@ Interface Check provides real-time monitoring and diagnostics for network interf
 - **Real-time data collection** with worker threads
 - **Eye scan automation** for SLX switches
 - **System health monitoring** for SUT (System Under Test)
+- **Iperf traffic testing** with bidirectional support
+- **Live traffic monitoring** with per-interface statistics
 
 ## Architecture
 
 ```
 interface-check/
 ├── src/
-│   ├── core/          # Core functionality (SSH, workers, parsers)
-│   ├── interfaces/    # Abstract interfaces and protocols
-│   ├── models/        # Data models (Pydantic)
-│   ├── platform/      # Platform-specific tools and utilities
-│   └── ui/            # Web UI components and handlers
-├── config/            # Configuration files
-├── logs/              # Application logs
-└── main_eye_scan.py   # Standalone eye scan automation
+│   ├── core/
+│   │   ├── connect/        # SSH connection management
+│   │   ├── traffic/        # Traffic testing (iperf)
+│   │   │   └── iperf/      # Iperf server/client/monitor
+│   │   ├── scanner/        # SLX and SUT scanners
+│   │   └── config/         # Configuration models
+│   ├── interfaces/         # Abstract interfaces and protocols
+│   ├── models/             # Data models (Pydantic)
+│   ├── platform/           # Platform-specific tools
+│   └── ui/                 # Web UI components and handlers
+├── config/                 # Configuration files
+├── logs/                   # Application logs and CSV outputs
+├── main.py                 # Interface monitoring tool
+├── main_scan.py            # Interface scanning tool
+└── main_scan_traffic.py    # Traffic testing tool
 ```
 
 ### Key Components
 
 #### Core (`src/core/`)
-- **connect.py**: SSH connection management with multi-hop support
-- **worker.py**: Background thread workers for data collection
-- **parser.py**: Output parsers for network tools (mlxlink, ethtool, etc.)
-- **sample.py**: Data sample collection and storage
+- **connect/**: SSH and local connection management with multi-hop support
+- **traffic/iperf/**: Iperf server, client, and web monitoring
+  - **base.py**: Common iperf functionality
+  - **server.py**: Iperf server management
+  - **client.py**: Iperf client management
+  - **gui.py**: Web-based traffic monitoring UI
+- **scanner/**: SLX and SUT scanning workers
+- **config/**: Configuration models and validation
 
 #### Platform (`src/platform/`)
 - **hardware.py**: Hardware information collection
@@ -80,25 +93,19 @@ Edit `config/config.json` with your SSH connection details:
 ### Running
 
 ```bash
-# Web GUI
+# Interface monitoring with web GUI
 uv run main.py
 
-# Eye scan automation (standalone)
-uv run main_eye_scan.py
+# Interface scanning
+uv run main_scan.py
+
+# Traffic testing with iperf
+uv run main_scan_traffic.py
 ```
 
 ## Development
 
-### Compile binary
 
-```bash
-pyinstaller \
-    --onefile \
-    --clean \
-    --noconfirm \
-    --name interop_check \
-    main_eye_scan.py
-```
 
 ### Code Quality
 
@@ -150,6 +157,40 @@ uv run pytest --cov=src
 - Port toggling support
 - Configurable scan intervals
 - Result logging and export
+
+### Traffic Testing
+- **Bidirectional iperf testing**: Forward and reverse traffic flows
+- **Multiple interfaces**: Test multiple IP pairs simultaneously
+- **Infinite duration mode**: Background clients with periodic stats collection
+- **Web monitoring UI**: Real-time process and bandwidth monitoring
+- **Per-interface statistics**: Track bandwidth for each port separately
+- **CSV export**: Periodic stats and summary files
+- **Configurable poll rate**: Adjustable UI refresh rate (default: 2000ms)
+
+## Configuration
+
+See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for detailed configuration instructions.
+
+### Interface Check Config
+- `main_scan_cfg.json` - Interface monitoring configuration
+- Controls connection type (local/remote) and components to run
+
+### Traffic Testing Config
+- `main_scan_traffic_cfg.json` - Traffic testing configuration
+- Server/client hosts, IPs, ports, protocols, duration
+- Web UI settings including poll rate
+
+## Output Files
+
+### Interface Check
+- `logs/YYYYMMDD_HHMMSS/*.log` - Detailed execution logs
+- `logs/YYYYMMDD_HHMMSS/*_info.log` - System information
+
+### Traffic Testing
+- `logs/YYYYMMDD_HHMMSS/traffic_stats.csv` - Periodic bandwidth statistics
+- `logs/YYYYMMDD_HHMMSS/traffic_summary.csv` - Overall test summary
+- `logs/YYYYMMDD_HHMMSS/traffic_metadata.csv` - Test configuration
+- `logs/YYYYMMDD_HHMMSS/traffic.log` - Detailed execution log
 
 ## License
 
