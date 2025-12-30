@@ -1,0 +1,56 @@
+{
+  "name": "aws-rust-agent",
+  "description": "A specialized agent for AWS and Rust development tasks",
+  "mcpServers": {
+    "fetch": {
+      "command": "fetch3.1",
+      "args": []
+    },
+    "git": {
+      "command": "git-mcp",
+      "args": []
+    }
+  },
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "aws",
+    "@git",
+    "@fetch/fetch_url"
+  ],
+  "toolAliases": {
+    "@git/git_status": "status",
+    "@fetch/fetch_url": "get"
+  },
+  "allowedTools": [
+    "read",
+    "@git/git_status"
+  ],
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": ["src/**", "tests/**", "Cargo.toml"]
+    },
+    "aws": {
+      "allowedServices": ["s3", "lambda"]
+    }
+  },
+  "resources": [
+    "file://README.md",
+    "file://docs/**/*.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "git status"
+      }
+    ],
+    "userPromptSubmit": [
+      {
+        "command": "ls -la"
+      }
+    ]
+  },
+  "useLegacyMcpJson": true,
+  "model": "claude-sonnet-4"
+}

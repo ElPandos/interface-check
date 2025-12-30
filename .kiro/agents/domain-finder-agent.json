@@ -1,0 +1,13 @@
+{
+  "name": "domain-finder",
+  "description": "Agent with access to domain search capabilities",
+  "prompt": "You help users find and research domain names using the find-a-domain service.",
+  "mcpServers": {
+    "find-a-domain": {
+      "type": "http",
+      "url": "https://api.findadomain.dev/mcp"
+    }
+  },
+  "tools": ["@find-a-domain"],
+  "allowedTools": ["@find-a-domain"]
+}
