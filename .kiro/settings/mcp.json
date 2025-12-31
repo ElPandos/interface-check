@@ -1,36 +1,77 @@
 {
-    "mcpServers": {
-        "web-search": {
-            "command": "npx",
-            "args": [
-                "-y",
-                "@modelcontextprotocol/server-bravesearch"
-            ],
-            "env": {
-                "BRAVE_API_KEY": "${BRAVE_API_KEY}"
-            }
-        },
-        "context7": {
-            "command": "uvx",
-            "args": [
-                "context7-mcp-server@latest"
-            ],
-            "env": {
-                "FASTMCP_LOG_LEVEL": "ERROR"
-            },
-            "disabled": false,
-            "autoApprove": []
-        },
-        "aws-docs": {
-            "command": "uvx",
-            "args": [
-                "awslabs.aws-documentation-mcp-server@latest"
-            ],
-            "env": {
-                "FASTMCP_LOG_LEVEL": "ERROR"
-            },
-            "disabled": false,
-            "autoApprove": []
-        }
+  "mcpServers": {
+    "filesystem": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-filesystem@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "read_file",
+        "list_directory"
+      ]
+    },
+    "git": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-git@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "git_status",
+        "git_log",
+        "git_diff"
+      ]
+    },
+    "github": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-github@latest"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": []
+    },
+    "web-search": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-bravesearch"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      }
+    },
+    "context7": {
+      "command": "uvx",
+      "args": [
+        "context7-mcp-server@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": []
+    },
+    "aws-docs": {
+      "command": "uvx",
+      "args": [
+        "awslabs.aws-documentation-mcp-server@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": []
     }
+  }
 }

@@ -13,32 +13,29 @@ inclusion: always
 
 ## Common Test Commands
 ```bash
-# NPM/Yarn - Use silent mode
-npm test -- --silent
-yarn test --silent
-
-# Jest - Minimal output
-npm test -- --verbose=false --silent
-npx jest --silent --passWithNoTests
-
 # Pytest - Quiet mode
 pytest -q
-python -m pytest --tb=short -q
+uv run pytest --tb=short -q
 
-# Mocha - Minimal reporter
-npx mocha --reporter min
+# Pytest with coverage
+uv run pytest --cov=src --cov-report=term-missing
 
 # Filtering specific tests
-npm test -- --grep "specific test"
-npx jest --testNamePattern="specific test"
 pytest -k "test_specific"
+uv run pytest -k "ssh_connection"
+
+# Run specific test file
+uv run pytest tests/test_connection.py -v
+
+# Stop on first failure
+uv run pytest --maxfail=1
 ```
 
 ## Output Management
 - Use summary reporters instead of verbose output
 - Capture detailed logs only when tests fail
 - Use `--bail` or `--maxfail=1` to stop on first failure
-- Redirect verbose output to files when needed: `npm test > test-results.log 2>&1`
+- Redirect verbose output to files when needed: `uv run pytest > test-results.log 2>&1`
 
 ## Test Organization
 - Group related tests to enable selective running

@@ -6,17 +6,17 @@ inclusion: always
 # Security Best Practices
 
 ## Code Security
-- Never hardcode secrets, API keys, or passwords
-- Use environment variables for configuration
-- Validate all user inputs
-- Use parameterized queries to prevent SQL injection
-- Implement proper authentication and authorization
+- Never hardcode secrets, API keys, or SSH passwords
+- Use environment variables for SSH credentials and configuration
+- Validate all user inputs, especially network interface names and IP addresses
+- Implement proper SSH key-based authentication where possible
+- Use connection timeouts and retry limits for SSH connections
 
 ## Dependency Management
 - Keep dependencies updated
 - Use dependency scanning tools
 - Review third-party packages before adding
-- Use lock files (package-lock.json, poetry.lock)
+- Use lock files (uv.lock, requirements.lock)
 - Remove unused dependencies
 
 ## Data Protection

@@ -1,3 +1,8 @@
+---
+title: Interface Check - Technology Stack
+inclusion: always
+---
+
 # Interface Check - Technology Stack
 
 ## Programming Language
@@ -13,8 +18,8 @@
 
 ## Development Tools
 - **UV**: Modern Python package manager and virtual environment tool
-- **Ruff**: Fast Python linter and formatter (replaces flake8, isort)
-- **Black**: Code formatter for consistent styling
+- **Ruff**: Fast Python linter and formatter (replaces flake8, isort, black)
+- **Black**: Code formatter for consistent styling (deprecated - use ruff format)
 - **MyPy**: Static type checker with strict configuration
 - **Pre-commit**: Git hooks for code quality enforcement
 - **Pytest**: Testing framework with coverage reporting

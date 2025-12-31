@@ -1,37 +1,47 @@
 {
-    "log_level": "info",
-    "jump": {
-        "host": "137.58.231.134",
-        "user": "emvekta",
-        "pass": "emvekta"
-    },
-    "server": {
-        "host": "172.16.226.1",
-        "user": "hts",
-        "pass": "hts",
-        "sudo_pass": "hts",
-        "connect_type": "remote",
-        "server_ip": ["10.101.225.30", "10.102.225.31", "10.103.225.60", "10.104.225.61"]
-    },
-    "client": {
-        "host": "172.16.225.1",
-        "user": "hts",
-        "pass": "hts",
-        "sudo_pass": "hts",
-        "connect_type": "remote",
-        "server_ip": ["10.101.226.30", "10.102.226.31", "10.103.226.60", "10.104.226.61"]
-    },
-    "setup": {
-        "start_port": 5001,
-        "protocol": "tcp",
-        "bandwidth": "10G",
-        "parallel_streams": 2,
-        "stats_poll_sec": 1,
-        "traffic_duration_sec": 0
-    },
-    "web": {
-        "enabled": true,
-        "port": 8080,
-        "poll_rate_ms": 2000
-    }
+  "log_level": "info",
+  "jump": {
+    "host": "137.58.231.134",
+    "user": "emvekta",
+    "pass": "emvekta"
+  },
+  "server": {
+    "host": "172.16.226.1",
+    "user": "hts",
+    "pass": "hts",
+    "sudo_pass": "hts",
+    "connect_type": "remote",
+    "server_ip": [
+      "10.101.225.30",
+      "10.102.225.31",
+      "10.103.225.60",
+      "10.104.225.61"
+    ]
+  },
+  "client": {
+    "host": "172.16.225.1",
+    "user": "hts",
+    "pass": "hts",
+    "sudo_pass": "hts",
+    "connect_type": "remote",
+    "server_ip": [
+      "10.101.226.30",
+      "10.102.226.31",
+      "10.103.226.60",
+      "10.104.226.61"
+    ]
+  },
+  "setup": {
+    "start_port": 5001,
+    "protocol": "tcp",
+    "bandwidth": "10G",
+    "parallel_streams": 2,
+    "stats_poll_sec": 1,
+    "traffic_duration_sec": 0
+  },
+  "web": {
+    "enabled": true,
+    "port": 8080,
+    "poll_rate_ms": 2000
+  }
 }

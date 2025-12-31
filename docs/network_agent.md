@@ -1,122 +1,87 @@
 # Network Agent
 
-The Network Agent is an intelligent automation system for network interface diagnostics and monitoring. It provides automated task execution, intelligent analysis, and actionable recommendations.
+The Network Agent is an intelligent automation system for network interface diagnostics and monitoring, implemented as part of the Interface Check web UI. It provides automated task execution and network analysis through the Agent tab.
 
 ## Features
 
 ### 🤖 Intelligent Automation
-- **Automated Task Execution**: Run predefined or custom network diagnostic tasks
-- **Smart Analysis**: AI-powered analysis of command outputs with insights
-- **Task Recommendations**: Get intelligent suggestions based on network state
-- **Multi-screen Support**: Organize tasks across multiple screens
+- **Automated Task Execution**: Run network diagnostic tasks through the web interface
+- **Multi-screen Support**: Organize tasks across multiple screens in the UI
+- **Real-time Execution**: Non-blocking task execution with live updates
+- **SSH Integration**: Uses shared SSH connections for remote execution
 
-### 🔧 Built-in Tasks
+### 🔧 Available Through Agent Tab
 
-#### Health Check
-- Verify interface operational status
-- Check link detection and configuration
-- Analyze error counters and statistics
-- **Commands**: `ethtool eth0`, `ip link show`, `cat /proc/net/dev`
+The Network Agent is accessible through the **Agent** tab in the web interface and provides:
 
-#### Performance Monitor
-- Establish performance baselines
-- Monitor interface statistics
-- Track network activity patterns
-- **Commands**: `ethtool -S eth0`, `sar -n DEV 1 5`, `ss -i`
-
-#### Link Diagnostics
-- Run comprehensive hardware tests
-- Verify physical link integrity
-- Check ring buffer and coalescing settings
-- **Commands**: `ethtool -t eth0`, `mii-tool eth0`, `ethtool --show-ring eth0`
-
-#### Configuration Backup
-- Backup current network configuration
-- Document interface settings
-- Capture routing table state
-- **Commands**: `ip addr show`, `ip route show`, `cat /etc/network/interfaces`
-
-### 🧠 Intelligent Analysis
-
-The agent provides smart analysis of command results:
-
-- **Health Status**: Identifies link issues, configuration problems, and error conditions
-- **Performance Metrics**: Analyzes statistics and identifies performance bottlenecks
-- **Diagnostic Results**: Interprets hardware test results and link status
-- **Configuration State**: Documents current network setup and identifies inconsistencies
+- **Task Queue Management**: Organize and monitor diagnostic tasks
+- **Real-time Status**: Track task execution progress
+- **Results Display**: View detailed command outputs and analysis
+- **Multi-screen Layout**: Support for multiple agent screens
 
 ### 📋 Task Management
 
-- **Queue System**: Organize tasks in a priority queue
-- **Real-time Status**: Track task execution progress
-- **Results History**: View detailed results with analysis
-- **Custom Tasks**: Create custom diagnostic workflows
-
-### 🎯 Smart Recommendations
-
-The agent provides intelligent task recommendations:
-
-- **Priority-based**: High, medium, and low priority tasks
-- **Context-aware**: Recommendations based on current network state
-- **Time estimates**: Realistic execution time predictions
-- **Auto-scheduling**: Automatically queue high-priority tasks
+- **Async Execution**: Non-blocking task execution
+- **Connection Reuse**: Efficient SSH connection management
+- **Error Handling**: Graceful handling of connection and command failures
+- **Progress Tracking**: Real-time task status updates
 
 ## Usage
 
-### Starting the Agent
+### Accessing the Agent
 
-1. Navigate to the **Network Agent** tab
-2. Ensure SSH connection is established
-3. Click **Start Agent** to activate automation
-4. Use **Quick Tasks** for common operations
+1. Start the Interface Check application (`uv run main.py`)
+2. Navigate to the **Agent** tab in the web interface
+3. Ensure SSH connection is established to target hosts
+4. Use the agent interface to execute diagnostic tasks
 
-### Running Tasks
-
-1. **Quick Tasks**: Click predefined task buttons for instant execution
-2. **Smart Recommendations**: Click "Get Recommendations" for AI suggestions
-3. **Custom Tasks**: Build custom diagnostic workflows
-4. **Auto-Schedule**: Automatically queue high-priority tasks
-
-### Viewing Results
-
-- **Task Queue**: Monitor queued and running tasks
-- **Results Panel**: View detailed execution results
-- **Analysis**: Get intelligent insights and recommendations
-- **Command Output**: Inspect raw command outputs
-
-## Integration
+### Integration
 
 The Network Agent integrates with:
 
-- **SSH Connection**: Uses shared SSH connection for remote execution
-- **Multi-screen Layout**: Supports multiple agent screens
-- **Configuration System**: Respects application configuration
-- **Logging System**: Comprehensive logging for debugging
+- **SSH Connection Management**: Uses `src/core/connect/` for remote execution
+- **Multi-screen System**: Implemented in `src/core/screen.py`
+- **Web UI Framework**: Built with NiceGUI in `src/ui/tabs/agent.py`
+- **Configuration System**: Respects application configuration settings
 
-## Technical Details
+## Technical Implementation
 
 ### Architecture
-- **NetworkAgent Class**: Core automation engine
-- **AgentPanel**: NiceGUI interface component
-- **Async Execution**: Non-blocking task execution
-- **Result Analysis**: Intelligent output parsing
+- **Agent Class**: Core automation engine (`src/core/agent.py`)
+- **AgentTab**: NiceGUI tab implementation (`src/ui/tabs/agent.py`)
+- **AgentPanel**: UI panel component with multi-screen support
+- **BasePanel**: Inherits from base panel functionality
+
+### Key Components
+```python
+# Core agent functionality
+src/core/agent.py          # Agent automation engine
+src/core/screen.py         # Multi-screen support
+
+# UI implementation  
+src/ui/tabs/agent.py       # Agent tab and panel
+src/ui/tabs/base.py        # Base tab functionality
+```
 
 ### Error Handling
-- **Connection Failures**: Graceful handling of SSH issues
+- **Connection Failures**: Graceful handling of SSH connection issues
 - **Command Timeouts**: Configurable timeout management
 - **Partial Failures**: Continue operation with available data
-- **User Feedback**: Clear error messages and notifications
+- **User Feedback**: Clear error messages in the web interface
 
-### Performance
-- **Async Operations**: Non-blocking UI during task execution
-- **Connection Reuse**: Efficient SSH connection management
-- **Memory Management**: Proper cleanup of task results
-- **Scalable Design**: Support for multiple concurrent tasks
+## Development
+
+The Network Agent is part of the main Interface Check application. For development:
+
+1. See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup
+2. Agent-specific code is in `src/core/agent.py` and `src/ui/tabs/agent.py`
+3. Follow the UI development patterns in `.kiro/steering/ui-development-patterns.md`
+4. Test through the web interface at `http://localhost:8080`
 
 ## Future Enhancements
 
-- **Machine Learning**: Learn from historical data for better recommendations
-- **Alerting System**: Proactive notifications for critical issues
+- **Enhanced Task Library**: More predefined diagnostic tasks
+- **Intelligent Analysis**: AI-powered analysis of command outputs
+- **Scheduled Tasks**: Cron-like scheduling for regular diagnostics
 - **Report Generation**: Automated diagnostic reports
 - **Integration APIs**: Connect with external monitoring systems
-- **Scheduled Tasks**: Cron-like scheduling for regular diagnostics

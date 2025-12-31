@@ -18,7 +18,7 @@ inclusion: always
 - Never create duplicate files with suffixes like `_fixed`, `_clean`, `_backup`, etc.
 - Work iteratively on existing files (hooks handle commits automatically)
 - Include relevant documentation links in code comments
-- Follow language-specific conventions (TypeScript for CDK, Python for Lambda)
+- Follow Python conventions (PEP 8, type hints, docstrings)
 - Use meaningful variable and function names
 - Keep functions small and focused on single responsibilities
 - Implement proper error handling and logging

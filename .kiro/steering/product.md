@@ -1,3 +1,8 @@
+---
+title: Interface Check - Product Overview
+inclusion: always
+---
+
 # Interface Check - Product Overview
 
 ## Purpose
@@ -8,9 +13,12 @@ Interface Check is a network interface monitoring and diagnostic tool that provi
 - **Web-based Interface**: Modern GUI built with NiceGUI for intuitive interaction
 - **Network Interface Analysis**: Tools for examining network interfaces, configurations, and performance
 - **Real-time Monitoring**: Live data collection and visualization of network metrics
-- **Multi-tool Integration**: Supports ethtool, mlxconfig, mlxlink, and other network utilities
+- **Multi-tool Integration**: Supports ethtool, mlxconfig, mlxlink, mst, rdma, and other network utilities
+- **Traffic Testing**: Iperf-based bidirectional traffic testing with real-time monitoring
+- **Eye Scan Automation**: Automated eye scan data collection for SLX switches
 - **Connection Status Indicators**: Visual feedback for SSH connection health
 - **Tabbed Interface**: Organized workflow with dedicated tabs for different functions
+- **Log Analysis**: Post-processing tools for collected data and performance trends
 
 ## Target Users
 - **Network Engineers**: Professionals managing network infrastructure and troubleshooting connectivity issues

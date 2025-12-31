@@ -8,5 +8,40 @@ indent_style = space
 indent_size = 4
 trim_trailing_whitespace = true
 
+[*.py]
+max_line_length = 120
+
+[*.{json,jsonc}]
+indent_size = 2
+
+[*.{yaml,yml}]
+indent_size = 2
+
+[*.{js,ts,jsx,tsx}]
+indent_size = 2
+
+[*.{html,css,scss}]
+indent_size = 2
+
+[*.{toml,ini}]
+indent_size = 4
+
+[*.{sh,bash}]
+indent_size = 2
+end_of_line = lf
+
+[*.{bat,cmd}]
+end_of_line = crlf
+
 [*.md]
 trim_trailing_whitespace = false
+max_line_length = off
+
+[Makefile]
+indent_style = tab
+
+[*.go]
+indent_style = tab
+
+[*.{dockerfile,Dockerfile*}]
+indent_size = 2

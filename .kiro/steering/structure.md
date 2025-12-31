@@ -1,3 +1,8 @@
+---
+title: Interface Check - Project Structure
+inclusion: always
+---
+
 # Interface Check - Project Structure
 
 ## Directory Organization

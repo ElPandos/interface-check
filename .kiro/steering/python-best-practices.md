@@ -12,7 +12,7 @@ fileMatchPattern: '*.py'
 - Use snake_case for variables and functions
 - Use PascalCase for classes
 - Use UPPER_SNAKE_CASE for constants
-- Limit line length to 88 characters (Black formatter)
+- Limit line length to 120 characters (ruff formatter)
 
 ## Type Hints
 - Use type hints for function parameters and return values
@@ -28,7 +28,8 @@ fileMatchPattern: '*.py'
 
 ## Code Organization
 - Use virtual environments for dependencies
-- Create requirements.txt or use poetry/pipenv
+- Use UV for modern Python package management
+- Create pyproject.toml for project configuration
 - Organize code into modules and packages
 - Use `__init__.py` files appropriately
 
@@ -38,8 +39,8 @@ fileMatchPattern: '*.py'
 - Mock external dependencies
 - Aim for high test coverage
 - Use fixtures for test setup
-- Run tests with minimal output: `pytest -q` or `python -m pytest --tb=short -q`
-- Filter specific tests: `pytest -k "test_name"` to avoid running full suites
+- Run tests with minimal output: `uv run pytest -q` or `uv run pytest --tb=short -q`
+- Filter specific tests: `uv run pytest -k "test_name"` to avoid running full suites
 
 ## Performance
 - Use list comprehensions over loops when appropriate

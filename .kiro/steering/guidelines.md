@@ -1,103 +1,66 @@
+---
+title: Interface Check - Development Guidelines
+inclusion: always
+---
+
 # Interface Check - Development Guidelines
 
-## Code Quality Standards
+This document provides an overview of development guidelines for the Interface Check project. Detailed patterns and practices are organized into focused files:
 
-### Type Hints and Annotations
-- **Comprehensive Type Hints**: All functions, methods, and class attributes must include type hints
-- **Union Types**: Use `Union[Type1, Type2]` or `Type1 | Type2` for multiple possible types
-- **Optional Types**: Use `Optional[Type]` or `Type | None` for nullable values
-- **Generic Collections**: Specify container types like `List[str]`, `Dict[str, Any]`, `queue.Queue[Sample]`
-- **TypedDict**: Use for structured dictionaries with known keys (e.g., `HostDict`, `RouteDict`)
+## Core Development Standards
+- **[Code Quality Standards](code-quality-standards.md)** - Type hints, documentation, error handling, and quality tools
+- **[Architecture Patterns](architecture-patterns.md)** - Class design, threading, configuration, and data processing patterns
+- **[UI Development Patterns](ui-development-patterns.md)** - NiceGUI patterns, user experience, and state management
 
-### Documentation Standards
-- **Docstrings**: All classes and public methods require Google-style docstrings
-- **Inline Comments**: Complex logic sections include explanatory comments
-- **Type Documentation**: Complex type definitions documented with purpose and usage
-- **Error Context**: Exception handling includes descriptive error messages
+## Project-Specific Patterns
+- **[SSH Connection Patterns](ssh-connection-patterns.md)** - Connection management, multi-hop SSH, and security practices
+- **[Threading Patterns](threading-patterns.md)** - Worker threads, queue communication, and synchronization
+- **[Network Tools Integration](network-tools-integration.md)** - Tool abstraction, execution patterns, and data processing
+- **[Configuration Patterns](configuration-patterns.md)** - Settings management, validation, and security
+- **[Traffic Testing Patterns](traffic-testing-patterns.md)** - Iperf management, bandwidth monitoring, and web UI
+- **[Data Analysis Patterns](data-analysis-patterns.md)** - CSV processing, statistical analysis, and reporting
+- **[Error Handling Patterns](error-handling-patterns.md)** - Exception management, recovery, and user experience
 
-### Error Handling Patterns
-- **Try-Catch Blocks**: Comprehensive exception handling with specific error types
-- **Logging Integration**: All exceptions logged with `logging.exception()` for stack traces
-- **Graceful Degradation**: UI operations continue with user notifications on errors
-- **Bounds Checking**: Array/list access protected with range validation
-- **Resource Cleanup**: Proper cleanup in finally blocks or context managers
+## General Best Practices
+- **[Python Best Practices](python-best-practices.md)** - Python-specific coding standards and conventions
+- **[Testing Best Practices](testing-best-practices.md)** - Test execution, organization, and CI/CD considerations
+- **[Security Best Practices](security-best-practices.md)** - Code security, dependency management, and infrastructure security
+- **[Git Best Practices](git-best-practices.md)** - Commit messages, branching, and repository management
 
-## Architectural Patterns
+## Technology and Tools
+- **[Technology Stack](tech.md)** - Programming language, dependencies, and development tools
+- **[Development Standards](development-standards.md)** - Dependency management, file organization, and quality assurance
+- **[MCP Best Practices](mcp-best-practices.md)** - Model Context Protocol server configuration and usage
+- **[Monitoring & Observability](monitoring-observability.md)** - Application monitoring, logging, and alerting
+- **[Deployment Patterns](deployment-patterns.md)** - Production deployment, environment management, and service management
 
-### Class Design
-- **Dataclasses**: Use `@dataclass` for simple data containers with `frozen=True` for immutability
-- **Private Methods**: Internal methods prefixed with underscore (`_method_name`)
-- **Property Access**: Use properties for computed values and validation
-- **Initialization**: Complex initialization in `__init__` with proper error handling
+## Project Structure
+- **[Project Structure](structure.md)** - Directory organization and architectural relationships
+- **[Product Overview](product.md)** - Purpose, features, target users, and use cases
 
-### UI Component Structure
-- **Handler Pattern**: Separate UI logic from business logic using handler classes
-- **Component Composition**: Build complex UI from reusable components
-- **Event Callbacks**: Use lambda functions with closures for event handling
-- **State Management**: Centralized state with clear update patterns
+## Key Principles
 
-### Threading and Concurrency
-- **Worker Threads**: Background tasks use daemon threads with proper lifecycle management
-- **Thread Safety**: Queue-based communication between threads
-- **Graceful Shutdown**: Stop events and join patterns for clean thread termination
-- **Exception Isolation**: Thread exceptions don't crash main application
+### Code Quality
+- Comprehensive type hints for all functions and methods
+- Google-style docstrings for all public classes and methods
+- Comprehensive error handling with logging integration
+- 120 character line length with ruff formatting
 
-## Common Implementation Patterns
-
-### Configuration Management
-- **JSON-based Config**: Application settings stored in JSON files
-- **Path Handling**: Use `pathlib.Path` for all file operations
-- **Environment Variables**: Load from `.env` files using `python-dotenv`
-- **Config Validation**: Validate configuration on load with error reporting
-
-### Data Processing
-- **Parser Classes**: Dedicated parser classes for structured data extraction
-- **Regular Expressions**: Compiled regex patterns for performance
-- **Data Validation**: Input sanitization and validation before processing
-- **Structured Output**: Convert raw data to typed objects (ValueWithUnit pattern)
-
-### SSH Connection Management
-- **Connection Pooling**: Reuse SSH connections across components
-- **Reconnection Logic**: Automatic reconnection with retry limits
-- **Connection Status**: Visual indicators for connection health
-- **Error Recovery**: Graceful handling of connection failures
-
-### Logging Practices
-- **Structured Logging**: Consistent log format with timestamps and context
-- **Log Levels**: Appropriate use of DEBUG, INFO, WARNING, ERROR levels
-- **Rotating Logs**: File rotation to prevent disk space issues
-- **Performance Logging**: Debug timing information for operations
-
-## UI Development Standards
-
-### NiceGUI Patterns
-- **Component Hierarchy**: Logical nesting of UI components with proper classes
-- **Styling**: Consistent CSS classes using Tailwind-style utilities
-- **Event Handling**: Proper event binding with error handling
-- **Dynamic Updates**: Refresh patterns for live data updates
-
-### User Experience
-- **Loading States**: Visual feedback during long operations
-- **Error Notifications**: User-friendly error messages with color coding
-- **Input Validation**: Real-time validation with helpful error messages
-- **Responsive Design**: Proper spacing and sizing for different screen sizes
-
-### State Management
-- **Component State**: Local state management within components
-- **Global State**: Shared state through dependency injection
-- **State Persistence**: Save/restore application state to files
-- **State Synchronization**: Keep UI in sync with underlying data
-
-## Testing and Quality Assurance
-
-### Code Quality Tools
-- **Ruff**: Comprehensive linting with ALL rules enabled
-- **Black**: Code formatting with 120 character line length
-- **MyPy**: Strict type checking with no untyped definitions
-- **Pre-commit**: Automated quality checks on commit
+### Architecture
+- Layered architecture with clear separation of concerns
+- Event-driven updates for real-time data visualization
+- Queue-based communication for thread safety
+- Configuration-driven design for flexibility
 
 ### Development Workflow
-- **Virtual Environments**: Use `uv` for dependency management
-- **Reproducible Builds**: Lock file dependencies for consistency
-- **Container Support**: Docker configuration for deployment
-- **CI/CD**: GitHub Actions for automated testing and linting
+- Use UV for modern Python package management
+- Ruff for comprehensive linting and formatting
+- MyPy for strict type checking
+- GitHub Actions for automated CI/CD
+
+### Project Standards
+- Never create duplicate files with backup suffixes
+- Work iteratively on existing files
+- Maintain clean directory structures
+- Use meaningful variable and function names
+- Keep functions small and focused on single responsibilities
