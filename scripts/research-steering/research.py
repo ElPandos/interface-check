@@ -3,9 +3,10 @@
 Automated research and steering document generation using kiro-cli.
 
 Usage examples:
-    uv run scripts/system/research-steering/research.py -m patterns docker postgres redis
-    uv run scripts/system/research-steering/research.py -m best-practices -t "ui threading" -f -w 8
-    uv run scripts/system/research-steering/research.py -m analyze kubernetes -s --verbose
+    uv run scripts/research-steering/research.py -m patterns docker postgres redis
+    uv run scripts/research-steering/research.py -m best-practices -t "ui threading concepts" -f -w 8
+    uv run scripts/research-steering/research.py -m analyze -t "Research this web page: https://kiro.dev/docs/cli"
+    uv run scripts/research-steering/research.py -m analyze kubernetes -s --verbose
 """
 
 from __future__ import annotations
@@ -47,6 +48,65 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
         datefmt="%H:%M:%S",
     )
     return logging.getLogger("research-steering")
+
+
+def sanitize_filename(topic: str) -> str:
+    """Convert topic to valid filename by removing/replacing invalid characters."""
+    # Remove or replace invalid filename characters
+    sanitized = re.sub(r'[<>:"/\\|?*]', '', topic)  # Remove invalid chars
+    sanitized = re.sub(r'https?://', '', sanitized)  # Remove protocol
+    sanitized = re.sub(r'[.\s]+', '_', sanitized)    # Replace dots/spaces with underscore
+    sanitized = re.sub(r'_+', '_', sanitized)        # Collapse multiple underscores
+    sanitized = sanitized.strip('_')                 # Remove leading/trailing underscores
+    
+    # Limit length to avoid filesystem issues
+    if len(sanitized) > 100:
+        sanitized = sanitized[:100].rstrip('_')
+    
+    return sanitized or "topic"  # Fallback if empty
+
+
+def extract_existing_sources(content: str) -> set[str]:
+    """Extract URLs from existing document's Sources & References section."""
+    sources = set()
+    
+    # Look for Sources/References section
+    patterns = [
+        r"(?i)## Sources?\s*&?\s*References?\s*\n(.*?)(?=\n##|\Z)",
+        r"(?i)## References?\s*\n(.*?)(?=\n##|\Z)",
+        r"(?i)References:\s*\n(.*?)(?=\n##|\Z)"
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, content, re.DOTALL)
+        if match:
+            refs_section = match.group(1)
+            # Extract URLs from markdown links and plain URLs
+            url_patterns = [
+                r"\[.*?\]\((https?://[^\)]+)\)",  # [text](url)
+                r"https?://[^\s\]]+",             # plain URLs
+            ]
+            for url_pattern in url_patterns:
+                sources.update(re.findall(url_pattern, refs_section))
+            break
+    
+    return sources
+
+
+def extract_baseline_urls(topic: str) -> set[str]:
+    """Extract baseline URLs from the topic string for deeper exploration."""
+    baseline_urls = set()
+    
+    # Look for URLs in the topic
+    url_pattern = r"https?://[^\s]+"
+    urls = re.findall(url_pattern, topic)
+    
+    for url in urls:
+        # Clean up URL (remove trailing punctuation)
+        url = re.sub(r'[.,;:!?]+$', '', url)
+        baseline_urls.add(url)
+    
+    return baseline_urls
 
 
 def strip_ansi_codes(text: str) -> str:
@@ -95,7 +155,7 @@ def find_project_root() -> Path:
     raise FileNotFoundError("No .kiro directory found in parent hierarchy")
 
 
-def build_prompt(topic: str, research_type: str) -> str:
+def build_prompt(topic: str, research_type: str, existing_sources: set[str] | None = None) -> str:
     """Generate kiro-cli prompt based on type and topic."""
     topic_human = topic.replace("-", " ").strip()
 
@@ -108,8 +168,26 @@ def build_prompt(topic: str, research_type: str) -> str:
     if research_type not in templates:
         raise ValueError(f"Unsupported research type: {research_type}")
 
-    steering_name = f"{topic}_{research_type}.md"
-    return f"{templates[research_type]} Use the research file to create/update .kiro/steering/{steering_name}"
+    base_prompt = templates[research_type]
+    
+    # Add exclusion instruction for analyze mode with existing sources
+    if research_type == "analyze" and existing_sources:
+        # Extract baseline URLs from topic for deeper exploration
+        baseline_urls = extract_baseline_urls(topic)
+        
+        if baseline_urls:
+            base_prompt += f" Explore deeper into the baseline sites ({', '.join(baseline_urls)}) to find additional subpages, documentation sections, or related content."
+        
+        # Exclude already researched URLs
+        excluded_urls = [url for url in existing_sources if url.startswith('http')]
+        if excluded_urls:
+            exclusion = f" Avoid these already researched URLs: {', '.join(excluded_urls[:5])}{'...' if len(excluded_urls) > 5 else ''}. Find NEW pages and sections from the same sites or related sources."
+            base_prompt += exclusion
+
+    # Use sanitized filename for steering document
+    safe_topic = sanitize_filename(topic)
+    steering_name = f"{safe_topic}_{research_type}.md"
+    return f"{base_prompt} Use the research file to create/update .kiro/steering/{steering_name}"
 
 
 def bump_version(content: str, today: str) -> tuple[str, str]:
@@ -194,14 +272,24 @@ def run_research(
     start = datetime.now()
 
     try:
-        steering_path = project_root / STEERING_DIR / f"{topic}_{research_type}.md"
+        # Sanitize topic for filename
+        safe_topic = sanitize_filename(topic)
+        steering_path = project_root / STEERING_DIR / f"{safe_topic}_{research_type}.md"
 
         # Early skip check
         if skip_if_exists and steering_path.is_file():
             logger.info(f"{index}⏭ Skipped (already exists): {topic}")
             return topic, True, 0.0
 
-        prompt = build_prompt(topic, research_type)
+        # Check for existing sources in analyze mode
+        existing_sources = set()
+        if research_type == "analyze" and steering_path.exists() and not force:
+            existing_content = steering_path.read_text(encoding="utf-8")
+            existing_sources = extract_existing_sources(existing_content)
+            if existing_sources:
+                logger.info(f"{index}📚 Found {len(existing_sources)} existing sources, will research new ones")
+
+        prompt = build_prompt(topic, research_type, existing_sources if existing_sources else None)
         cmd = ["kiro-cli", "chat", "--trust-all-tools", "--no-interactive", prompt]
 
         logger.info(f"{index}→ Researching {research_type}: {topic}")
@@ -266,7 +354,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "-t",
         "--topics-str",
-        help="alternative: space-separated topics as single argument",
+        help="single topic as quoted string (alternative to positional args)",
+    )
+    parser.add_argument(
+        "-n",
+        "--iterations",
+        type=int,
+        default=1,
+        help="number of iterations to run (default: 1)",
     )
     parser.add_argument(
         "-w",
@@ -284,7 +379,8 @@ def parse_args() -> argparse.Namespace:
     # Merge topic sources
     topics = args.topics or []
     if args.topics_str:
-        topics.extend(args.topics_str.split())
+        # Treat -t as a single topic, not space-separated
+        topics.append(args.topics_str)
 
     if not topics:
         parser.error("No topics provided (use positional args or -t)")
@@ -295,8 +391,112 @@ def parse_args() -> argparse.Namespace:
     if not (1 <= args.workers <= MAX_WORKERS):
         parser.error(f"--workers must be between 1 and {MAX_WORKERS}")
 
+    if args.iterations < 1:
+        parser.error("--iterations must be at least 1")
+
     args.topics = topics
     return args
+
+
+def has_new_sources_available(topic: str, research_type: str, project_root: Path) -> bool:
+    """Check if there are potentially new sources to research."""
+    if research_type != "analyze":
+        return True  # Always research for non-analyze modes
+    
+    safe_topic = sanitize_filename(topic)
+    steering_path = project_root / STEERING_DIR / f"{safe_topic}_{research_type}.md"
+    
+    if not steering_path.exists():
+        return True  # No existing file, can research
+    
+    try:
+        existing_content = steering_path.read_text(encoding="utf-8")
+        existing_sources = extract_existing_sources(existing_content)
+        baseline_urls = extract_baseline_urls(topic)
+        
+        # If we have baseline URLs but few sources, likely more to find
+        if baseline_urls and len(existing_sources) < 10:
+            return True
+            
+        # If no baseline URLs in topic, assume more sources available
+        if not baseline_urls:
+            return True
+            
+        return len(existing_sources) < 15  # Arbitrary threshold
+    except Exception:
+        return True  # On error, assume sources available
+
+
+def run_single_iteration(
+    topics: list[str],
+    research_type: str,
+    project_root: Path,
+    logger: logging.Logger,
+    iteration: int,
+    total_iterations: int,
+    **kwargs
+) -> tuple[int, list[str], bool]:
+    """Run a single iteration of research."""
+    logger.info(f"=== Iteration {iteration}/{total_iterations} ===")
+    
+    # Check if any topics have potential new sources
+    topics_with_sources = [
+        topic for topic in topics 
+        if has_new_sources_available(topic, research_type, project_root)
+    ]
+    
+    if not topics_with_sources:
+        logger.info("No topics have new sources available. Stopping iterations.")
+        return 0, [], True  # success_count, failed, should_stop
+    
+    if len(topics_with_sources) < len(topics):
+        skipped = len(topics) - len(topics_with_sources)
+        logger.info(f"Skipping {skipped} topics with no new sources available")
+    
+    try:
+        with ThreadPoolExecutor(max_workers=kwargs.get('workers', DEFAULT_WORKERS)) as pool:
+            futures = [
+                pool.submit(
+                    run_research,
+                    topic=topic,
+                    research_type=research_type,
+                    project_root=project_root,
+                    logger=logger,
+                    index=f"[{i:2d}/{len(topics_with_sources)}] ",
+                    force=kwargs.get('force', False),
+                    skip_if_exists=kwargs.get('skip_if_exists', False),
+                )
+                for i, topic in enumerate(topics_with_sources, 1)
+            ]
+
+            success_count = 0
+            failed = []
+
+            for future in as_completed(futures):
+                try:
+                    topic, ok, _ = future.result()
+                    if ok:
+                        success_count += 1
+                    else:
+                        failed.append(topic)
+                except Exception as e:
+                    logger.error(f"Future failed: {e}")
+                    failed.append("unknown")
+
+        total = len(topics_with_sources)
+        success_rate = (success_count / total) * 100 if total > 0 else 0
+        logger.info(f"Iteration {iteration} completed: {success_count}/{total} successful ({success_rate:.0f}%)")
+
+        if failed:
+            logger.warning(f"Failed topics in iteration {iteration}: {', '.join(failed)}")
+            
+        # Stop if all failed
+        should_stop = success_count == 0 and len(failed) > 0
+        return success_count, failed, should_stop
+        
+    except Exception as e:
+        logger.error(f"Critical error in iteration {iteration}: {e}")
+        return 0, [f"iteration-{iteration}"], True  # Stop on critical error
 
 
 def main():
@@ -306,44 +506,71 @@ def main():
     try:
         root = find_project_root()
         logger.info(f"Project root: {root}")
+        
+        if args.iterations > 1:
+            logger.info(f"Running {args.iterations} iterations")
 
-        with ThreadPoolExecutor(max_workers=args.workers) as pool:
-            futures = [
-                pool.submit(
-                    run_research,
-                    topic=topic,
+        total_success = 0
+        all_failed = []
+        
+        for iteration in range(1, args.iterations + 1):
+            try:
+                success_count, failed, should_stop = run_single_iteration(
+                    topics=args.topics,
                     research_type=args.mode,
                     project_root=root,
                     logger=logger,
-                    index=f"[{i:2d}/{len(args.topics)}] ",
+                    iteration=iteration,
+                    total_iterations=args.iterations,
+                    workers=args.workers,
                     force=args.force,
                     skip_if_exists=args.skip,
                 )
-                for i, topic in enumerate(args.topics, 1)
-            ]
+                
+                total_success += success_count
+                all_failed.extend(failed)
+                
+                if should_stop:
+                    logger.info(f"Stopping after iteration {iteration} due to no progress or critical error")
+                    break
+                    
+                # Brief pause between iterations
+                if iteration < args.iterations:
+                    import time
+                    time.sleep(2)
+                    
+            except KeyboardInterrupt:
+                logger.info(f"Interrupted during iteration {iteration}")
+                raise
+            except Exception as e:
+                logger.error(f"Fatal error in iteration {iteration}: {e}")
+                break
 
-            success_count = 0
-            failed = []
-
-            for future in as_completed(futures):
-                topic, ok, _ = future.result()
-                if ok:
-                    success_count += 1
-                else:
-                    failed.append(topic)
-
-        total = len(args.topics)
-        logger.info(f"Completed: {success_count}/{total} successful ({(success_count / total) * 100:.0f}%)")
-
-        if failed:
-            logger.warning(f"Failed topics: {', '.join(failed)}")
+        # Final summary
+        if args.iterations > 1:
+            logger.info(f"=== Final Summary ===")
+            logger.info(f"Total successful across all iterations: {total_success}")
+            
+        if all_failed:
+            unique_failed = list(set(all_failed))
+            logger.warning(f"Topics that failed: {', '.join(unique_failed)}")
             sys.exit(2)
+            
+        if total_success == 0:
+            logger.error("No successful research completed")
+            sys.exit(1)
 
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
         sys.exit(130)
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {e}")
+        sys.exit(1)
+    except PermissionError as e:
+        logger.error(f"Permission denied: {e}")
+        sys.exit(1)
     except Exception as e:
-        logger.exception(f"Fatal: {e}")
+        logger.exception(f"Fatal error: {e}")
         sys.exit(1)
 
 

@@ -1,0 +1,56 @@
+{
+  "name": "ssh-connection-expert",
+  "version": "1.0.0",
+  "description": "Multi-hop SSH connection management and automation specialist",
+  "personality": {
+    "style": "connection-focused, troubleshooting-expert",
+    "explanation_length": "step-by-step-guidance"
+  },
+  "core_prompt": "You are an SSH connection specialist focused on multi-hop connections, jump hosts, and remote command execution. Expert in paramiko, connection pooling, and SSH troubleshooting for the Interface Check project.",
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "grep"
+  ],
+  "allowedTools": [
+    "read",
+    "shell",
+    "grep"
+  ],
+  "toolsSettings": {
+    "shell": {
+      "allowedCommands": [
+        "ssh.*",
+        "ssh-keygen.*",
+        "ssh-add.*",
+        "ping.*",
+        "telnet.*",
+        "nc.*"
+      ],
+      "autoAllowReadonly": true
+    },
+    "read": {
+      "allowedPaths": [
+        "src/core/connect/**",
+        "main_scan_cfg.json",
+        "main_scan_traffic_cfg.json",
+        "~/.ssh/**"
+      ]
+    }
+  },
+  "resources": [
+    "file://.kiro/steering/**/*.md",
+    "file://src/core/connect/**/*.py",
+    "file://main_scan_cfg.json",
+    "file://main_scan_traffic_cfg.json",
+    "file://docs/CONFIGURATION_GUIDE.md"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "ssh-add -l 2>/dev/null || echo 'No SSH keys loaded'"
+      }
+    ]
+  }
+}

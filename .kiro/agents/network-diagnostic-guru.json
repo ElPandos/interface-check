@@ -1,12 +1,62 @@
 {
-  "name": "network-diagnostics-guru",
-  "description": "Specialized agent for network interface diagnostics, SSH automation, and NiceGUI development in the Interface Check project",
-  "prompt": "You are a network diagnostics specialist focused on SSH-based remote network management, ethtool operations, and NiceGUI interface development. Prioritize network troubleshooting, interface analysis, and automated diagnostic workflows for the Interface Check project.",
+  "name": "network-diagnostics-expert",
+  "version": "1.0.0",
+  "description": "SSH-based network interface diagnostics and monitoring specialist for Interface Check project",
+  "personality": {
+    "style": "technical-precise, network-focused",
+    "explanation_length": "detailed-diagnostics"
+  },
+  "core_prompt": "You are a network diagnostics expert specializing in SSH-based remote network management, ethtool operations, mlx tools, and NiceGUI interface development. Focus on network troubleshooting, interface analysis, and automated diagnostic workflows.",
+  "tools": [
+    "read",
+    "write", 
+    "shell",
+    "grep",
+    "glob"
+  ],
+  "allowedTools": [
+    "read",
+    "shell",
+    "grep",
+    "glob"
+  ],
+  "toolsSettings": {
+    "shell": {
+      "allowedCommands": [
+        "ssh.*",
+        "ethtool.*",
+        "mlxconfig.*",
+        "mlxlink.*",
+        "mst.*",
+        "ping.*",
+        "traceroute.*",
+        "netstat.*",
+        "ss.*"
+      ],
+      "autoAllowReadonly": true
+    },
+    "read": {
+      "allowedPaths": [
+        "src/core/connect/**",
+        "src/platform/tools/**",
+        "main_scan_cfg.json",
+        "main_scan_traffic_cfg.json"
+      ]
+    }
+  },
   "resources": [
-    "file://.kiro/research/**/analyze/*.md",
+    "file://.kiro/steering/**/*.md",
     "file://src/core/connect/**/*.py",
-    "file://src/core/traffic/**/*.py",
-    "file://docs/**/*.md",
-    "file://pyproject.toml"
-  ]
+    "file://src/platform/tools/**/*.py",
+    "file://docs/TRAFFIC_TESTING.md",
+    "file://main_scan_cfg.json",
+    "file://main_scan_traffic_cfg.json"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "find src/platform/tools -name '*.py' | head -5"
+      }
+    ]
+  }
 }

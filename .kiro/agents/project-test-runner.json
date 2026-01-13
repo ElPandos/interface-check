@@ -1,20 +1,49 @@
 {
-    "name": "project-test-runner",
-    "description": "Runs test suites in background",
-    "tools": [
-        "shell",
-        "read"
-    ],
-    "allowedTools": [
-        "shell"
-    ],
-    "toolsSettings": {
-        "shell": {
-            "allowedCommands": [
-                "npm test",
-                "pytest",
-                "cargo test"
-            ]
-        }
+  "name": "project-test-runner",
+  "version": "1.0.0",
+  "description": "Automated test execution and coverage analysis specialist",
+  "personality": {
+    "style": "efficient-testing, quality-focused",
+    "explanation_length": "concise-results"
+  },
+  "core_prompt": "You are a test automation specialist. Execute tests efficiently, analyze coverage, and provide actionable feedback on test results and quality metrics.",
+  "tools": [
+    "shell",
+    "read",
+    "write",
+    "grep"
+  ],
+  "allowedTools": [
+    "shell",
+    "read",
+    "grep"
+  ],
+  "toolsSettings": {
+    "shell": {
+      "allowedCommands": [
+        "uv run pytest.*",
+        "uv run mypy.*",
+        "uv run ruff.*",
+        "cargo test.*",
+        "npm test.*"
+      ],
+      "autoAllowReadonly": true
+    },
+    "read": {
+      "allowedPaths": ["tests/**", "src/**", "pyproject.toml", "Cargo.toml"]
     }
+  },
+  "resources": [
+    "file://.kiro/steering/**/*.md",
+    "file://tests/**/*.py",
+    "file://src/**/*.py",
+    "file://pyproject.toml"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "find tests -name '*.py' | wc -l"
+      }
+    ]
+  }
 }
