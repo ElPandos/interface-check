@@ -1,36 +1,36 @@
 {
-    "[dockercompose]": {
-        "editor.defaultFormatter": "foxundermoon.shell-format"
+  "[dockercompose]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format"
+  },
+  "[dockerfile]": {
+    "editor.defaultFormatter": "ms-azuretools.vscode-containers"
+  },
+  "[dotenv]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format",
+    "editor.insertSpaces": true
+  },
+  "[ignore]": {
+    "editor.defaultFormatter": "foxundermoon.shell-format"
+  },
+  "[jsonc][json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "yzhang.markdown-all-in-one"
+  },
+  "[python]": {
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
     },
-    "[dockerfile]": {
-        "editor.defaultFormatter": "ms-azuretools.vscode-containers"
-    },
-    "[dotenv]": {
-        "editor.defaultFormatter": "foxundermoon.shell-format",
-        "editor.insertSpaces": true
-    },
-    "[ignore]": {
-        "editor.defaultFormatter": "foxundermoon.shell-format"
-    },
-    "[jsonc][json]": {
-        "editor.defaultFormatter": "vscode.json-language-features"
-    },
-    "[markdown]": {
-        "editor.defaultFormatter": "yzhang.markdown-all-in-one"
-    },
-    "[python]": {
-        "editor.codeActionsOnSave": {
-            "source.fixAll": "explicit",
-            "source.organizeImports": "explicit"
-        },
-        "editor.defaultFormatter": "charliermarsh.ruff",
-        "editor.formatOnSave": true
-    },
-    "[toml]": {
-        "editor.defaultFormatter": "tamasfe.even-better-toml"
-    },
-    "[yaml]": {
-        "editor.insertSpaces": true,
-        "diffEditor.ignoreTrimWhitespace": false
-    },
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true
+  },
+  "[toml]": {
+    "editor.defaultFormatter": "tamasfe.even-better-toml"
+  },
+  "[yaml]": {
+    "editor.insertSpaces": true,
+    "diffEditor.ignoreTrimWhitespace": false
+  },
 }

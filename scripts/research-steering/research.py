@@ -51,36 +51,38 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
 
 def strip_ansi_codes(text: str) -> str:
     """Remove ANSI escape sequences from text."""
-    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    return ansi_escape.sub('', text)
+    ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+    return ansi_escape.sub("", text)
 
 
 def extract_steering_content(kiro_output: str) -> str:
     """Extract the actual steering document content from kiro-cli output."""
-    lines = kiro_output.split('\n')
-    
+    lines = kiro_output.split("\n")
+
     # Look for the start of the actual content (after research process)
     content_start = -1
     for i, line in enumerate(lines):
         # Find where the actual document content starts
-        if line.strip().startswith('---') and 'title:' in '\n'.join(lines[i+1:i+5]):
+        if line.strip().startswith("---") and "title:" in "\n".join(lines[i + 1 : i + 5]):
             content_start = i
             break
-        elif line.strip().startswith('# ') and not any(x in line.lower() for x in ['research output', 'complete response']):
+        elif line.strip().startswith("# ") and not any(
+            x in line.lower() for x in ["research output", "complete response"]
+        ):
             content_start = i
             break
-    
+
     if content_start == -1:
         # Fallback: return everything after the last "Creating:" or "Updating:" line
         for i in reversed(range(len(lines))):
-            if 'Creating:' in lines[i] or 'Updating:' in lines[i] or 'Completed in' in lines[i]:
+            if "Creating:" in lines[i] or "Updating:" in lines[i] or "Completed in" in lines[i]:
                 content_start = i + 1
                 break
         else:
             # Last resort: return the original content
             return kiro_output
-    
-    return '\n'.join(lines[content_start:]).strip()
+
+    return "\n".join(lines[content_start:]).strip()
 
 
 def find_project_root() -> Path:
@@ -218,7 +220,7 @@ def run_research(
 
         # Clean ANSI escape sequences from output
         clean_output = strip_ansi_codes(result.stdout.strip())
-        
+
         if not clean_output:
             logger.warning(f"{index}⚠ No output received for {topic}")
             return topic, False, duration

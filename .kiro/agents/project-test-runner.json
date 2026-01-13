@@ -1,5 +1,5 @@
 {
-    "name": "test-runner",
+    "name": "project-test-runner",
     "description": "Runs test suites in background",
     "tools": [
         "shell",

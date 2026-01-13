@@ -1,77 +1,97 @@
 {
   "mcpServers": {
+    // ── Filesystem & local operations ───────────────────────────────────────
     "filesystem": {
       "command": "uvx",
-      "args": [
-        "mcp-server-filesystem@latest"
-      ],
+      "args": ["mcp-server-filesystem@latest"],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
+      "timeout": 90000,
       "disabled": false,
       "autoApprove": [
         "read_file",
-        "list_directory"
+        "list_directory",
+        "file_exists",
+        "read_text_file",
+        "read_json_file"
       ]
     },
+
+    // ── Git local repository operations ─────────────────────────────────────
     "git": {
       "command": "uvx",
-      "args": [
-        "mcp-server-git@latest"
-      ],
+      "args": ["mcp-server-git@latest"],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
+      "timeout": 120000,
       "disabled": false,
       "autoApprove": [
         "git_status",
         "git_log",
-        "git_diff"
+        "git_diff",
+        "git_branch",
+        "git_show"
       ]
     },
+
+    // ── GitHub remote operations (needs token) ──────────────────────────────
     "github": {
       "command": "uvx",
-      "args": [
-        "mcp-server-github@latest"
-      ],
+      "args": ["mcp-server-github@latest"],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}",
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${ENV_GITHUB_ACCESS_TOKEN}",
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
+      "timeout": 180000,
       "disabled": false,
-      "autoApprove": []
+      "autoApprove": [
+        "get_repo_info",
+        "list_pull_requests",
+        "get_issue",
+        "list_repos_for_user"
+      ]
     },
+
+    // ── Search & web access ─────────────────────────────────────────────────
     "web-search": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-bravesearch"
-      ],
+      "args": ["-y", "@modelcontextprotocol/server-bravesearch"],
       "env": {
-        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
-      }
+        "BRAVE_API_KEY": "${ENV_BRAVE_SEARCH_API_KEY}"
+      },
+      "timeout": 45000,
+      "disabled": false
+      // autoApprove usually not used for search endpoints
     },
+
+    // ── Contextual memory / long-term recall ────────────────────────────────
     "context7": {
       "command": "uvx",
-      "args": [
-        "context7-mcp-server@latest"
-      ],
+      "args": ["context7-mcp-server@latest"],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
-      "disabled": false,
-      "autoApprove": []
+      "timeout": 60000,
+      "disabled": false
+      // autoApprove usually not desired for memory servers
     },
+
+    // ── Domain-specific documentation ───────────────────────────────────────
     "aws-docs": {
       "command": "uvx",
-      "args": [
-        "awslabs.aws-documentation-mcp-server@latest"
-      ],
+      "args": ["awslabs.aws-documentation-mcp-server@latest"],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
+      "timeout": 90000,
       "disabled": false,
-      "autoApprove": []
+      "autoApprove": [
+        "search_aws_docs",
+        "get_service_overview",
+        "get_api_reference"
+      ]
     }
   }
 }

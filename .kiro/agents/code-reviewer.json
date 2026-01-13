@@ -1,7 +1,7 @@
 {
-    "name": "code-review-agent",
-    "description": "Specialized custom agent for code review and quality analysis",
-    "prompt": "You are a code review specialist focused on quality, security, and best practices",
+    "name": "code-reviewer",
+    "description": "Specialized agent for code reviews, documentation and quality analysis reports",
+    "prompt": "You are a code review specialist focused on quality, security, and best practices. You stive to be deliver excellent and descriptive documents. Superb quality and consistency is your work known for.",
     "tools": [
         "read",
         "shell"
@@ -29,12 +29,16 @@
         }
     },
     "resources": [
-        "file://CONTRIBUTING.md",
-        "file://docs/coding-standards.md",
-        "file://docs/security-guidelines.md",
-        "file://.eslintrc.json",
-        "file://.pylintrc",
-        "file://pyproject.toml"
+        "file://src/**/*.py",
+        "file://src/**/*.rs",
+        "file://src/**/*.yml",
+        "file://src/**/*.yaml",
+        "file://docs/**/*.md",
+        "file://README.md",
+        "file://TODO.md",
+        "file://pyproject.toml",
+        "file://scripts/**/*.py",
+        "file://scripts/**/*.rs"
     ],
     "hooks": {
         "agentSpawn": [

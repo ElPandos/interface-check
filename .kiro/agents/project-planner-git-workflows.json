@@ -1,14 +1,7 @@
 {
-  "name": "development-workflow-agent",
-  "description": "General development workflow custom agent with Git integration",
-  "prompt": "You are a software development assistant with expertise in Git workflows and code management",
-  "mcpServers": {
-    "git": {
-      "command": "git-mcp-server",
-      "args": [],
-      "timeout": 30000
-    }
-  },
+  "name": "project-planner-git-workflow",
+  "description": "Specialized agent that are an expert on development workflow and handles Git integration for entire project",
+  "prompt": "You are a software developer assistant with expertise in Git workflows and code management. You like to split larger task into smaller pieces and sort them in execution order for your fellow agent collegues.",
   "tools": [
     "read",
     "write",
@@ -39,12 +32,22 @@
       ]
     }
   },
+  "mcpServers": {
+    "git": {
+      "command": "git-mcp-server",
+      "args": [],
+      "timeout": 30000
+    }
+  },
   "resources": [
-    "file://README.md",
-    "file://CONTRIBUTING.md",
+    "file://.kiro/research/**/analyze/*.md",
     "file://docs/**/*.md",
-    "file://package.json",
-    "file://requirements.txt"
+    "file://README.md",
+    "file://TODO.md",
+    "file://src/**/*.*",
+    "file://scripts/**/*.*",
+    "file://requirements.txt",
+    "file://pyproject.toml"
   ],
   "hooks": {
     "agentSpawn": [
