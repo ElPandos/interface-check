@@ -75,7 +75,7 @@ The Network Agent is part of the main Interface Check application. For developme
 
 1. See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup
 2. Agent-specific code is in `src/core/agent.py` and `src/ui/tabs/agent.py`
-3. Follow the UI development patterns in `.kiro/steering/ui-development-patterns.md`
+3. Follow the UI development patterns in `.kiro/steering/ui-development_best-practices.md`
 4. Test through the web interface at `http://localhost:8080`
 
 ## Future Enhancements

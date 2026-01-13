@@ -32,9 +32,7 @@ class LightTheme:
     GRAY_BUTTON_SM = "bg-stone-200 hover:bg-stone-300 text-slate-700 px-2 py-1 text-xs rounded-lg"
     BLUE_BUTTON_SM = "bg-sky-200 hover:bg-sky-300 text-sky-800 px-2 py-1 text-xs rounded-lg"
     RED_BUTTON_SM = "bg-rose-200 hover:bg-rose-300 text-rose-800 px-2 py-1 text-xs rounded-lg"
-    GREEN_BUTTON_SM = (
-        "bg-emerald-200 hover:bg-emerald-300 text-emerald-800 px-2 py-1 text-xs rounded-lg"
-    )
+    GREEN_BUTTON_SM = "bg-emerald-200 hover:bg-emerald-300 text-emerald-800 px-2 py-1 text-xs rounded-lg"
 
     # Buttons - Special - Modern accent colors
     PRIMARY_BUTTON = "bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg shadow-sm"
@@ -53,8 +51,12 @@ class LightTheme:
     CARD_DIALOG = "bg-white border border-stone-300 rounded-xl shadow-2xl"
 
     # Headers & Gradients - Modern gradients with warmer tones
-    HEADER_GRADIENT = "font-bold text-white bg-gradient-to-r from-indigo-500 to-slate-600 rounded-t-xl px-4 py-3 shadow-md"
-    SSH_HEADER_GRADIENT = "font-bold text-white bg-gradient-to-r from-emerald-500 to-slate-600 rounded-t-xl px-4 py-3 shadow-md"
+    HEADER_GRADIENT = (
+        "font-bold text-white bg-gradient-to-r from-indigo-500 to-slate-600 rounded-t-xl px-4 py-3 shadow-md"
+    )
+    SSH_HEADER_GRADIENT = (
+        "font-bold text-white bg-gradient-to-r from-emerald-500 to-slate-600 rounded-t-xl px-4 py-3 shadow-md"
+    )
 
     # Expansion Panels
     EXPANSION_COLORS = {
@@ -129,9 +131,7 @@ class DarkTheme:
     GRAY_BUTTON_SM = "bg-slate-600 hover:bg-slate-500 text-slate-100 px-2 py-1 text-xs rounded-lg"
     BLUE_BUTTON_SM = "bg-sky-600 hover:bg-sky-500 text-sky-100 px-2 py-1 text-xs rounded-lg"
     RED_BUTTON_SM = "bg-rose-600 hover:bg-rose-500 text-rose-100 px-2 py-1 text-xs rounded-lg"
-    GREEN_BUTTON_SM = (
-        "bg-emerald-600 hover:bg-emerald-500 text-emerald-100 px-2 py-1 text-xs rounded-lg"
-    )
+    GREEN_BUTTON_SM = "bg-emerald-600 hover:bg-emerald-500 text-emerald-100 px-2 py-1 text-xs rounded-lg"
 
     # Buttons - Special - Modern accent colors
     PRIMARY_BUTTON = "bg-indigo-500 hover:bg-indigo-400 text-white px-4 py-2 rounded-lg shadow-sm"
@@ -150,8 +150,12 @@ class DarkTheme:
     CARD_DIALOG = "bg-slate-800 border border-slate-600 rounded-xl shadow-2xl"
 
     # Headers & Gradients - Modern gradients with warmer dark tones
-    HEADER_GRADIENT = "font-bold text-white bg-gradient-to-r from-indigo-600 to-slate-700 rounded-t-xl px-4 py-3 shadow-md"
-    SSH_HEADER_GRADIENT = "font-bold text-white bg-gradient-to-r from-emerald-600 to-slate-700 rounded-t-xl px-4 py-3 shadow-md"
+    HEADER_GRADIENT = (
+        "font-bold text-white bg-gradient-to-r from-indigo-600 to-slate-700 rounded-t-xl px-4 py-3 shadow-md"
+    )
+    SSH_HEADER_GRADIENT = (
+        "font-bold text-white bg-gradient-to-r from-emerald-600 to-slate-700 rounded-t-xl px-4 py-3 shadow-md"
+    )
 
     # Expansion Panels
     EXPANSION_COLORS: ClassVar[dict[str, str]] = {

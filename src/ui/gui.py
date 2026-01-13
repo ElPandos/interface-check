@@ -116,9 +116,7 @@ class Gui:
             ]
 
             for panel_class, extra_kwargs in panel_cfgs:
-                panel = panel_class(
-                    build=True, config=self._cfg, host_handler=self._host_handler, **extra_kwargs
-                )
+                panel = panel_class(build=True, config=self._cfg, host_handler=self._host_handler, **extra_kwargs)
                 self._panel_content[panel.name] = panel
 
     def _build_right_drawer(self) -> None:

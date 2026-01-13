@@ -188,10 +188,7 @@ class ModuleParser:
         if not matches:
             return value.strip() or None
 
-        parsed = [
-            ValueCollection(value=float(m.group(1)), unit=m.group(2).strip(), raw=m.group(0))
-            for m in matches
-        ]
+        parsed = [ValueCollection(value=float(m.group(1)), unit=m.group(2).strip(), raw=m.group(0)) for m in matches]
 
         if self._is_temp_pair(parsed):
             return sorted(parsed, key=lambda v: "C" not in v.unit)

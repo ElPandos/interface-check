@@ -50,10 +50,7 @@ class EthtoolModuleDevice(ParsedDevice):
     def _parse_temperature(self, temp_str: str) -> list[ValueWithUnit]:
         pattern = r"([\d.]+)\s*degrees\s*([CF])"
         matches = re.findall(pattern, temp_str)
-        return [
-            ValueWithUnit(float(val), f"degrees {unit}", f"{val} degrees {unit}")
-            for val, unit in matches
-        ]
+        return [ValueWithUnit(float(val), f"degrees {unit}", f"{val} degrees {unit}") for val, unit in matches]
 
     def _parse_power(self, power_str: str) -> list[ValueWithUnit]:
         pattern = r"([\d.-]+)\s*(mW|dBm)"

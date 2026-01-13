@@ -78,9 +78,7 @@ class SlxEyeParser(IParser):
         max_len = max(len(p) for p in patterns)
 
         # Convert pattern characters → numeric grid
-        matrix = np.array(
-            [[self._char_map.get(ch, 0) for ch in p.ljust(max_len)] for p in patterns]
-        )
+        matrix = np.array([[self._char_map.get(ch, 0) for ch in p.ljust(max_len)] for p in patterns])
 
         # Create phase offset values from -31 to +31
         phase_offsets = list(range(-31, 32))

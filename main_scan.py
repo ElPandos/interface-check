@@ -189,9 +189,7 @@ def main():  # noqa: PLR0915
     logging.disable(logging.NOTSET)
 
     frame = PrettyFrame()
-    _logger.info(
-        frame.build("WORKERS STOPPED", [f"All {total_workers} workers stopped successfully"])
-    )
+    _logger.info(frame.build("WORKERS STOPPED", [f"All {total_workers} workers stopped successfully"]))
 
     # ---------------------------------------------------------------------------- #
     #                                   Shutdown                                   #

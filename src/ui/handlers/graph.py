@@ -22,9 +22,7 @@ class GraphView:
         value: Value to plot
     """
 
-    def __init__(
-        self, work_manager: WorkManager, cfg: Config, interface: str, source: str, value: str
-    ) -> None:
+    def __init__(self, work_manager: WorkManager, cfg: Config, interface: str, source: str, value: str) -> None:
         """Initialize graph view.
 
         Args:
@@ -126,9 +124,7 @@ class GraphHandler:
         """Initialize graph handler."""
         self._graphs: dict[str, GraphView] = {}
 
-    def add(
-        self, work_manager: WorkManager, cfg: Config, interface: str, source: str, value: str
-    ) -> None:
+    def add(self, work_manager: WorkManager, cfg: Config, interface: str, source: str, value: str) -> None:
         """Add new graph.
 
         Args:

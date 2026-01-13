@@ -492,9 +492,7 @@ class SoftwareManager:
         self._logger.debug("Package manager type: UNKNOWN")
         return PackageManagerType.UNKNOWN
 
-    def _validate_package_support(
-        self, required_packages: list[str]
-    ) -> tuple[list[str], list[str]]:
+    def _validate_package_support(self, required_packages: list[str]) -> tuple[list[str], list[str]]:
         """Validate package support and separate into supported/unsupported lists.
 
         Args:
@@ -534,18 +532,14 @@ class SoftwareManager:
         # Validate package support
         supported_packages, _ = self._validate_package_support(required_packages)
 
-        self._logger.info(
-            f"Installing {len(supported_packages)} required packages: {', '.join(supported_packages)}"
-        )
+        self._logger.info(f"Installing {len(supported_packages)} required packages: {', '.join(supported_packages)}")
 
         # Install packages one by one for better error handling and logging
         success_count = 0
         failed_packages = []
 
         for package in supported_packages:
-            self._logger.info(
-                f"Installing package ({success_count + 1}/{len(supported_packages)}) -> {package}"
-            )
+            self._logger.info(f"Installing package ({success_count + 1}/{len(supported_packages)}) -> {package}")
 
             if self._package_manager.install(package):
                 success_count += 1
@@ -601,9 +595,7 @@ class SoftwareManager:
         Args:
             version_info: Dictionary mapping package names to version strings
         """
-        self._logger.info(
-            f"{LogMsg.SW_PKG_VERSION_COMPLETE.value} for {len(version_info)} packages"
-        )
+        self._logger.info(f"{LogMsg.SW_PKG_VERSION_COMPLETE.value} for {len(version_info)} packages")
 
         frame = PrettyFrame(width=80)
         rows = []
@@ -710,9 +702,7 @@ class SoftwareManager:
         for pkg, version in missing:
             self._log_package_row(pkg, version, "MISSING", "", config)
 
-    def _log_package_row(
-        self, pkg: str, version: str, status: str, color: str, config: dict[str, int]
-    ) -> None:
+    def _log_package_row(self, pkg: str, version: str, status: str, color: str, config: dict[str, int]) -> None:
         """Log a single package row with formatting.
 
         Args:
@@ -723,9 +713,7 @@ class SoftwareManager:
             config: Table configuration dictionary
         """
         display_version = (
-            version[: config["version_width"] - 4] + "..."
-            if len(version) > config["version_width"] - 2
-            else version
+            version[: config["version_width"] - 4] + "..." if len(version) > config["version_width"] - 2 else version
         )
 
         self._logger.info(
@@ -748,9 +736,7 @@ class SoftwareManager:
             version_info: Package version information
         """
         total_packages = len(version_info)
-        successful = sum(
-            1 for v in version_info.values() if "Not found" not in v and "error" not in v.lower()
-        )
+        successful = sum(1 for v in version_info.values() if "Not found" not in v and "error" not in v.lower())
         failed = total_packages - successful
         success_rate = (successful / total_packages * 100) if total_packages > 0 else 0
 
@@ -758,9 +744,7 @@ class SoftwareManager:
         self._logger.info(f"   {LogMsg.SW_PKG_TOTAL.value}: {total_packages}")
         self._logger.info(f"   {LogMsg.SW_PKG_SUCCESS.value}: {successful} ({success_rate:.1f}%)")
         if failed > 0:
-            self._logger.info(
-                f"   {LogMsg.SW_PKG_FAILED.value}: {failed} ({100 - success_rate:.1f}%)"
-            )
+            self._logger.info(f"   {LogMsg.SW_PKG_FAILED.value}: {failed} ({100 - success_rate:.1f}%)")
             self._logger.warning(LogMsg.SW_PKG_MISSING_WARNING.value)
         else:
             self._logger.info(f"   {LogMsg.SW_PKG_ALL_INSTALLED.value}")

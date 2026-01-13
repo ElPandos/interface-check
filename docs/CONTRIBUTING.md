@@ -384,12 +384,12 @@ Update README.md when adding:
 
 For detailed development patterns and best practices, see the steering documentation:
 
-- **[Development Guidelines](.kiro/steering/guidelines.md)** - Overview of all patterns
-- **[Code Quality Standards](.kiro/steering/code-quality-standards.md)** - Type hints, documentation, error handling
-- **[Architecture Patterns](.kiro/steering/architecture-patterns.md)** - Class design, threading, configuration
-- **[UI Development Patterns](.kiro/steering/ui-development-patterns.md)** - NiceGUI patterns and user experience
-- **[SSH Connection Patterns](.kiro/steering/ssh-connection-patterns.md)** - Connection management and security
-- **[Threading Patterns](.kiro/steering/threading-patterns.md)** - Worker threads and synchronization
+- **[Development Patterns](.kiro/steering/development_patterns.md)** - Comprehensive development patterns
+- **[Code Quality Best Practices](.kiro/steering/code-quality_best-practices.md)** - Type hints, documentation, error handling
+- **[Architecture Patterns](.kiro/steering/architecture_patterns.md)** - System design and architectural patterns
+- **[UI Development Best Practices](.kiro/steering/ui-development_best-practices.md)** - NiceGUI patterns and user experience
+- **[Security Best Practices](.kiro/steering/security_best-practices.md)** - Security practices and guidelines
+- **[Testing Best Practices](.kiro/steering/testing_best-practices.md)** - Testing strategies and patterns
 
 For contribution guidelines, see this document.
 

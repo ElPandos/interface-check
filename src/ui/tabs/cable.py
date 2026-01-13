@@ -107,13 +107,13 @@ class CableContent:
         """Build cable interface for the screen."""
         # Cable controls
         with ui.row().classes("w-full gap-2 mt-2"):
-            self._buttons["scan"] = ui.button(
-                "Scan Interfaces", icon="cable", on_click=self._scan_interfaces
-            ).classes("bg-red-500 hover:bg-red-600 text-white")
+            self._buttons["scan"] = ui.button("Scan Interfaces", icon="cable", on_click=self._scan_interfaces).classes(
+                "bg-red-500 hover:bg-red-600 text-white"
+            )
 
-            self._buttons["clear"] = ui.button(
-                "Clear Results", icon="clear", on_click=self._clear_results
-            ).classes("bg-gray-500 hover:bg-gray-600 text-white")
+            self._buttons["clear"] = ui.button("Clear Results", icon="clear", on_click=self._clear_results).classes(
+                "bg-gray-500 hover:bg-gray-600 text-white"
+            )
 
         # Scan results area
         with ui.column().classes("w-full mt-4"):
@@ -189,9 +189,7 @@ class CableContent:
             ui.notify("SSH connection required", color="negative")
             return
 
-        self._add_result_card(
-            "Interface Scan Completed", "Cable and interface information would appear here", "red"
-        )
+        self._add_result_card("Interface Scan Completed", "Cable and interface information would appear here", "red")
         ui.notify("Interface scan completed", color="positive")
 
     def _clear_results(self) -> None:

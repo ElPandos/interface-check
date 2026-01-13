@@ -70,9 +70,7 @@ class Selector[T]:
         # Convert options to simple list for ui.select
         select_options = [opt["label"] for opt in options]
 
-        self._selector = ui.select(options=select_options, value=None, label=self._label).classes(
-            self._classes
-        )
+        self._selector = ui.select(options=select_options, value=None, label=self._label).classes(self._classes)
 
         # Store the mapping for value conversion
         self._option_mapping = {opt["label"]: opt["value"] for opt in options}
@@ -153,9 +151,7 @@ class ConnectionSelectionProvider(SelectionProvider[int]):
         for i in self._connected_routes:
             if i < len(self._routes):
                 ssh_route = self._routes[i]
-                options.append(
-                    {"label": ssh_route["summary"], "value": i, "tooltip": ssh_route["summary"]}
-                )
+                options.append({"label": ssh_route["summary"], "value": i, "tooltip": ssh_route["summary"]})
         return options
 
     def is_available(self, value: int) -> bool:
@@ -197,10 +193,7 @@ class InterfaceSelectionProvider(SelectionProvider[str]):
         Returns:
             List of interface options
         """
-        return [
-            {"label": iface, "value": iface, "tooltip": f"Network interface {iface}"}
-            for iface in self._interfaces
-        ]
+        return [{"label": iface, "value": iface, "tooltip": f"Network interface {iface}"} for iface in self._interfaces]
 
     def is_available(self, value: str) -> bool:
         """Check if interface is available.

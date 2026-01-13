@@ -81,9 +81,7 @@ class LocalContent:
                 ui.icon("dashboard", size="lg").classes("text-blue-600")
                 ui.label("Local System").classes("text-2xl font-bold text-gray-800")
                 ui.space()
-                ui.checkbox(
-                    "Refresh", value=self._auto_refresh, on_change=self._toggle_auto_refresh
-                ).classes("mr-4")
+                ui.checkbox("Refresh", value=self._auto_refresh, on_change=self._toggle_auto_refresh).classes("mr-4")
                 ui.button(icon="upload", on_click=self._export_data).classes(
                     "bg-blue-300 hover:bg-blue-400 text-blue-900 px-4 py-2 rounded ml-2"
                 ).tooltip("Export system data")
@@ -111,9 +109,7 @@ class LocalContent:
 
         # Update button icon
         if self._expand_button:
-            self._expand_button.props(
-                f"icon={'sym_r_collapse_all' if self._all_expanded else 'sym_r_expand_all'}"
-            )
+            self._expand_button.props(f"icon={'sym_r_collapse_all' if self._all_expanded else 'sym_r_expand_all'}")
 
     def _refresh_stats(self):
         """Refresh system statistics."""
@@ -144,9 +140,7 @@ class LocalContent:
     def _export_data(self):
         """Export all dashboard data to JSON."""
         data = self._collect_all_data()
-        Json.export_download(
-            data, "system_dashboard", success_message="System dashboard data exported successfully"
-        )
+        Json.export_download(data, "system_dashboard", success_message="System dashboard data exported successfully")
 
     def _get_system_info(self):
         """Get system information."""
@@ -185,30 +179,18 @@ class LocalContent:
             },
             "uptime": {
                 "boot_time": psutil.boot_time(),
-                "uptime_seconds": (
-                    dt.now(UTC) - dt.fromtimestamp(psutil.boot_time(), tz=UTC)
-                ).total_seconds(),
+                "uptime_seconds": (dt.now(UTC) - dt.fromtimestamp(psutil.boot_time(), tz=UTC)).total_seconds(),
             },
         }
 
         try:
             # Sort processes once and slice for both CPU and memory
-            cpu_sorted = sorted(
-                processes, key=lambda x: x.info.get("cpu_percent") or 0, reverse=True
-            )[:10]
-            mem_sorted = sorted(
-                processes, key=lambda x: x.info.get("memory_percent") or 0, reverse=True
-            )[:10]
+            cpu_sorted = sorted(processes, key=lambda x: x.info.get("cpu_percent") or 0, reverse=True)[:10]
+            mem_sorted = sorted(processes, key=lambda x: x.info.get("memory_percent") or 0, reverse=True)[:10]
 
             data["top_processes"] = {
-                "cpu": [
-                    {"name": p.info["name"], "cpu_percent": p.info["cpu_percent"]}
-                    for p in cpu_sorted
-                ],
-                "memory": [
-                    {"name": p.info["name"], "memory_percent": p.info["memory_percent"]}
-                    for p in mem_sorted
-                ],
+                "cpu": [{"name": p.info["name"], "cpu_percent": p.info["cpu_percent"]} for p in cpu_sorted],
+                "memory": [{"name": p.info["name"], "memory_percent": p.info["memory_percent"]} for p in mem_sorted],
             }
         except Exception:
             data["top_processes"] = {"cpu": [], "memory": []}
@@ -218,9 +200,7 @@ class LocalContent:
     def _create_table(self, columns, rows):
         """Create optimized table with consistent styling."""
         return (
-            ui.table(columns=columns, rows=rows)
-            .classes("w-full")
-            .style("background-color: white; text-align: left;")
+            ui.table(columns=columns, rows=rows).classes("w-full").style("background-color: white; text-align: left;")
         )
 
     def _build_system_stats(self):
@@ -264,9 +244,7 @@ class LocalContent:
                     icon="memory",
                     value=self._expansion_states.get("performance", False),
                 ).classes("flex-1 bg-orange-50 border border-orange-200")
-                exp2.on_value_change(
-                    lambda e: self._expansion_states.update({"performance": e.value})
-                )
+                exp2.on_value_change(lambda e: self._expansion_states.update({"performance": e.value}))
                 self._expansions["performance"] = exp2
                 with exp2:
                     memory = psutil.virtual_memory()
@@ -374,9 +352,7 @@ class LocalContent:
                     icon="storage",
                     value=self._expansion_states.get("top_memory", False),
                 ).classes("flex-1 bg-purple-50 border border-purple-200")
-                exp5.on_value_change(
-                    lambda e: self._expansion_states.update({"top_memory": e.value})
-                )
+                exp5.on_value_change(lambda e: self._expansion_states.update({"top_memory": e.value}))
                 self._expansions["top_memory"] = exp5
                 with exp5:
                     try:
@@ -519,9 +495,7 @@ class LocalContent:
                     try:
                         users = psutil.users()
                         current_user = psutil.Process().username()
-                        user_data = [
-                            {"Type": "Current User", "Name": current_user, "Status": "Active"}
-                        ]
+                        user_data = [{"Type": "Current User", "Name": current_user, "Status": "Active"}]
                         for user in users[-3:]:  # Show last 3 users
                             user_data.append(
                                 {
@@ -549,9 +523,7 @@ class LocalContent:
                     icon="code",
                     value=self._expansion_states.get("application", False),
                 ).classes("flex-1 bg-indigo-50 border border-indigo-200")
-                exp10.on_value_change(
-                    lambda e: self._expansion_states.update({"application": e.value})
-                )
+                exp10.on_value_change(lambda e: self._expansion_states.update({"application": e.value}))
                 self._expansions["application"] = exp10
                 with exp10:
                     current_process = psutil.Process()

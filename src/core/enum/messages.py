@@ -191,9 +191,7 @@ class LogMsg(Enum):
     SW_PKG_SUCCESS = "Successfully installed"
     SW_PKG_FAILED = "Missing or failed"
     SW_PKG_ALL_INSTALLED = "All required packages are properly installed!"
-    SW_PKG_MISSING_WARNING = (
-        "Some required packages are missing. Consider installing them manually."
-    )
+    SW_PKG_MISSING_WARNING = "Some required packages are missing. Consider installing them manually."
 
     # System Info
     SYS_INFO_LOG = "Logging system information"

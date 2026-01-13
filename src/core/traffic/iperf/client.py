@@ -126,9 +126,7 @@ class IperfClient(IperfBase):
                     time.sleep(2)
                     return self.start(retry_count=retry_count + 1)
                 return False
-            self._logger.debug(
-                "Connection errors in stderr but stdout shows successful connections - continuing"
-            )
+            self._logger.debug("Connection errors in stderr but stdout shows successful connections - continuing")
 
         if result.rcode != 0:
             self._logger.error(f"Client test failed (rcode={result.rcode}): {result.stderr}")

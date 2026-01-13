@@ -85,9 +85,7 @@ class Cli:
         except ValueError as e:
             raise ValueError(f"Invalid command syntax: {command}") from e
 
-    def get_output(
-        self, proc: subprocess.Popen[str], *, timeout: int | None = None
-    ) -> ProcessResult:
+    def get_output(self, proc: subprocess.Popen[str], *, timeout: int | None = None) -> ProcessResult:
         """Get process output with timeout and return code."""
         timeout = timeout or self._cfg.default_timeout
 
@@ -113,17 +111,13 @@ class Cli:
             logger.exception(f"Error getting output from process {proc.pid}")
             return ProcessResult("", f"Error: {e}", -1)
 
-    def run_and_get_output(
-        self, command: list[str], *, timeout: int | None = None, **kwargs: Any
-    ) -> ProcessResult:
+    def run_and_get_output(self, command: list[str], *, timeout: int | None = None, **kwargs: Any) -> ProcessResult:
         """Run command and get output in one call."""
         proc = self.run_safe(command, **kwargs)
         return self.get_output(proc, timeout=timeout)
 
     @contextmanager
-    def managed_process(
-        self, command: list[str], **kwargs: Any
-    ) -> Generator[subprocess.Popen[str]]:
+    def managed_process(self, command: list[str], **kwargs: Any) -> Generator[subprocess.Popen[str]]:
         """Context manager for automatic process cleanup."""
         proc = self.run_safe(command, **kwargs)
         try:
@@ -189,9 +183,7 @@ class Cli:
     def __enter__(self) -> "Cli":
         return self
 
-    def __exit__(
-        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object
-    ) -> None:
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object) -> None:
         self.terminate_all()
 
     def __len__(self) -> int:

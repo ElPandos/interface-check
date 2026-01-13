@@ -36,9 +36,7 @@ class IParser(ABC):
         """
         clean_data = self._ansi_escape.sub("", raw_data).strip()
         preview = clean_data[:200] if len(clean_data) > 200 else clean_data
-        self._logger.debug(
-            f"[{self.name}] Parsing:\n\n{preview}{'...' if len(clean_data) > 200 else ''}\n"
-        )
+        self._logger.debug(f"[{self.name}] Parsing:\n\n{preview}{'...' if len(clean_data) > 200 else ''}\n")
 
     @property
     @abstractmethod

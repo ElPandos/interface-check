@@ -139,9 +139,7 @@ class MlxlinkDevice(ParsedDevice):
             unit = unit_match.group(1) if unit_match else ""
             parsed_value = float(match.group(1))
             if parsed_value == -40.0:
-                self._logger.debug(
-                    f"Parsed -40.0 from value_str: '{value_str}', matched: '{match.group(1)}'"
-                )
+                self._logger.debug(f"Parsed -40.0 from value_str: '{value_str}', matched: '{match.group(1)}'")
             return ValueWithUnit(parsed_value, unit, value_str)
         return None
 

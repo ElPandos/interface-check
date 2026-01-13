@@ -102,7 +102,5 @@ class MstTool(Tool, ITool):
                 if result.success:
                     response[CmdInputType.NOT_USED.value] = result.stdout
                 else:
-                    response[CmdInputType.NOT_USED.value] = CmdResult.error(
-                        result.stderr, result.rcode
-                    )
+                    response[CmdInputType.NOT_USED.value] = CmdResult.error(result.stderr, result.rcode)
         return response

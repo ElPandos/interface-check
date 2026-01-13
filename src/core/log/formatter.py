@@ -44,9 +44,7 @@ class DynamicWidthFormatter(logging.Formatter):
         """
         # Update global maximums if current values are longer
         _WidthTracker.name_width = max(_WidthTracker.name_width, len(record.name), self.name_width)
-        _WidthTracker.level_width = max(
-            _WidthTracker.level_width, len(record.levelname), self.level_width
-        )
+        _WidthTracker.level_width = max(_WidthTracker.level_width, len(record.levelname), self.level_width)
 
         # Store original values
         original_name = record.name

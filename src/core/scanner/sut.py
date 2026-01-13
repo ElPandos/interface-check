@@ -71,9 +71,7 @@ class SutScanner(BaseScanner):
         try:
             if self._cfg.sut_connect_type == ConnectType.LOCAL:
                 self._logger.info(LogMsg.CMD_LOCAL_EXEC_USED.value)
-                self._ssh = LocalConnection(
-                    host=self._cfg.sut_host, sudo_pass=self._cfg.sut_sudo_pass
-                )
+                self._ssh = LocalConnection(host=self._cfg.sut_host, sudo_pass=self._cfg.sut_sudo_pass)
             else:
                 self._logger.info(f"{LogMsg.SCANNER_SUT_CONN_HOST.value}: {self._cfg.sut_host}")
                 self._logger.debug(f"{LogMsg.SCANNER_SUT_JUMP_HOST.value}: {self._cfg.jump_host}")
@@ -96,9 +94,7 @@ class SutScanner(BaseScanner):
                 stdout, rcode = self._exec_with_logging(cmd, self._logger)  # noqa: RUF059
                 if rcode != 0:
                     result = self._ssh.exec_cmd(cmd)
-                    self._logger.warning(
-                        f"{LogMsg.COMMAND_EXEC_FAILED.value} '{cmd}' (rc={rcode}): {result.stderr}"
-                    )
+                    self._logger.warning(f"{LogMsg.COMMAND_EXEC_FAILED.value} '{cmd}' (rc={rcode}): {result.stderr}")
 
             self._logger.info(LogMsg.SSH_CONN_SUCCESS.value)
         except Exception:
@@ -137,9 +133,7 @@ class SutScanner(BaseScanner):
             self._logger.debug(
                 f"{LogMsg.SCANNER_SUT_PACKAGES_INSTALL.value}: {self._cfg.sut_required_software_packages}"
             )
-            result = self._software_manager.install_required_packages(
-                self._cfg.sut_required_software_packages
-            )
+            result = self._software_manager.install_required_packages(self._cfg.sut_required_software_packages)
             self._logger.info(f"{LogMsg.SCANNER_SUT_SW_COMPLETE.value}: {result}")
         except Exception:
             self._logger.exception(LogMsg.MAIN_SW_INSTALL_FAILED.value)
@@ -158,12 +152,8 @@ class SutScanner(BaseScanner):
 
         try:
             self._logger.info(LogMsg.SW_PKG_VERSION_CHECK.value)
-            self._logger.debug(
-                f"{LogMsg.SCANNER_SUT_PACKAGES_CHECK.value}: {self._cfg.sut_required_software_packages}"
-            )
-            self._software_manager.log_required_package_versions(
-                self._cfg.sut_required_software_packages
-            )
+            self._logger.debug(f"{LogMsg.SCANNER_SUT_PACKAGES_CHECK.value}: {self._cfg.sut_required_software_packages}")
+            self._software_manager.log_required_package_versions(self._cfg.sut_required_software_packages)
         except Exception:
             self._logger.exception(LogMsg.MAIN_SW_VERSION_FAILED.value)
             return False
@@ -273,9 +263,7 @@ class SutScanner(BaseScanner):
         if self._cfg.sut_reload_driver and not self._reload_drivers():
             return
 
-        self._logger.info(
-            f"{LogMsg.SCANNER_SUT_SCAN_INTERFACES.value}: {self._cfg.sut_scan_interfaces}"
-        )
+        self._logger.info(f"{LogMsg.SCANNER_SUT_SCAN_INTERFACES.value}: {self._cfg.sut_scan_interfaces}")
         if not self._start_workers():
             self._logger.warning(LogMsg.MAIN_SCAN_FAILED_START.value)
 
@@ -301,9 +289,7 @@ class SutScanner(BaseScanner):
         """
         try:
             self._logger.info(LogMsg.WORKER_START.value)
-            self._logger.debug(
-                f"{LogMsg.SCANNER_SUT_WORKERS_FOR.value}: {self._cfg.sut_scan_interfaces}"
-            )
+            self._logger.debug(f"{LogMsg.SCANNER_SUT_WORKERS_FOR.value}: {self._cfg.sut_scan_interfaces}")
             self._logger.debug(f"{LogMsg.SCANNER_SUT_SHOW_PARTS.value}: {self._cfg.sut_show_parts}")
 
             skip_mlxlink = ShowPartType.NO_MLXLINK in self._cfg.sut_show_parts
@@ -345,9 +331,7 @@ class SutScanner(BaseScanner):
                     self._create_tx_errors_worker(interface)
                     worker_count += 1
 
-            self._logger.info(
-                f"{LogMsg.SCANNER_WORKERS_CREATED.value}: {worker_count} (SUT monitoring)"
-            )
+            self._logger.info(f"{LogMsg.SCANNER_WORKERS_CREATED.value}: {worker_count} (SUT monitoring)")
         except Exception:
             self._logger.exception(LogMsg.WORKER_FAILED.value)
             return False
@@ -394,9 +378,7 @@ class SutScanner(BaseScanner):
         """
         worker_cfg = WorkerConfig()
         worker_cfg.pre_command = "rm -f /tmp/amber.csv"
-        worker_cfg.command = (
-            f"mlxlink -d {pci_id} --amber_collect /tmp/amber.csv && cat /tmp/amber.csv"
-        )
+        worker_cfg.command = f"mlxlink -d {pci_id} --amber_collect /tmp/amber.csv && cat /tmp/amber.csv"
         worker_cfg.parser = SutMlxlinkAmberParser()
         worker_cfg.logger = self._sut_mxlink_amber_logger
         worker_cfg.scan_interval_ms = self._cfg.sut_scan_interval_high_res_ms

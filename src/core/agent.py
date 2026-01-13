@@ -104,9 +104,7 @@ class Agent:
         for command in commands:
             try:
                 stdout, stderr = self._ssh.exec_command(command, timeout=30)
-                results.append(
-                    TaskResult(command=command, stdout=stdout, stderr=stderr, success=not stderr)
-                )
+                results.append(TaskResult(command=command, stdout=stdout, stderr=stderr, success=not stderr))
             except Exception as e:
                 logger.exception(f"{LogMsg.AGENT_CMD_FAIL.value}: {command}")
                 results.append(TaskResult(command=command, stdout="", stderr=str(e), success=False))
@@ -117,8 +115,7 @@ class Agent:
             "task_id": task_id,
             "status": "completed",
             "results": [
-                {"command": r.command, "stdout": r.stdout, "stderr": r.stderr, "success": r.success}
-                for r in results
+                {"command": r.command, "stdout": r.stdout, "stderr": r.stderr, "success": r.success} for r in results
             ],
             "analysis": analysis.__dict__,
             "timestamp": dt.now(UTC).isoformat(),
@@ -212,16 +209,12 @@ class Agent:
                 # Check for high error rates
                 for counter in ["rx_errors", "tx_errors", "rx_dropped", "tx_dropped"]:
                     if counter in stats and stats[counter] > 1000:
-                        recommendations.append(
-                            f"High {counter}: {stats[counter]} - investigate network issues"
-                        )
+                        recommendations.append(f"High {counter}: {stats[counter]} - investigate network issues")
 
             elif "sar -n DEV" in result.command:
                 metrics["network_activity"] = self._parse_sar_output(result.str_out)
 
-        return TaskAnalysis(
-            summary="Performance Analysis", metrics=metrics, recommendations=recommendations
-        )
+        return TaskAnalysis(summary="Performance Analysis", metrics=metrics, recommendations=recommendations)
 
     def _analyze_diagnostics(self, results: list[TaskResult]) -> TaskAnalysis:
         """Analyze link diagnostics and hardware tests.
@@ -369,9 +362,7 @@ class Agent:
                     }
         return {"interfaces": interfaces}
 
-    def _analyze_interface_stats(
-        self, stdout: str, issues: list[str], recommendations: list[str]
-    ) -> None:
+    def _analyze_interface_stats(self, stdout: str, issues: list[str], recommendations: list[str]) -> None:
         """Analyze interface statistics from /proc/net/dev.
 
         Args:
@@ -387,9 +378,7 @@ class Agent:
                         rx_errors = int(parts[3]) if parts[3].isdigit() else 0
                         tx_errors = int(parts[11]) if parts[11].isdigit() else 0
                         if rx_errors > 0 or tx_errors > 0:
-                            issues.append(
-                                f"Interface errors detected: RX={rx_errors}, TX={tx_errors}"
-                            )
+                            issues.append(f"Interface errors detected: RX={rx_errors}, TX={tx_errors}")
                             recommendations.append("Investigate error causes and check hardware")
                     except (ValueError, IndexError):
                         continue

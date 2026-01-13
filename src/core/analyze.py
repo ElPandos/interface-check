@@ -69,9 +69,7 @@ class AnalyzeGraphs:
         return result
 
     @staticmethod
-    def add_event_markers(
-        fig: go.Figure, df_flaps: pd.DataFrame, df_tx_errors: pd.DataFrame | None = None
-    ) -> None:
+    def add_event_markers(fig: go.Figure, df_flaps: pd.DataFrame, df_tx_errors: pd.DataFrame | None = None) -> None:
         """Add flap and tx_error markers to figure."""
         shapes = []
 
@@ -131,9 +129,7 @@ class AnalyzeGraphs:
 
         if not flap_log.exists():
             self.logger.warning(f"Flap log file not found: {flap_log}")
-            self.df_flaps = pd.DataFrame(
-                columns=["down_timestamp", "up_timestamp", "interface", "duration"]
-            )
+            self.df_flaps = pd.DataFrame(columns=["down_timestamp", "up_timestamp", "interface", "duration"])
             return
 
         strip_log_file(flap_log, flap_csv)
@@ -143,14 +139,10 @@ class AnalyzeGraphs:
             if not self.df_flaps.empty:
                 self.df_flaps["down_timestamp"] = pd.to_datetime(self.df_flaps["down_timestamp"])
                 if "up_timestamp" in self.df_flaps.columns:
-                    self.df_flaps["up_timestamp"] = pd.to_datetime(
-                        self.df_flaps["up_timestamp"], errors="coerce"
-                    )
+                    self.df_flaps["up_timestamp"] = pd.to_datetime(self.df_flaps["up_timestamp"], errors="coerce")
         except (pd.errors.EmptyDataError, FileNotFoundError):
             self.logger.warning("No link flap events found")
-            self.df_flaps = pd.DataFrame(
-                columns=["down_timestamp", "up_timestamp", "interface", "duration"]
-            )
+            self.df_flaps = pd.DataFrame(columns=["down_timestamp", "up_timestamp", "interface", "duration"])
 
     def load_logs(self) -> None:
         """Load and process all log files."""
@@ -162,9 +154,7 @@ class AnalyzeGraphs:
 
             files = get_files_with_prefix(str(self.log_dir), log.value)
             filtered_files = [
-                f
-                for f in files
-                if not any(skip in f.stem for skip in self.SKIP_LOGS) and f.stat().st_size > 0
+                f for f in files if not any(skip in f.stem for skip in self.SKIP_LOGS) and f.stat().st_size > 0
             ]
 
             for f in filtered_files:
@@ -205,9 +195,7 @@ class AnalyzeGraphs:
             df_tx["tx_errors_num"] = pd.to_numeric(df_tx["tx_errors"], errors="coerce")
             self.df_tx_errors = df_tx[df_tx["tx_errors_num"] > 0][["timestamp"]].copy()
 
-    def prepare_dataframe(
-        self, df: pd.DataFrame
-    ) -> tuple[pd.DataFrame | None, list[str], str | None]:
+    def prepare_dataframe(self, df: pd.DataFrame) -> tuple[pd.DataFrame | None, list[str], str | None]:
         """Prepare dataframe with timestamps and numeric columns.
 
         Returns:
@@ -275,9 +263,7 @@ class AnalyzeGraphs:
         fig.write_html(metric_html, config={"displayModeBar": False})
         self.logger.info(f"  {col}: {metric_html}")
 
-    def create_combined_graph(
-        self, log_name: str, df_interp: pd.DataFrame, original_cols: list[str]
-    ) -> None:
+    def create_combined_graph(self, log_name: str, df_interp: pd.DataFrame, original_cols: list[str]) -> None:
         """Create combined HTML with all metrics in subplots."""
         valid_cols = [
             col
@@ -385,9 +371,7 @@ class AnalyzeGraphs:
             self.logger.warning(f"  No timestamp column in {log_name}, skipping")
             return
 
-        df_interp = self.interpolate_to_timeline(
-            df_prep[["timestamp"] + numeric_cols], self.master_timeline
-        )
+        df_interp = self.interpolate_to_timeline(df_prep[["timestamp"] + numeric_cols], self.master_timeline)
 
         original_cols = [col for col in df_log.columns if col not in ["timestamp", ts_col]]
 

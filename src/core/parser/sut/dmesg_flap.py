@@ -114,9 +114,7 @@ class SutDmesgFlapParser(IParser):
             if not ts or ts <= self._start_time:
                 continue
 
-            event = DmesgEvent(
-                timestamp=ts, state=match.group("state").lower(), interface=match.group("iface")
-            )
+            event = DmesgEvent(timestamp=ts, state=match.group("state").lower(), interface=match.group("iface"))
             events_by_iface.setdefault(event.interface, []).append(event)
 
         # Pair down->up events into flaps

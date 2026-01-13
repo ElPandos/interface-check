@@ -243,15 +243,11 @@ class IperfBase(ABC):
         # Try apt first
         result = self._conn.exec_cmd("which apt-get", timeout=5)
         if result.success:
-            result = self._conn.exec_cmd(
-                f"apt-get update && apt-get install -y {package}", timeout=120
-            )
+            result = self._conn.exec_cmd(f"apt-get update && apt-get install -y {package}", timeout=120)
             if result.success:
                 self._logger.info(f"'{package}' {LogMsg.TRAFFIC_SW_INSTALL_SUCCESS_APT.value}")
                 return True
-            self._logger.error(
-                f"{LogMsg.TRAFFIC_SW_INSTALL_FAIL_APT.value} {package}: {result.stderr}"
-            )
+            self._logger.error(f"{LogMsg.TRAFFIC_SW_INSTALL_FAIL_APT.value} {package}: {result.stderr}")
             return False
 
         # Try yum
@@ -261,9 +257,7 @@ class IperfBase(ABC):
             if result.success:
                 self._logger.info(f"{package} {LogMsg.TRAFFIC_SW_INSTALL_SUCCESS_YUM.value}")
                 return True
-            self._logger.error(
-                f"{LogMsg.TRAFFIC_SW_INSTALL_FAIL_YUM.value} {package}: {result.stderr}"
-            )
+            self._logger.error(f"{LogMsg.TRAFFIC_SW_INSTALL_FAIL_YUM.value} {package}: {result.stderr}")
             return False
 
         self._logger.error(LogMsg.TRAFFIC_SW_NO_PKG_MGR.value)
@@ -399,9 +393,7 @@ class IperfBase(ABC):
             True if port is reachable
         """
         conn_type = type(self._conn).__name__
-        self._logger.info(
-            f"{LogMsg.TRAFFIC_PORT_CHECK.value} {port} on {host}... (via {conn_type})"
-        )
+        self._logger.info(f"{LogMsg.TRAFFIC_PORT_CHECK.value} {port} on {host}... (via {conn_type})")
         self._logger.debug(f"Connection details: {conn_type} checking {host}:{port}")
 
         # First check if we can reach the host at all
@@ -426,9 +418,7 @@ class IperfBase(ABC):
         self._logger.error(f"Return code: {result.rcode}")
         self._logger.error(f"Stdout: {result.stdout[:200] if result.stdout else 'empty'}")
         self._logger.error(f"Stderr: {result.stderr[:200] if result.stderr else 'empty'}")
-        self._logger.debug(
-            f"Port check failed from {getattr(self._conn, '_host', 'local')} to {host}:{port}"
-        )
+        self._logger.debug(f"Port check failed from {getattr(self._conn, '_host', 'local')} to {host}:{port}")
         return False
 
     def validate_results(self, stats: list[IperfStats]) -> tuple[bool, str]:

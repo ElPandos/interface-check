@@ -67,9 +67,7 @@ class IperfMonitor:
             if not conn.is_connected():
                 return []
 
-            result = conn.exec_cmd(
-                "ps -eo pid,pcpu,pmem,cmd | grep '[i]perf' | head -20", timeout=5
-            )
+            result = conn.exec_cmd("ps -eo pid,pcpu,pmem,cmd | grep '[i]perf' | head -20", timeout=5)
             stdout = result.stdout if hasattr(result, "stdout") else str(result)
             processes = []
             for line in stdout.strip().split("\n"):
@@ -79,9 +77,7 @@ class IperfMonitor:
                 if len(parts) >= 4 and "iperf" in parts[3]:
                     cmd = parts[3][:100]
                     # Skip sudo/nohup wrapper processes
-                    if "sudo -S" in cmd or (
-                        "nohup" in cmd and "iperf" not in cmd.split("nohup")[1].split()[0]
-                    ):
+                    if "sudo -S" in cmd or ("nohup" in cmd and "iperf" not in cmd.split("nohup")[1].split()[0]):
                         continue
                     bind_ip = host_ip
 
@@ -136,12 +132,8 @@ class IperfMonitor:
             bandwidths = []
 
             # Parse server logs from /tmp
-            result = self._server_conn.exec_cmd(
-                "ls -lh /tmp/iperf_server_*.log 2>/dev/null", timeout=5
-            )
-            self._logger.info(
-                f"Log files check: rcode={result.rcode}, stdout='{result.stdout.strip()}'"
-            )
+            result = self._server_conn.exec_cmd("ls -lh /tmp/iperf_server_*.log 2>/dev/null", timeout=5)
+            self._logger.info(f"Log files check: rcode={result.rcode}, stdout='{result.stdout.strip()}'")
 
             if result.rcode == 0 and result.stdout.strip():
                 log_files = [line.split()[-1] for line in result.stdout.strip().split("\n") if line]
@@ -183,13 +175,9 @@ class IperfMonitor:
                                             break
                                         except (ValueError, IndexError) as e:
                                             self._logger.debug(f"Parse error on '{line}': {e}")
-                        self._logger.info(
-                            f"Parsed {lines_with_data} lines with bandwidth data from {log_file}"
-                        )
+                        self._logger.info(f"Parsed {lines_with_data} lines with bandwidth data from {log_file}")
                         if interface_bw:
-                            self._interface_stats[port] = interface_bw[
-                                -10:
-                            ]  # Keep last 10 samples per interface
+                            self._interface_stats[port] = interface_bw[-10:]  # Keep last 10 samples per interface
 
             if bandwidths:
                 bandwidths = bandwidths[-500:]

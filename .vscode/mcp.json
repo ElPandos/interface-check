@@ -1,74 +1,74 @@
 {
-	"inputs": [
-		{
-			"id": "ENV_CODACY_ACCOUNT_TOKEN",
-			"type": "promptString",
-			"description": "Codacy account token",
-			"password": true
-		},
-		{
-			"id": "ENV_MEMORY_FILE",
-			"type": "promptString",
-			"description": "Path to the memory storage file",
-			"password": true
-		},
-		{
-			"id": "ENV_FIRECRAWL_API_KEY",
-			"type": "promptString",
-			"description": "Firecrawl API Key (get from https://www.firecrawl.dev/app/api-keys)",
-			"password": true
-		}
-	],
-	"servers": {
-		"powertools": {
-			"type": "stdio",
-			"command": "npx",
-			"args": [
-				"-y",
-				"powertools-for-aws-mcp"
-			]
-		},
-		"github": {
-			"type": "http",
-			"url": "https://api.githubcopilot.com/mcp/"
-		},
-		"hf-mcp-server": {
-			"type": "http",
-			"url": "https://huggingface.co/mcp?login"
-		},
-		"deepwiki": {
-			"type": "http",
-			"url": "https://mcp.deepwiki.com/sse"
-		},
-		"sequentialthinking": {
-			"type": "stdio",
-			"command": "npx",
-			"args": [
-				"-y",
-				"@modelcontextprotocol/server-sequential-thinking@latest"
-			]
-		},
-		"memory": {
-			"type": "stdio",
-			"command": "npx",
-			"args": [
-				"-y",
-				"@modelcontextprotocol/server-memory@latest"
-			],
-			"env": {
-				"MEMORY_FILE_PATH": "${secrets:ENV_MEMORY_FILE}"
-			}
-		},
-		"firecrawl": {
-			"type": "stdio",
-			"command": "npx",
-			"args": [
-				"-y",
-				"firecrawl-mcp@latest"
-			],
-			"env": {
-				"FIRECRAWL_API_KEY": "${secrets:ENV_FIRECRAWL_API_KEY}"
-			}
-		}
-	}
+    "inputs": [
+        {
+            "id": "ENV_CODACY_ACCOUNT_TOKEN",
+            "type": "promptString",
+            "description": "Codacy account token",
+            "password": true
+        },
+        {
+            "id": "ENV_MEMORY_FILE",
+            "type": "promptString",
+            "description": "Path to the memory storage file",
+            "password": true
+        },
+        {
+            "id": "ENV_FIRECRAWL_API_KEY",
+            "type": "promptString",
+            "description": "Firecrawl API Key (get from https://www.firecrawl.dev/app/api-keys)",
+            "password": true
+        }
+    ],
+    "servers": {
+        "powertools": {
+            "type": "stdio",
+            "command": "npx",
+            "args": [
+                "-y",
+                "powertools-for-aws-mcp"
+            ]
+        },
+        "github": {
+            "type": "http",
+            "url": "https://api.githubcopilot.com/mcp/"
+        },
+        "hf-mcp-server": {
+            "type": "http",
+            "url": "https://huggingface.co/mcp?login"
+        },
+        "deepwiki": {
+            "type": "http",
+            "url": "https://mcp.deepwiki.com/sse"
+        },
+        "sequentialthinking": {
+            "type": "stdio",
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-sequential-thinking@latest"
+            ]
+        },
+        "memory": {
+            "type": "stdio",
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-memory@latest"
+            ],
+            "env": {
+                "MEMORY_FILE_PATH": "${secrets:ENV_MEMORY_FILE}"
+            }
+        },
+        "firecrawl": {
+            "type": "stdio",
+            "command": "npx",
+            "args": [
+                "-y",
+                "firecrawl-mcp@latest"
+            ],
+            "env": {
+                "FIRECRAWL_API_KEY": "${secrets:ENV_FIRECRAWL_API_KEY}"
+            }
+        }
+    }
 }

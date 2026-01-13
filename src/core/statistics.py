@@ -139,9 +139,7 @@ class WorkerStatistics:
         """
         if command not in self._stats:
             self._stats[command] = WorkerStats(command)
-        self._stats[command].add_duration(
-            duration_ms, send_ms, read_ms, cycle_ms, parsed_ms, timestamp
-        )
+        self._stats[command].add_duration(duration_ms, send_ms, read_ms, cycle_ms, parsed_ms, timestamp)
 
     def get_summary(self) -> str:
         """Generate summary report of all worker statistics.
@@ -166,12 +164,8 @@ class WorkerStatistics:
             # Calculate averages
             send_avg = sum(stats.send_times) / len(stats.send_times) if stats.send_times else 0.0
             read_avg = sum(stats.read_times) / len(stats.read_times) if stats.read_times else 0.0
-            cycle_avg = (
-                sum(stats.cycle_times) / len(stats.cycle_times) if stats.cycle_times else 0.0
-            )
-            parsed_avg = (
-                sum(stats.parsed_times) / len(stats.parsed_times) if stats.parsed_times else 0.0
-            )
+            cycle_avg = sum(stats.cycle_times) / len(stats.cycle_times) if stats.cycle_times else 0.0
+            parsed_avg = sum(stats.parsed_times) / len(stats.parsed_times) if stats.parsed_times else 0.0
             delay = cycle_avg - mean if cycle_avg > 0 else 0.0
 
             # Command header

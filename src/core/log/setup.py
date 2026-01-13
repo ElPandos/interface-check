@@ -39,7 +39,7 @@ def get_log_level(config_file: str | None = None) -> int:
     try:
         if config_file is None:
             config_file = "main_scan_cfg.json"
-        
+
         if getattr(sys, "frozen", False):
             config_path = Path(sys.executable).parent / config_file
         else:
@@ -98,9 +98,7 @@ def setup_component_loggers(log_dir: Path, log_level: int) -> dict[str, logging.
     Returns:
         dict[str, logging.Logger]: Dictionary of configured loggers
     """
-    logger_configs = [(LogName.MAIN, None)] + [
-        (log, f"{log.value}.log") for log in LogName if log != LogName.MAIN
-    ]
+    logger_configs = [(LogName.MAIN, None)] + [(log, f"{log.value}.log") for log in LogName if log != LogName.MAIN]
 
     loggers = {}
     for logger_enum, log_file in logger_configs:

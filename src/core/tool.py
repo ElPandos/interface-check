@@ -107,9 +107,7 @@ class Tool:
                 output = self._ssh.exec_shell_cmd(cmd)
                 cmd_result = CmdResult(cmd=cmd, stdout=output, stderr="", exec_time=0.0, rcode=0)
             else:
-                cmd_result = self._ssh.exec_cmd(
-                    cmd, timeout=timeout, use_time_cmd=use_time_cmd, logger=exec_log
-                )
+                cmd_result = self._ssh.exec_cmd(cmd, timeout=timeout, use_time_cmd=use_time_cmd, logger=exec_log)
 
             if cmd_result.success:
                 log.debug(f"{LogMsg.CMD_EXEC_SUCCESS.value}: '{cmd}'")

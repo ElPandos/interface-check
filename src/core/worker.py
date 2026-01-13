@@ -223,9 +223,7 @@ class Worker(Thread, ITime):
         # Mark ALL active loggers for rotation (not just flap logger)
         if "active_loggers" in self._shared_flap_state:
             active_count = len(self._shared_flap_state["active_loggers"])
-            main_logger.info(
-                f"Flap detected on {flap.interface}, marking {active_count} active loggers for rotation"
-            )
+            main_logger.info(f"Flap detected on {flap.interface}, marking {active_count} active loggers for rotation")
             for logger_name in self._shared_flap_state["active_loggers"]:
                 _mark_logger_for_rotation(logger_name, self._shared_flap_state)
 
@@ -250,9 +248,7 @@ class Worker(Thread, ITime):
         if self._time_cmd_enabled:
             row.append(f"{parsed_ms:.3f}")
         if self._worker_cfg.attributes is not None:
-            row.extend(
-                get_attr_value(sample.snapshot, attr) for attr in self._worker_cfg.attributes
-            )
+            row.extend(get_attr_value(sample.snapshot, attr) for attr in self._worker_cfg.attributes)
         else:
             row.append(sample.snapshot)
         self._logger.info(",".join(row))
@@ -291,9 +287,7 @@ class Worker(Thread, ITime):
                     parsed_data = self._worker_cfg.attribute_parser.parse(result.stdout)
                     if isinstance(parsed_data, dict):
                         self._worker_cfg.attributes = list(parsed_data.keys())
-                        self._logger.debug(
-                            f"Collected {len(self._worker_cfg.attributes)} attributes"
-                        )
+                        self._logger.debug(f"Collected {len(self._worker_cfg.attributes)} attributes")
             except Exception:
                 self._logger.exception("Attribute collection failed")
 
@@ -339,9 +333,7 @@ class Worker(Thread, ITime):
                 self._collected_samples.put(sample)
 
                 # Log sample value
-                timestamp = (
-                    sample.begin.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] if sample.begin else ""
-                )
+                timestamp = sample.begin.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3] if sample.begin else ""
 
                 # Skip logging if parser returned None (no change detected)
                 if sample.snapshot is None:
@@ -375,9 +367,7 @@ class Worker(Thread, ITime):
                     f"Worker error - Attempt {reconnect}/{self.MAX_RECONNECT} - Command: {self._worker_cfg.command}"
                 )
                 if reconnect >= self.MAX_RECONNECT:
-                    self._logger.critical(
-                        f"Worker {self.name} exceeded max reconnect attempts. Thread will exit."
-                    )
+                    self._logger.critical(f"Worker {self.name} exceeded max reconnect attempts. Thread will exit.")
                 time.sleep(min(reconnect, 5))  # Exponential backoff up to 5s
 
         # Cleanup: disconnect SSH connection
@@ -463,9 +453,7 @@ class Worker(Thread, ITime):
             collection: Collection to measure
         """
         self._logger.debug(f"({__name__}) Extracted list size: {len(collection)}")
-        self._logger.debug(
-            f"Mem size of extracted list: {round(asizeof.asizeof(collection) / (1024 * 1024), 2)} Mb"
-        )
+        self._logger.debug(f"Mem size of extracted list: {round(asizeof.asizeof(collection) / (1024 * 1024), 2)} Mb")
 
     def get_extracted_samples(self) -> list[Sample]:
         """Get extracted samples.
@@ -514,11 +502,7 @@ class Worker(Thread, ITime):
         Returns:
             List of samples within time range
         """
-        return [
-            s
-            for s in self.collected_samples.get()
-            if hasattr(s, "begin") and start <= s.begin <= end
-        ]
+        return [s for s in self.collected_samples.get() if hasattr(s, "begin") and start <= s.begin <= end]
 
     def group_by_type(self) -> dict[str, list[Sample]]:
         """Group samples by their class name.
@@ -605,17 +589,13 @@ class WorkManager:
 
     def clear(self) -> None:
         """Clear worker pool."""
-        self._logger.debug(
-            f"{LogMsg.WORKER_POOL_CLEARING.value} {len(self._work_pool)} workers from pool"
-        )
+        self._logger.debug(f"{LogMsg.WORKER_POOL_CLEARING.value} {len(self._work_pool)} workers from pool")
         self._work_pool.clear()
         self._logger.debug(LogMsg.WORKER_POOL_CLEARED.value)
 
     def stop_all(self) -> None:
         """Stop all workers in pool and wait for completion."""
-        self._logger.debug(
-            f"{LogMsg.WORKER_POOL_STOP.value} {len(self._work_pool)} workers in pool"
-        )
+        self._logger.debug(f"{LogMsg.WORKER_POOL_STOP.value} {len(self._work_pool)} workers in pool")
         for w in self._work_pool:
             w.close_and_wait()
             self._logger.debug(f"{LogMsg.WORKER_STOPPED_NAME.value} '{w.name}'")

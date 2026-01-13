@@ -56,9 +56,7 @@ class SutTimeParser(IParser):
             minutes = int(match.group(1))
             seconds = float(match.group(2).replace(",", "."))
             self._real_time_ms = (minutes * 60 + seconds) * 1000
-            self._logger.debug(
-                f"[{self.name}] Bash format: {minutes} m {seconds}s -> {self._real_time_ms:.3f}ms"
-            )
+            self._logger.debug(f"[{self.name}] Bash format: {minutes} m {seconds}s -> {self._real_time_ms:.3f}ms")
             return
 
         # Try zsh format
@@ -66,9 +64,7 @@ class SutTimeParser(IParser):
         if match:
             seconds = float(match.group(1).replace(",", "."))
             self._real_time_ms = seconds * 1000
-            self._logger.debug(
-                f"[{self.name}] Zsh format: {seconds}s -> {self._real_time_ms:.3f}ms"
-            )
+            self._logger.debug(f"[{self.name}] Zsh format: {seconds}s -> {self._real_time_ms:.3f}ms")
             return
 
         # Try GNU time format (0:00.10elapsed)

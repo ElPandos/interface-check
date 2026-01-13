@@ -10,9 +10,7 @@ from src.ui.handlers.host import HostManager
 class HostSelector:
     """Reusable host selector component."""
 
-    def __init__(
-        self, host_manager: HostManager, on_change: Callable[[int | None], None] | None = None
-    ) -> None:
+    def __init__(self, host_manager: HostManager, on_change: Callable[[int | None], None] | None = None) -> None:
         self._host_manager = host_manager
         self._on_change = on_change
         self._selector = None

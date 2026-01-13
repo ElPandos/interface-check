@@ -13,9 +13,7 @@ class Host(BaseModel):
     password: SecretStr = SecretStr("")
     info: str = ""
 
-    model_config: ClassVar[ConfigDict] = ConfigDict(
-        json_encoders={SecretStr: lambda v: v.get_secret_value()}
-    )
+    model_config: ClassVar[ConfigDict] = ConfigDict(json_encoders={SecretStr: lambda v: v.get_secret_value()})
 
     @classmethod
     def default_jump(cls) -> "Host":
@@ -24,9 +22,7 @@ class Host(BaseModel):
         Returns:
             Default jump host
         """
-        return cls(
-            ip="137.58.231.134", username="emvekta", password=SecretStr("a"), info="Default value"
-        )
+        return cls(ip="137.58.231.134", username="emvekta", password=SecretStr("a"), info="Default value")
 
     @classmethod
     def default_target(cls) -> "Host":

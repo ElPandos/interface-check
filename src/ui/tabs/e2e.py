@@ -58,9 +58,7 @@ class E2ePanel(BasePanel, MultiScreen):
                 ui.space()
 
                 if screen_num not in self._e2e_screens:
-                    self._e2e_screens[screen_num] = E2eContent(
-                        None, self._host_handler, self._cfg, self, screen_num
-                    )
+                    self._e2e_screens[screen_num] = E2eContent(None, self._host_handler, self._cfg, self, screen_num)
 
                 # Route selector in header
                 e2e_content = self._e2e_screens[screen_num]
@@ -103,13 +101,13 @@ class E2eContent:
         """Build E2E testing interface for the screen."""
         # E2E test controls
         with ui.row().classes("w-full gap-2 mt-2"):
-            self._buttons["test"] = ui.button(
-                "Run E2E Tests", icon="play_arrow", on_click=self._run_e2e_tests
-            ).classes("bg-blue-500 hover:bg-blue-600 text-white")
+            self._buttons["test"] = ui.button("Run E2E Tests", icon="play_arrow", on_click=self._run_e2e_tests).classes(
+                "bg-blue-500 hover:bg-blue-600 text-white"
+            )
 
-            self._buttons["clear"] = ui.button(
-                "Clear Results", icon="clear", on_click=self._clear_results
-            ).classes("bg-gray-500 hover:bg-gray-600 text-white")
+            self._buttons["clear"] = ui.button("Clear Results", icon="clear", on_click=self._clear_results).classes(
+                "bg-gray-500 hover:bg-gray-600 text-white"
+            )
 
         # Test results area
         with ui.column().classes("w-full mt-4"):

@@ -279,9 +279,7 @@ def write_summary_to_csv(summaries: list[dict], csv_file: Path, logger: logging.
 # ---------------------------------------------------------------------------- #
 
 
-def _connect_to_host(
-    conn: IConnection, host: str, host_type: IperfHostType, logger: logging.Logger
-) -> bool:
+def _connect_to_host(conn: IConnection, host: str, host_type: IperfHostType, logger: logging.Logger) -> bool:
     """Establish connection to a single host.
 
     Returns:
@@ -296,9 +294,7 @@ def _connect_to_host(
     return True
 
 
-def setup_connections(
-    cfg: TrafficConfig, logger: logging.Logger
-) -> tuple[IConnection, IConnection] | None:
+def setup_connections(cfg: TrafficConfig, logger: logging.Logger) -> tuple[IConnection, IConnection] | None:
     """Setup and validate connections to server and client hosts.
 
     Creates SSH/local connections and validates connectivity before proceeding.
@@ -474,9 +470,7 @@ def _disconnect_connection(conn: IConnection, conn_type: str, logger: logging.Lo
         conn.disconnect()
     except Exception as e:
         msg = (
-            LogMsg.TRAFFIC_CLIENT_DISCONNECT.value
-            if conn_type == "client"
-            else LogMsg.TRAFFIC_SERVER_DISCONNECT.value
+            LogMsg.TRAFFIC_CLIENT_DISCONNECT.value if conn_type == "client" else LogMsg.TRAFFIC_SERVER_DISCONNECT.value
         )
         logger.exception(f"{msg}: {e}")
 
@@ -626,9 +620,7 @@ def _load_and_validate_config(logger: logging.Logger) -> TrafficConfig | None:
     return cfg
 
 
-def _prepare_csv_files(
-    log_dir: Path, cfg: TrafficConfig, logger: logging.Logger
-) -> tuple[Path, Path, Path]:
+def _prepare_csv_files(log_dir: Path, cfg: TrafficConfig, logger: logging.Logger) -> tuple[Path, Path, Path]:
     """Prepare CSV files for statistics and metadata.
 
     Returns:
@@ -789,9 +781,7 @@ def main():
     server_started = False
 
     try:
-        if not _check_software_and_cleanup(
-            servers, reverse_servers, server_conn, client_conn, logger
-        ):
+        if not _check_software_and_cleanup(servers, reverse_servers, server_conn, client_conn, logger):
             return
 
         if not _start_iperf_servers(servers, reverse_servers, cfg, logger, monitor):

@@ -62,9 +62,7 @@ class LogPanel(BasePanel, MultiScreen):
                 ui.space()
 
                 if screen_num not in self._log_screens:
-                    self._log_screens[screen_num] = LogContent(
-                        None, self._host_handler, self._cfg, self, screen_num
-                    )
+                    self._log_screens[screen_num] = LogContent(None, self._host_handler, self._cfg, self, screen_num)
 
                 # Route selector in header
                 log_content = self._log_screens[screen_num]
@@ -112,9 +110,9 @@ class LogContent:
             self._buttons["clear"] = ui.button(
                 icon="cleaning_services", text="Clear", on_click=self._clear_log
             ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs")
-            self._buttons["debug"] = ui.button(
-                icon="bug_report", text="Debug", on_click=self._debug_log
-            ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs")
+            self._buttons["debug"] = ui.button(icon="bug_report", text="Debug", on_click=self._debug_log).classes(
+                "bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs"
+            )
             self._buttons["remote"] = ui.button(
                 icon="terminal", text="Remote", on_click=self._run_remote_async
             ).classes("bg-blue-300 hover:bg-blue-400 text-blue-900 px-2 py-1 text-xs")
@@ -122,16 +120,14 @@ class LogContent:
                 icon="settings", text="Settings", on_click=self._dump_settings
             ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs")
             ui.space()
-            self._buttons["save"] = ui.button(
-                icon="save", text="Save", on_click=self._save_log
-            ).classes("bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs")
+            self._buttons["save"] = ui.button(icon="save", text="Save", on_click=self._save_log).classes(
+                "bg-gray-300 hover:bg-gray-400 text-gray-800 px-2 py-1 text-xs"
+            )
 
         self._update_button_states()
 
         # Log component
-        self._log_component = ui.log(max_lines=self._MAX_LINES).classes(
-            "w-full h-64 overflow-auto p-2 bg-gray-100"
-        )
+        self._log_component = ui.log(max_lines=self._MAX_LINES).classes("w-full h-64 overflow-auto p-2 bg-gray-100")
 
     def _on_route_change(self, e: Any) -> None:
         """Handle route selection change."""
@@ -218,16 +214,12 @@ class LogContent:
             dialog = ui.dialog()
 
             with dialog, ui.card().classes("w-96 bg-white border border-gray-300 shadow-lg"):
-                ui.label("Remote Command").classes(
-                    "text-xl font-bold mb-6 text-center text-gray-800"
-                )
+                ui.label("Remote Command").classes("text-xl font-bold mb-6 text-center text-gray-800")
 
                 with ui.card().classes("w-full p-4 bg-gray-50 border border-gray-200 mb-4"):
                     ui.label("Command details").classes("font-semibold mb-3 text-gray-700")
                     input_field = ui.input("Command", placeholder="ls -la").classes("w-full")
-                    input_field.props("outlined").tooltip(
-                        "Enter the command to execute on remote host"
-                    )
+                    input_field.props("outlined").tooltip("Enter the command to execute on remote host")
 
                 with ui.row().classes("w-full mt-6"):
                     ui.button(

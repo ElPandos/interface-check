@@ -112,9 +112,7 @@ class Configure:
         formatter = create_formatter("config")
 
         handlers = [
-            RotatingFileHandler(
-                self._log_file, maxBytes=20 * 1024 * 1024, backupCount=5, encoding="utf-8"
-            ),
+            RotatingFileHandler(self._log_file, maxBytes=20 * 1024 * 1024, backupCount=5, encoding="utf-8"),
             logging.StreamHandler(),
         ]
 

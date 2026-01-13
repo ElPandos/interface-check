@@ -105,21 +105,21 @@ class SystemContent:
         """Build system interface for the screen."""
         # System controls
         with ui.row().classes("w-full gap-2 mt-2 flex-wrap"):
-            self._buttons["system"] = ui.button(
-                "System Info", icon="info", on_click=self._get_system_info
-            ).classes("bg-green-500 hover:bg-green-600 text-white")
+            self._buttons["system"] = ui.button("System Info", icon="info", on_click=self._get_system_info).classes(
+                "bg-green-500 hover:bg-green-600 text-white"
+            )
 
-            self._buttons["cpu"] = ui.button(
-                "CPU Info", icon="memory", on_click=self._get_cpu_info
-            ).classes("bg-blue-500 hover:bg-blue-600 text-white")
+            self._buttons["cpu"] = ui.button("CPU Info", icon="memory", on_click=self._get_cpu_info).classes(
+                "bg-blue-500 hover:bg-blue-600 text-white"
+            )
 
-            self._buttons["memory"] = ui.button(
-                "Memory Info", icon="storage", on_click=self._get_memory_info
-            ).classes("bg-purple-500 hover:bg-purple-600 text-white")
+            self._buttons["memory"] = ui.button("Memory Info", icon="storage", on_click=self._get_memory_info).classes(
+                "bg-purple-500 hover:bg-purple-600 text-white"
+            )
 
-            self._buttons["clear"] = ui.button(
-                "Clear", icon="clear", on_click=self._clear_info
-            ).classes("bg-gray-500 hover:bg-gray-600 text-white")
+            self._buttons["clear"] = ui.button("Clear", icon="clear", on_click=self._clear_info).classes(
+                "bg-gray-500 hover:bg-gray-600 text-white"
+            )
 
         # System information display
         with ui.column().classes("w-full mt-4"):

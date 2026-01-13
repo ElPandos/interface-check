@@ -88,9 +88,7 @@ def _mark_logger_for_rotation(logger_key: str, shared_flap_state: dict) -> None:
     main_logger.debug(f"Rotation: Marked {logger_key} for rotation (flap detected)")
 
 
-def _clear_logger_flap_state(
-    logger_key: str, shared_flap_state: dict, has_rotated_since_flap: dict[str, bool]
-) -> None:
+def _clear_logger_flap_state(logger_key: str, shared_flap_state: dict, has_rotated_since_flap: dict[str, bool]) -> None:
     """Clear flap state for specific logger after rotation.
 
     Args:
@@ -158,16 +156,12 @@ def check_and_rotate_log(
             f"Rotation: {logger_key} rotating to _{log_rotation_count[logger_key] + 1} "
             f"(size={file_size_kb:.1f}KB, flap_marked=True)"
         )
-        _rotate_to_new_file(
-            log_file, logger, logger_key, log_rotation_count, keep_header, csv_header
-        )
+        _rotate_to_new_file(log_file, logger, logger_key, log_rotation_count, keep_header, csv_header)
         # Clear this logger's flap state after rotation
         _clear_logger_flap_state(logger_key, shared_flap_state, has_rotated_since_flap)
     else:
         # No flap for this logger - clear and reuse
-        main_logger.info(
-            f"Rotation: {logger_key} clearing file (size={file_size_kb:.1f}KB, flap_marked=False)"
-        )
+        main_logger.info(f"Rotation: {logger_key} clearing file (size={file_size_kb:.1f}KB, flap_marked=False)")
         _clear_log_file(log_file, logger, keep_header, csv_header)
 
 
@@ -195,9 +189,7 @@ def _rotate_to_new_file(
         if "_" in log_file.stem and log_file.stem.split("_")[-1].isdigit()
         else log_file.stem
     )
-    new_log_file = log_file.with_name(
-        f"{base_stem}_{log_rotation_count[logger_key]}: {log_file.suffix}"
-    )
+    new_log_file = log_file.with_name(f"{base_stem}_{log_rotation_count[logger_key]}: {log_file.suffix}")
 
     for handler in logger.handlers[:]:
         if isinstance(handler, logging.FileHandler):

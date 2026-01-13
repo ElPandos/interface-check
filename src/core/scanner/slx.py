@@ -135,9 +135,7 @@ class SlxScanner(BaseScanner):
 
             if match:
                 port_id = match.group(1)
-                logger.info(
-                    f"{LogMsg.PORT_ID_FOUND.value} '{port_id}' for interface: '{interface}'"
-                )
+                logger.info(f"{LogMsg.PORT_ID_FOUND.value} '{port_id}' for interface: '{interface}'")
                 return port_id
             logger.warning(f"{LogMsg.PORT_ID_NOT_FOUND.value} '{interface}'")
         except Exception:
@@ -198,9 +196,7 @@ class SlxScanner(BaseScanner):
 
             if match:
                 interface_name = match.group(1)
-                logger.info(
-                    f"{LogMsg.INTERFACE_FOUND.value} '{interface_name}' for port: '{port_id}'"
-                )
+                logger.info(f"{LogMsg.INTERFACE_FOUND.value} '{interface_name}' for port: '{port_id}'")
                 return interface_name
             logger.warning(f"{LogMsg.INTERFACE_NOT_FOUND.value}: '{port_id}'")
         except Exception:
@@ -255,18 +251,12 @@ class SlxScanner(BaseScanner):
             return
 
         try:
-            self._eye_logger.info(
-                f"{LogMsg.SLX_EYE_SCAN_START.value} '{interface}' (Port: '{port_id}')"
-            )
+            self._eye_logger.info(f"{LogMsg.SLX_EYE_SCAN_START.value} '{interface}' (Port: '{port_id}')")
 
             # Check if toggling should be performed
-            should_toggle = toggle_limit == 0 or (
-                toggle_limit > 0 and self._toggle_count < toggle_limit
-            )
+            should_toggle = toggle_limit == 0 or (toggle_limit > 0 and self._toggle_count < toggle_limit)
             if should_toggle:
-                self._eye_logger.info(
-                    f"Toggle enabled (count={self._toggle_count}, limit={toggle_limit})"
-                )
+                self._eye_logger.info(f"Toggle enabled (count={self._toggle_count}, limit={toggle_limit})")
                 self._toggle_interface(interface, PortState.OFF, toggle_wait_sec)
                 self._toggle_interface(interface, PortState.ON, toggle_wait_sec)
                 self._toggle_count += 1
@@ -288,9 +278,7 @@ class SlxScanner(BaseScanner):
             if self._cfg.worker_collect:
                 self._results.append(ScanResult(interface, port_id, result))
 
-            self._eye_logger.info(
-                f"{LogMsg.SLX_EYE_SCAN_COMPLETE.value}: '{interface}' (Port: '{port_id}')"
-            )
+            self._eye_logger.info(f"{LogMsg.SLX_EYE_SCAN_COMPLETE.value}: '{interface}' (Port: '{port_id}')")
             self._eye_logger.info("=" * 39)
             self._eye_logger.info("\n%s", result)
             self._eye_logger.info("=" * 39)
@@ -311,30 +299,22 @@ class SlxScanner(BaseScanner):
         logger = self._get_logger()
         if interface in self._interface_cache:
             port_id, interface_name = self._interface_cache[interface]
-            logger.debug(
-                f"{LogMsg.CACHE_HIT.value}: '{interface}' -> '{interface_name}' (Port: '{port_id}')"
-            )
+            logger.debug(f"{LogMsg.CACHE_HIT.value}: '{interface}' -> '{interface_name}' (Port: '{port_id}')")
             return (port_id, interface_name)
 
         logger.info(f"{LogMsg.INTERFACE_LOOKUP.value} for '{interface}'")
         port_id = self._get_port_id(interface)
         if not port_id:
-            logger.error(
-                f"{LogMsg.PORT_ID_NOT_FOUND.value} '{interface}', {LogMsg.SLX_SCAN_SKIPPING.value}"
-            )
+            logger.error(f"{LogMsg.PORT_ID_NOT_FOUND.value} '{interface}', {LogMsg.SLX_SCAN_SKIPPING.value}")
             return None
 
         interface_name = self._get_interface_name(port_id)
         if not interface_name:
-            logger.error(
-                f"{LogMsg.INTERFACE_NOT_FOUND.value} '{port_id}', {LogMsg.SLX_SCAN_SKIPPING.value}"
-            )
+            logger.error(f"{LogMsg.INTERFACE_NOT_FOUND.value} '{port_id}', {LogMsg.SLX_SCAN_SKIPPING.value}")
             return None
 
         self._interface_cache[interface] = (port_id, interface_name)
-        logger.info(
-            f"{LogMsg.CACHE_MISS.value}: '{interface}' -> '{interface_name}' (Port: '{port_id}')"
-        )
+        logger.info(f"{LogMsg.CACHE_MISS.value}: '{interface}' -> '{interface_name}' (Port: '{port_id}')")
         return (port_id, interface_name)
 
     def _scan_eye_interfaces(self, interfaces: list[str]) -> bool:
@@ -350,9 +330,7 @@ class SlxScanner(BaseScanner):
             self._eye_logger.warning(LogMsg.SLX_SCAN_NO_INTERFACES.value)
             return True
 
-        self._eye_logger.info(
-            f"{LogMsg.SLX_SCAN_START.value}: {len(interfaces)} interfaces: {interfaces}"
-        )
+        self._eye_logger.info(f"{LogMsg.SLX_SCAN_START.value}: {len(interfaces)} interfaces: {interfaces}")
         success_count = 0
 
         for interface in interfaces:
@@ -374,9 +352,7 @@ class SlxScanner(BaseScanner):
                 self._eye_logger.exception(f"Failed to scan interface '{interface}'")
                 continue
 
-        self._eye_logger.info(
-            f"{LogMsg.SLX_SCAN_COMPLETE.value}: {success_count}/{len(interfaces)}"
-        )
+        self._eye_logger.info(f"{LogMsg.SLX_SCAN_COMPLETE.value}: {success_count}/{len(interfaces)}")
         return success_count > 0
 
     def scans_collected(self) -> int:
@@ -420,9 +396,7 @@ class SlxScanner(BaseScanner):
                         in_data = True
                     elif "****" in line or "Legend of Entries" in line:
                         in_data = False
-                    if in_data and (
-                        line.strip()[:1].isdigit() or line.startswith((" 0", "CORE", "LN"))
-                    ):
+                    if in_data and (line.strip()[:1].isdigit() or line.startswith((" 0", "CORE", "LN"))):
                         output_lines.append(line)
 
                 parsed_result = "\n".join(output_lines) if output_lines else result
@@ -488,9 +462,7 @@ class SlxScanner(BaseScanner):
             if not skip_eye:
                 scan_types.append("Eye")
             types_str = "+".join(scan_types) if scan_types else "None"
-            self._logger.info(
-                f"{LogMsg.SCANNER_WORKERS_CREATED.value}: {worker_count} (SLX {types_str})"
-            )
+            self._logger.info(f"{LogMsg.SCANNER_WORKERS_CREATED.value}: {worker_count} (SLX {types_str})")
         except Exception:
             self._logger.exception(LogMsg.SCANNER_START_FAILED.value)
             return False
@@ -563,9 +535,7 @@ class SlxScanner(BaseScanner):
         scan_count = 0
 
         # Pre-lookup all interfaces before entering fbr-CLI
-        self._dsc_logger.info(
-            f"Pre-looking up {len(self._cfg.slx_scan_ports)} interfaces before fbr-CLI"
-        )
+        self._dsc_logger.info(f"Pre-looking up {len(self._cfg.slx_scan_ports)} interfaces before fbr-CLI")
         for interface in self._cfg.slx_scan_ports:
             if interface not in self._interface_cache:
                 result = self._get_cached_or_lookup(interface)
@@ -583,9 +553,7 @@ class SlxScanner(BaseScanner):
                     scan_count += 1
                     self._dsc_logger.info(f"{LogMsg.SCANNER_DSC_ITER_COMPLETE.value} #{scan_count}")
                 else:
-                    self._dsc_logger.warning(
-                        f"{LogMsg.SCANNER_DSC_ITER_FAILED.value} #{scan_count + 1}"
-                    )
+                    self._dsc_logger.warning(f"{LogMsg.SCANNER_DSC_ITER_FAILED.value} #{scan_count + 1}")
 
                 if not self._shutdown_event.is_set():
                     self._interruptible_sleep(self._cfg.sut_scan_interval_high_res_ms // 1000 or 1)
@@ -613,14 +581,10 @@ class SlxScanner(BaseScanner):
                     scan_count += 1
                     self._eye_logger.info(f"{LogMsg.SCANNER_EYE_ITER_COMPLETE.value} #{scan_count}")
                 else:
-                    self._eye_logger.warning(
-                        f"{LogMsg.SCANNER_EYE_ITER_FAILED.value} #{scan_count + 1}"
-                    )
+                    self._eye_logger.warning(f"{LogMsg.SCANNER_EYE_ITER_FAILED.value} #{scan_count + 1}")
 
                 if not self._shutdown_event.is_set():
-                    self._eye_logger.info(
-                        f"{LogMsg.SCANNER_EYE_WAIT.value}: {self._cfg.slx_scan_interval_sec}"
-                    )
+                    self._eye_logger.info(f"{LogMsg.SCANNER_EYE_WAIT.value}: {self._cfg.slx_scan_interval_sec}")
                     self._interruptible_sleep(self._cfg.slx_scan_interval_sec, self._eye_logger)
             except Exception:
                 self._eye_logger.exception(LogMsg.SCANNER_EYE_ITER_FAILED.value)

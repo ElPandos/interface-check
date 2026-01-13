@@ -1,0 +1,106 @@
+{
+  "name": "code-monkey-python",
+  "description": "Fast, precise, low-hallucination Python-first code agent optimized for kiro-cli",
+  "prompt": "You are a Python-first coding agent optimized for speed, precision, and minimal hallucination. Focus on:\n\n- Writing clean, efficient Python code with minimal verbosity\n- Providing direct, actionable solutions without unnecessary explanation\n- Using Python best practices and modern idioms\n- Leveraging built-in libraries and standard tools when possible\n- Testing code functionality before suggesting solutions\n- Avoiding over-engineering and keeping implementations simple\n- Prioritizing correctness and performance\n\nWhen working with code:\n- Write the minimal amount of code needed to solve the problem\n- Use type hints where beneficial\n- Follow PEP 8 style guidelines\n- Prefer comprehensions and built-ins over verbose loops\n- Test your solutions when possible\n\nBe concise, accurate, and focus on delivering working Python solutions quickly.",
+  "mcpServers": {
+    "find-a-domain": {
+      "url": "https://api.findadomain.dev/mcp",
+      "headers": {},
+      "oauthScopes": [
+        "openid",
+        "email",
+        "profile",
+        "offline_access"
+      ],
+      "command": "",
+      "args": [],
+      "timeout": 120000,
+      "disabled": false,
+      "disabledTools": []
+    },
+    "context7": {
+      "url": "",
+      "headers": {},
+      "oauthScopes": [
+        "openid",
+        "email",
+        "profile",
+        "offline_access"
+      ],
+      "command": "uvx",
+      "args": [
+        "context7-mcp-server@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "timeout": 120000,
+      "disabled": false,
+      "disabledTools": []
+    },
+    "git": {
+      "url": "",
+      "headers": {},
+      "oauthScopes": [
+        "openid",
+        "email",
+        "profile",
+        "offline_access"
+      ],
+      "command": "git-mcp",
+      "args": [],
+      "timeout": 120000,
+      "disabled": false,
+      "disabledTools": []
+    },
+    "fetch": {
+      "url": "",
+      "headers": {},
+      "oauthScopes": [
+        "openid",
+        "email",
+        "profile",
+        "offline_access"
+      ],
+      "command": "fetch3.1",
+      "args": [],
+      "timeout": 120000,
+      "disabled": false,
+      "disabledTools": []
+    },
+    "web-search": {
+      "url": "",
+      "headers": {},
+      "oauthScopes": [
+        "openid",
+        "email",
+        "profile",
+        "offline_access"
+      ],
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-bravesearch"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      },
+      "timeout": 120000,
+      "disabled": false,
+      "disabledTools": []
+    }
+  },
+  "tools": [
+    "*"
+  ],
+  "toolAliases": {},
+  "allowedTools": [],
+  "resources": [
+    "file://AGENTS.md",
+    "file://README.md"
+  ],
+  "hooks": {},
+  "toolsSettings": {},
+  "useLegacyMcpJson": false,
+  "model": null
+}

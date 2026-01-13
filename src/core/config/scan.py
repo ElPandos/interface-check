@@ -112,20 +112,14 @@ class ScanConfig:
         no_dsc = ShowPartType.NO_SLX_DSC in self.sut_show_parts
 
         if not no_eye and not no_dsc:
-            errors.append(
-                f"Neither '{ShowPartType.NO_SLX_EYE.value}' or '{ShowPartType.NO_SLX_DSC.value}' is set"
-            )
+            errors.append(f"Neither '{ShowPartType.NO_SLX_EYE.value}' or '{ShowPartType.NO_SLX_DSC.value}' is set")
             errors.append("Only one of the SLX scanner can be enabled at a time")
 
         if self.log_rotation_timeout_sec <= 0:
-            errors.append(
-                f"Invalid log_rotation_timeout_sec: {self.log_rotation_timeout_sec} (must be > 0)"
-            )
+            errors.append(f"Invalid log_rotation_timeout_sec: {self.log_rotation_timeout_sec} (must be > 0)")
 
         if self.slx_scan_interval_sec <= 0:
-            errors.append(
-                f"Invalid slx_scan_interval_sec: {self.slx_scan_interval_sec} (must be > 0)"
-            )
+            errors.append(f"Invalid slx_scan_interval_sec: {self.slx_scan_interval_sec} (must be > 0)")
 
         if not self.slx_scan_ports:
             errors.append("slx_scan_ports cannot be empty")
@@ -134,19 +128,13 @@ class ScanConfig:
             errors.append("sut_scan_interfaces cannot be empty")
 
         if self.sut_scan_interval_low_res_ms <= 0:
-            errors.append(
-                f"Invalid sut_scan_interval_low_res_ms: {self.sut_scan_interval_low_res_ms} (must be > 0)"
-            )
+            errors.append(f"Invalid sut_scan_interval_low_res_ms: {self.sut_scan_interval_low_res_ms} (must be > 0)")
 
         if self.sut_scan_interval_high_res_ms <= 0:
-            errors.append(
-                f"Invalid sut_scan_interval_high_res_ms: {self.sut_scan_interval_high_res_ms} (must be > 0)"
-            )
+            errors.append(f"Invalid sut_scan_interval_high_res_ms: {self.sut_scan_interval_high_res_ms} (must be > 0)")
 
         if self.sut_scan_max_log_size_kb <= 0:
-            errors.append(
-                f"Invalid sut_scan_max_log_size_kb: {self.sut_scan_max_log_size_kb} (must be > 0)"
-            )
+            errors.append(f"Invalid sut_scan_max_log_size_kb: {self.sut_scan_max_log_size_kb} (must be > 0)")
 
         if errors:
             logger.error(f"{LogMsg.CONFIG_VALIDATION_FAILED.value}:")

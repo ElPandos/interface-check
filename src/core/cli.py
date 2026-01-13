@@ -38,9 +38,7 @@ class PrettyFrame:
         Returns:
             Formatted row string
         """
-        truncated = (
-            content[: self._content_width] if len(content) > self._content_width else content
-        )
+        truncated = content[: self._content_width] if len(content) > self._content_width else content
         return "║ " + truncated.ljust(self._content_width) + " ║"
 
     def separator(self) -> str:

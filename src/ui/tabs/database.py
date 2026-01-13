@@ -105,13 +105,13 @@ class DatabaseContent:
         """Build database interface for the screen."""
         # Database controls
         with ui.row().classes("w-full gap-2 mt-2"):
-            self._buttons["query"] = ui.button(
-                "Query Database", icon="search", on_click=self._query_database
-            ).classes("bg-blue-500 hover:bg-blue-600 text-white")
+            self._buttons["query"] = ui.button("Query Database", icon="search", on_click=self._query_database).classes(
+                "bg-blue-500 hover:bg-blue-600 text-white"
+            )
 
-            self._buttons["clear"] = ui.button(
-                "Clear Results", icon="clear", on_click=self._clear_results
-            ).classes("bg-gray-500 hover:bg-gray-600 text-white")
+            self._buttons["clear"] = ui.button("Clear Results", icon="clear", on_click=self._clear_results).classes(
+                "bg-gray-500 hover:bg-gray-600 text-white"
+            )
 
         # Results area
         with ui.column().classes("w-full mt-4"):
@@ -187,9 +187,7 @@ class DatabaseContent:
             ui.notify("SSH connection required", color="negative")
             return
 
-        self._add_result_card(
-            "Query executed successfully", "Sample database content would appear here", "green"
-        )
+        self._add_result_card("Query executed successfully", "Sample database content would appear here", "green")
         ui.notify("Database query executed", color="positive")
 
     def _clear_results(self) -> None:

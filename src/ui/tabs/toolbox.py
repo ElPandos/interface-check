@@ -106,15 +106,15 @@ class ToolboxContent:
         """Build toolbox content area."""
         # Controls
         with ui.row().classes("w-full gap-2 mb-4 flex-wrap"):
-            self._buttons["scan"] = ui.button(
-                "Scan Interfaces", icon="search", on_click=self._scan_interfaces
-            ).classes("bg-red-500 hover:bg-red-600 text-white")
-            self._buttons["tools"] = ui.button(
-                "Network Tools", icon="build", on_click=self._network_tools
-            ).classes("bg-blue-500 hover:bg-blue-600 text-white")
-            self._buttons["clear"] = ui.button(
-                "Clear Results", icon="clear", on_click=self._clear_results
-            ).classes("bg-gray-500 hover:bg-gray-600 text-white")
+            self._buttons["scan"] = ui.button("Scan Interfaces", icon="search", on_click=self._scan_interfaces).classes(
+                "bg-red-500 hover:bg-red-600 text-white"
+            )
+            self._buttons["tools"] = ui.button("Network Tools", icon="build", on_click=self._network_tools).classes(
+                "bg-blue-500 hover:bg-blue-600 text-white"
+            )
+            self._buttons["clear"] = ui.button("Clear Results", icon="clear", on_click=self._clear_results).classes(
+                "bg-gray-500 hover:bg-gray-600 text-white"
+            )
 
         # Results area
         with ui.column().classes("w-full"):
@@ -192,9 +192,7 @@ class ToolboxContent:
             ui.notify("SSH connection required", color="negative")
             return
 
-        self._add_result_card(
-            "Interface Scan Completed", "Network interface information would appear here", "red"
-        )
+        self._add_result_card("Interface Scan Completed", "Network interface information would appear here", "red")
         ui.notify("Interface scan completed", color="positive")
 
     def _network_tools(self) -> None:
@@ -203,9 +201,7 @@ class ToolboxContent:
             ui.notify("SSH connection required", color="negative")
             return
 
-        self._add_result_card(
-            "Network Tools Executed", "Network diagnostic tools results would appear here", "blue"
-        )
+        self._add_result_card("Network Tools Executed", "Network diagnostic tools results would appear here", "blue")
         ui.notify("Network tools completed", color="positive")
 
     def _clear_results(self) -> None:

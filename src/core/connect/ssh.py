@@ -192,9 +192,7 @@ class SshConnection(IConnection):
             self._ssh_client = self._create_client()
 
             if self._jump_hosts:
-                self._logger.debug(
-                    f"Using {len(self._jump_hosts)} jump hosts: {[j.ip for j in self._jump_hosts]}"
-                )
+                self._logger.debug(f"Using {len(self._jump_hosts)} jump hosts: {[j.ip for j in self._jump_hosts]}")
                 self._connect_via_jumps()
             else:
                 self._logger.debug(f"Direct connection to host: {self._host}")
@@ -445,12 +443,8 @@ class SshConnection(IConnection):
 
             try:
                 if transport:
-                    self._logger.debug(
-                        f"Opening channel from {self._jump_hosts[i - 1].ip} to {jump.ip}"
-                    )
-                    channel = transport.open_channel(
-                        "direct-tcpip", (jump.ip, 22), (self._jump_hosts[i - 1].ip, 22)
-                    )
+                    self._logger.debug(f"Opening channel from {self._jump_hosts[i - 1].ip} to {jump.ip}")
+                    channel = transport.open_channel("direct-tcpip", (jump.ip, 22), (self._jump_hosts[i - 1].ip, 22))
                     self._connect_to_host(client, jump, channel)
                 else:
                     self._logger.debug(f"Direct connection to first jump host: {jump.ip}")
@@ -474,17 +468,11 @@ class SshConnection(IConnection):
             msg = "No transport available for target connection"
             raise RuntimeError(msg)
 
-        self._logger.info(
-            f"Opening final channel from {self._jump_hosts[-1].ip} to target {self._host}"
-        )
+        self._logger.info(f"Opening final channel from {self._jump_hosts[-1].ip} to target {self._host}")
         try:
-            channel = transport.open_channel(
-                "direct-tcpip", (self._host, 22), (self._jump_hosts[-1].ip, 22)
-            )
+            channel = transport.open_channel("direct-tcpip", (self._host, 22), (self._jump_hosts[-1].ip, 22))
             # Create temporary Host object for target
-            target_host = Host(
-                ip=self._host, username=self._username, password=SecretStr(self._password)
-            )
+            target_host = Host(ip=self._host, username=self._username, password=SecretStr(self._password))
             self._connect_to_host(self._ssh_client, target_host, channel)
             self._logger.debug(f"{LogMsg.CONN_TARGET_SUCCESS.value}: {self._host}")
 
@@ -505,9 +493,7 @@ class SshConnection(IConnection):
         Runs in daemon thread until stop event is set.
         Logs warnings if no active connections found.
         """
-        self._logger.debug(
-            f"{LogMsg.ALIVE_THREAD_START.value} with {self._keepalive_interval}s interval"
-        )
+        self._logger.debug(f"{LogMsg.ALIVE_THREAD_START.value} with {self._keepalive_interval}s interval")
 
         while not self._stop_keepalive.wait(self._keepalive_interval):
             try:
@@ -520,9 +506,7 @@ class SshConnection(IConnection):
                         t.send_ignore()
                         active_count += 1
 
-                self._logger.debug(
-                    f"Keepalive sent to {active_count}/{total_count} active connections"
-                )
+                self._logger.debug(f"Keepalive sent to {active_count}/{total_count} active connections")
 
                 if active_count == 0 and total_count > 0:
                     self._logger.warning(LogMsg.ALIVE_NO_ACTIVE.value)
@@ -644,9 +628,7 @@ class SshConnection(IConnection):
                     buffer += chunk
                     last_activity = time.time()
                     stable_count = 0
-                    self._logger.debug(
-                        f"Received {len(chunk)} bytes, total buffer: {len(buffer)} bytes"
-                    )
+                    self._logger.debug(f"Received {len(chunk)} bytes, total buffer: {len(buffer)} bytes")
 
                     # Check for prompt pattern
                     if self._prompt_pattern.search(buffer):
@@ -678,9 +660,7 @@ class SshConnection(IConnection):
         msg = "Prompt not detected within timeout"
         raise TimeoutError(msg)
 
-    def exec_shell_cmd(
-        self, cmd: str, *, until_prompt: bool = True, logger: logging.Logger | None = None
-    ) -> str:
+    def exec_shell_cmd(self, cmd: str, *, until_prompt: bool = True, logger: logging.Logger | None = None) -> str:
         """Execute command in interactive shell.
 
         Args:
