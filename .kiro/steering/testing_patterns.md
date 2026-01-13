@@ -1,4 +1,4 @@
-> ## Summary
+> Here's what I found:
 
 I've researched current testing patterns and anti-patterns, then updated the existing steering document with comprehensive anti-patterns coverage. The research revealed significant evolution toward prevention-focused approaches and systematic anti-pattern recognition.
 

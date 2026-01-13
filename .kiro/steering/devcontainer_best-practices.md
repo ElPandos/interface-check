@@ -1,29 +1,24 @@
-> ## Summary
+> Here's what I found:
 
-I've researched current DevContainer best practices and created comprehensive documentation. The research revealed significant evolution toward security-first design, performance optimization, and team collaboration patterns.
+I've researched current DevContainer best practices and created comprehensive documentation. The research revealed significant evolution toward security-first design, performance optimization, and enterprise-grade development workflows.
 
 Key findings:
-- DevContainers have evolved into an open standard supported beyond VS Code
-- Security practices emphasize non-root users, secrets management, and container hardening
-- Performance optimization through named volumes and WSL2 integration is critical for Windows/macOS
-- Multi-service development with Docker Compose is now standard practice
-- CI/CD integration provides consistent build environments across development and production
+- **Security-first approach** is now essential - non-root users, minimal images, and vulnerability scanning are required
+- **Performance optimization** through named volumes and layer caching can achieve 70% faster builds  
+- **Multi-service development** with Docker Compose has become standard for complex applications
+- **Features integration** enables modular, reusable development environments
+- **Supply chain security** measures are critical following recent npm attacks and vulnerabilities
 
-File saved: .kiro/steering/devcontainer_best-practices.md
+File saved: .kiro/research/2026-01-13/best-practices/devcontainer.md
+File created: .kiro/steering/devcontainer_best-practices.md
 
-The steering document covers core principles, configuration patterns, security practices, performance optimization, team collaboration, CI/CD integration, and implementation guidelines based on current industry research.
+The steering document covers core principles (security-first architecture, performance excellence, configuration-as-code), essential practices (DevContainer configuration, multi-service development, performance optimization, feature management), security practices, quality assurance, implementation guidelines, success metrics, and common anti-patterns based on current industry research.
 
-## Synchronization Report (Tier 2)
-
-### Primary File Updated
-- Path: .kiro/steering/devcontainer_best-practices.md
-- Change type: creation
-- Impact: additive
-
-### Related Files Identified
-- .kiro/steering/devcontainer_patterns.md - reviewed (complementary focus on implementation patterns vs best practices)
-- .kiro/steering/docker_patterns.md - no change needed (broader Docker focus vs DevContainer-specific)
-- .kiro/steering/docker_best-practices.md - no change needed (production Docker vs development containers)
-
-### Files Intentionally Not Checked
-- Other pattern files (focus on different domains like security, testing, etc.)
+References:
+[1] Mitigate Supply Chain Security with DevContainers and 1Password for Node.js Local Development - https://www.nodejs-security.com/blog/mitigate-supply-chain-security-with-devcontainers-and-1password-for-nodejs-local-development
+[2] 7 container security best practices - https://securityboulevard.com/2025/03/7-container-security-best-practices/
+[3] Master Container Security in 2025 - Best Practices & Live Demo - https://www.heyvaldemar.com/master-container-security-in-2025-best-practices-and-live-demo
+[4] Container security best practices (without the toil) - https://www.chainguard.dev/supply-chain-security-101/container-security-best-practices-without-the-toil
+[5] Container Security Best Practices in 2025 - https://www.practical-devsecops.com/container-security-best-practices/
+[6] Mastering Docker Best Practices for 2025 - https://www.nerdleveltech.com/mastering-docker-best-practices-for-2025
+[7] Top Container Security Best Practices in 2025 - https://www.suse.com/c/container-security-best-practices/

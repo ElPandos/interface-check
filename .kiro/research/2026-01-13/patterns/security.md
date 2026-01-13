@@ -1,131 +1,156 @@
-# Research Output – 2026-01-13 01:40 CET
+# Research Output – 2026-01-13 03:14 CET
 
 ## Original Prompt
 > Research common security patterns and anti-patterns. Use the research file to create/update .kiro/steering/security_patterns.md
 
 ## Complete Response
 
-Based on comprehensive research of current security patterns and anti-patterns in 2024-2025, I've identified critical security vulnerabilities and systematic approaches to building secure systems. The research reveals significant evolution toward Zero Trust architectures, proactive security integration, and systematic vulnerability prevention.
+Based on comprehensive research of current security patterns and anti-patterns, I've identified significant evolution in security practices for 2024-2025, with emphasis on Zero Trust architecture, prevention-focused approaches, and systematic vulnerability mitigation.
 
-### Key Research Findings
+### Core Security Patterns
 
-**OWASP Top 10 2025 Evolution**:
-- Broken Access Control remains #1, affecting 94% of tested applications
-- Cryptographic failures have replaced "sensitive data exposure" 
-- Insecure design appears for the first time, emphasizing security from planning phase
-- Cross-Site Scripting (XSS) retains top position in CWE rankings
-- Missing Authorization and Authentication are biggest movers up the list
+**1. Zero Trust Architecture**
+- Fundamental paradigm shift from implicit trust to explicit verification
+- 60% of organizations expected to adopt Zero Trust by 2025 (up from 10% in 2020)
+- Built on seven key pillars: user, device, data, application/workload, network/environment, automation/orchestration, visibility/analytics
+- Assumes breach and verifies everything continuously
 
-**Zero Trust Architecture Adoption**:
-- "Never trust, always verify" has become dominant security paradigm
-- Microservices architectures require service-to-service trust enforcement
-- Identity verification must be continuous, not just at login
-- API endpoints are frequently the weakest link in modern systems
+**2. Defense in Depth**
+- Multi-layered security approach with overlapping controls
+- Combines perimeter security with internal verification
+- Essential for hybrid and multi-cloud environments
+- Works synergistically with Zero Trust principles
 
-**Critical Security Statistics**:
-- 88% of cyberattacks are linked to human error (Stanford University)
-- 30% of tested projects contain critical security flaws
-- Valid accounts (31%), phishing (26%), and exposed applications (26%) are top attack vectors
-- Cloud misconfigurations and identity-driven intrusions account for most major breaches
+**3. Authentication and Authorization Patterns**
+- Multi-factor authentication (MFA) as standard requirement
+- OAuth 2.0 and OpenID Connect for secure identity propagation
+- JWT token validation with custom authorizers
+- Resource-level permissions with IAM policies
 
-**Modern Security Challenges**:
-- AI-driven injection attacks are evolving traditional vulnerabilities
-- Supply chain security has become critical with increased dependency complexity
-- Container security incidents affected 78% of organizations in 2024
-- API exploitation targeting service interfaces is increasing rapidly
+**4. Input Validation and Sanitization**
+- Primary defense against injection attacks (XSS, SQL injection, command injection)
+- Server-side validation as security control (never rely on client-side alone)
+- Parameterized queries and prepared statements
+- Content Security Policies (CSP) for XSS prevention
 
-### Essential Security Patterns
+**5. Secure Session Management**
+- Secure session tokens with proper entropy
+- HttpOnly and Secure cookie flags
+- SameSite attributes for CSRF protection
+- Session timeout and invalidation mechanisms
 
-**Authentication and Authorization Patterns**:
-- Multi-factor authentication (MFA) with biometrics and passwordless login
-- Token-based authentication with JWT and OAuth 2.1
-- Role-Based Access Control (RBAC) and Attribute-Based Access Control (ABAC)
-- Continuous authentication and adaptive access controls
-
-**Input Validation and Sanitization**:
-- Server-side validation using regular expressions, type checks, length limits
-- Whitelist validation accepting only known-good input patterns
-- Parameterized queries preventing SQL injection
-- Output encoding preventing XSS attacks
-
-**Zero Trust Implementation**:
-- Mutual TLS (mTLS) for service-to-service authentication
-- Identity verification at every access request
-- Least privilege access principles
-- Micro-segmentation and network isolation
-
-**Secure Communication Patterns**:
-- End-to-end encryption with TLS 1.3
-- Certificate pinning and proper key management
-- Secure API design with rate limiting and throttling
-- Message-level security for XML Web Services
+**6. Cryptographic Implementation**
+- Strong encryption algorithms (AES-256, RSA-2048+)
+- Proper key management and rotation
+- Secure random number generation
+- Certificate pinning for API communications
 
 ### Critical Anti-Patterns to Avoid
 
-**Authentication Anti-Patterns**:
-- Hardcoded credentials in source code
-- Weak password policies and password reuse
-- Missing session timeout and improper session management
-- Insufficient multi-factor authentication implementation
+**1. Authentication Anti-Patterns**
+- Weak password policies and storage
+- Session hijacking vulnerabilities
+- MFA bypass mechanisms
+- Hardcoded credentials in code
 
-**Authorization Anti-Patterns**:
-- Excessive access permissions beyond job requirements
-- Missing authorization checks on sensitive operations
-- Client-side authorization enforcement only
+**2. Authorization Anti-Patterns**
+- Broken access control (affects 94% of applications per OWASP 2025)
 - Privilege escalation vulnerabilities
+- Insecure direct object references
+- Missing function-level access controls
 
-**Input Handling Anti-Patterns**:
-- Trusting user input without validation
-- Client-side validation as primary defense
-- Generic error messages exposing system details
-- Insufficient input sanitization leading to injection attacks
+**3. Input Handling Anti-Patterns**
+- SQL injection vulnerabilities
+- Cross-site scripting (XSS) attacks
+- Command injection flaws
+- Insufficient input validation
 
-**Configuration Anti-Patterns**:
-- Default credentials and configurations in production
-- Exposed sensitive configuration files
+**4. Configuration Anti-Patterns**
+- Hardcoded secrets and API keys
+- Insecure default configurations
+- Exposed sensitive information in logs
+- Missing security headers
+
+**5. Architectural Anti-Patterns**
+- Insecure design patterns
+- Poor security boundaries
 - Insufficient logging and monitoring
-- Missing security headers and HTTPS enforcement
+- Lack of security testing integration
+
+### Modern Security Considerations
+
+**API Security**
+- Weak authentication mechanisms leading to unauthorized access
+- Proper rate limiting and throttling
+- API versioning and deprecation strategies
+- Comprehensive API security testing
+
+**Microservices Security**
+- Service-to-service authentication
+- Identity propagation across service boundaries
+- Centralized vs. distributed authorization
+- Container and orchestration security
+
+**Cloud Security**
+- Shared responsibility model understanding
+- Infrastructure as Code security
+- Container image vulnerability scanning
+- Secrets management in cloud environments
+
+### Implementation Guidelines
+
+**1. Shift-Left Security**
+- Integrate security testing in CI/CD pipelines
+- Static Application Security Testing (SAST)
+- Dynamic Application Security Testing (DAST)
+- Dependency vulnerability scanning
+
+**2. Continuous Monitoring**
+- Real-time threat detection
+- Security Information and Event Management (SIEM)
+- Behavioral analytics and anomaly detection
+- Incident response automation
+
+**3. Security by Design**
+- Threat modeling during design phase
+- Security requirements as functional requirements
+- Regular security architecture reviews
+- Penetration testing and red team exercises
 
 ## Key Findings
 
-- **Zero Trust Architecture** has become the dominant security paradigm, replacing perimeter-based security models
-- **Human error accounts for 88%** of cyberattacks, emphasizing the need for systematic security practices
-- **Broken Access Control** affects 94% of applications, making authorization the top security priority
-- **API security** is critical as microservices architectures expand attack surfaces
-- **Input validation** remains fundamental, with injection attacks still prevalent despite awareness
+- **Zero Trust is becoming the dominant security paradigm** with 60% adoption expected by 2025
+- **Broken Access Control affects 94% of applications** according to OWASP Top 10 2025
+- **Human error contributes to 88% of cyberattacks**, emphasizing need for systematic approaches
+- **API security vulnerabilities are increasing** as microservices adoption grows
+- **Prevention-focused security** is more effective than detection-based approaches
 
 ## Sources & References
 
-- [OWASP Top 10 Vulnerabilities](https://strobes.co/blog/understanding-the-owasp-top-10-application-vulnerabilities/) — comprehensive guide to critical web application security risks
-- [Web Application Security Checklist 2025](https://www.ateamsoftsolutions.com/web-application-security-checklist-2025-complete-owasp-top-10-implementation-guide-for-ctos/) — complete implementation guide for CTOs
-- [OWASP Top Ten 2025 Complete Guide](https://www.reflectiz.com/blog/owasp-top-ten-2025/) — industry survey-based vulnerability guide
-- [Zero Trust for Microservices](https://ipwithease.com/zero-trust-for-microservices/) — evolving API architecture securely
-- [Zero Trust APIs for Microservices](https://www.screamingbox.net/blog/how-to-build-zero-trust-apis-for-microservices-a-practical-security-guide-for-modern-teams/) — practical security guide for modern teams
-- [Securing Microservices Architectures](https://ciphq.com/blog/securing-microservices.html) — comprehensive guide to modern security challenges
-- [Input Validation and Sanitization](https://softwarepatternslexicon.com/js/security-patterns/input-validation-and-sanitization/) — preventing injection attacks
-- [Security Best Practices for Web Applications](https://dotmock.com/blog/security-best-practices-for-web-applications) — 2025 security practices
-- [Ethical Hacking Report 2024](https://citadelo.com/en/blog/ethical-hacking-report-2024) — vulnerability statistics from 468 penetration tests
-- [MITRE Top 25 Software Weaknesses](https://www.bleepingcomputer.com/news/security/mitre-shares-2025s-top-25-most-dangerous-software-weaknesses/) — most dangerous software weaknesses 2025
+- [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html) — Authorization best practices and patterns
+- [OWASP Microservices Security](https://cheatsheetseries.owasp.org/cheatsheets/Microservices_Security_Cheat_Sheet.html) — Microservice security patterns
+- [Zero Trust vs Defense in Depth Guide](https://technologytangle.com/2025/08/13/zero-trust-vs-defense-in-depth-a-developers-tactical-guide-to-modern-security-architectures-technolo) — Comprehensive comparison of security models
+- [Web Security Vulnerabilities 2024](https://www.kodnest.com/blog/web-security-101-top-10-vulnerabilities-and-how-to-prevent-them) — Current vulnerability landscape
+- [Secure Coding Practices 2025](https://www.jit.io/resources/app-security/secure-coding-top-risks-best-practices-and-techniques) — Modern secure development practices
 
 ## Tools & Methods Used
 
-- web_search: "security patterns anti-patterns 2024 2025 common vulnerabilities OWASP"
-- web_search: "security design patterns authentication authorization encryption 2024 2025"
-- web_search: "security anti-patterns common mistakes vulnerabilities 2024 2025"
-- web_search: "zero trust architecture security patterns microservices 2024 2025"
-- web_search: "secure coding practices input validation sanitization 2024 2025"
+- web_search: "security patterns anti-patterns 2024 2025 OWASP authentication authorization"
+- web_search: "security anti-patterns 2024 2025 common mistakes vulnerabilities injection XSS CSRF"
+- web_search: "zero trust architecture security patterns 2025 defense in depth"
+- web_search: "secure coding patterns input validation sanitization cryptography session management 2025"
 
 ## Metadata
 
-- Generated: 2026-01-13T01:40:22+01:00
+- Generated: 2026-01-13T03:14:48+01:00
 - Model: Claude 3.5 Sonnet
-- Tags: security, patterns, anti-patterns, OWASP, zero-trust, authentication, authorization
-- Confidence: High - based on comprehensive industry research and official security frameworks
+- Tags: security, patterns, anti-patterns, zero-trust, authentication, authorization, OWASP
+- Confidence: High - based on current OWASP guidelines, industry research, and established security frameworks
 - Version: 1
 
 ## Limitations & Confidence Notes
 
-- Data current as of January 2025
-- Security landscape evolves rapidly - patterns should be validated against latest threats
-- Implementation details may vary by technology stack and organizational requirements
-- Next steps: Regular review of OWASP updates and emerging threat intelligence
+- Data current as of January 2026
+- Security landscape evolves rapidly - patterns should be validated against latest threat intelligence
+- Implementation details may vary by technology stack and organizational context
+- Regular security assessments and updates recommended

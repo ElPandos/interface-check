@@ -1,152 +1,135 @@
-# Research Output – 2026-01-13 00:44 CET
+# Research Output – 2026-01-13 05:17 CET
 
 ## Original Prompt
 > Research best python practices. Use the research file to create/update .kiro/steering/python_best-practices.md
 
 ## Complete Response
 
-Based on comprehensive research of current Python development practices in 2025-2026, here are the essential best practices for modern Python development:
+Based on comprehensive research of current Python best practices in 2025, the Python ecosystem has evolved significantly with enhanced tooling, stronger type safety, and systematic approaches to code quality. Here's a detailed analysis of modern Python development practices:
 
-## Modern Python Tooling Revolution
+### Core Language Evolution
 
-The Python ecosystem has undergone a significant transformation with new Rust-based tools providing dramatic performance improvements:
+**Type Hints Revolution**: Facebook's 2025 Typed Python Survey reveals growing adoption of Python's type hinting system, with developers increasingly valuing improved code quality and flexibility. Type hints have become essential for modern Python development, providing static analysis capabilities and serving as living documentation.
 
-### Package Management Evolution
-- **UV**: The new standard for Python package management, written in Rust, offering 10-100x faster installations than pip
-- **Poetry 2.0**: Enhanced with better performance and plugin hooks for structured projects
-- **pyproject.toml**: Universal configuration standard replacing setup.py
+**GIL Improvements**: Python in 2025 is experiencing significant changes with the GIL's days being numbered, leading to better concurrency capabilities and performance improvements.
 
-### Code Quality Trinity
-- **Ruff**: Extremely fast linter and formatter (written in Rust), replacing Flake8, isort, and other tools
-- **Black**: Uncompromising code formatter for consistent style
-- **Mypy**: Static type checking for catching type-related errors
+**Modern Tooling Excellence**: The Python tooling ecosystem has matured significantly with tools like Ruff (extremely fast linter), Black (code formatter), and MyPy (static type checker) becoming standard in professional environments.
 
-## Core Development Principles
+### Development Environment Best Practices
 
-### Type Safety and Modern Python
-- **Type Hints**: Mandatory for all functions and methods in professional projects
-- **Static Type Checking**: Use Mypy to catch type-related errors before runtime
-- **Modern Python Features**: Leverage Python 3.10+ features like pattern matching and union types
+**Virtual Environment Management**: Virtual environments remain crucial for dependency isolation. Modern approaches include:
+- Using `venv` for basic isolation
+- Poetry for structured project management with `pyproject.toml`
+- UV as the lightning-fast new packaging tool gaining adoption
+- Proper dependency pinning to prevent unexpected behavior changes
 
-### Code Organization and Structure
-- **PEP 8 Compliance**: Follow Python's official style guide consistently
-- **Modular Design**: Organize code into logical, reusable modules
-- **Single Responsibility**: Each function and class should have one clear purpose
-- **Meaningful Names**: Use descriptive names that explain purpose without comments
+**Dependency Management Evolution**: The packaging landscape has evolved from pip to Poetry to UV, with each tool addressing specific needs:
+- Pip remains the foundational tool but requires additional tooling
+- Poetry provides opinionated defaults and consistency
+- UV offers speed revolution in packaging
 
-### Dependency Management
-- **Virtual Environments**: Always use isolated environments (venv, Poetry, or UV)
-- **Lock Files**: Use lock files for reproducible builds
-- **Dependency Scanning**: Regular vulnerability assessments with tools like Safety or Snyk
-- **Minimal Dependencies**: Only include necessary packages to reduce attack surface
+### Code Quality Standards
 
-## Asynchronous Programming Best Practices
+**PEP 8 Compliance**: Adherence to Python's official style guide remains fundamental, with automated tools enforcing consistency:
+- Line length limits (typically 88-120 characters)
+- Consistent indentation and whitespace
+- Proper naming conventions (snake_case for functions/variables, PascalCase for classes)
 
-### Modern Async Patterns
-- **async/await Syntax**: Use modern async syntax for better readability
-- **Event Loop Management**: Understand and optimize event loop performance
-- **Non-blocking Operations**: Avoid blocking operations in async code
-- **Concurrent Task Management**: Use asyncio.gather() and asyncio.create_task() effectively
+**Type-Driven Development**: Integration of Pydantic and MyPy enables:
+- Static type checking at development time
+- Runtime data validation
+- Improved code clarity and refactoring capabilities
+- Significant reduction in type-related bugs
 
-### Performance Optimization
-- **I/O Bound Tasks**: Use asyncio for I/O-bound operations (can improve responsiveness by 50%)
-- **CPU Bound Tasks**: Use multiprocessing for CPU-intensive work to overcome GIL limitations
-- **Connection Pooling**: Implement connection pooling for database and HTTP clients
-- **Async Context Managers**: Use async with for proper resource management
+**Testing Excellence**: Modern Python testing emphasizes:
+- Pytest as the standard testing framework
+- Aim for 70%+ test coverage for higher software quality
+- Small, isolated unit tests for faster issue identification
+- Performance testing to verify algorithmic complexity
 
-## Security Best Practices
+### Security and Performance
 
-### Secrets Management
-- **Environment Variables**: Store secrets in environment variables, never in code
-- **Secret Vaults**: Use AWS Secrets Manager, Azure Key Vault, or HashiCorp Vault
-- **Credential Rotation**: Implement automatic credential rotation
-- **Least Privilege**: Grant minimum necessary permissions
+**Security Best Practices**:
+- Proper input validation and sanitization
+- Secure dependency management with vulnerability scanning
+- Avoiding global variables and mutable default arguments
+- Using context managers for resource management
 
-### Input Validation and Security
-- **Input Sanitization**: Validate and sanitize all user inputs
-- **SQL Injection Prevention**: Use parameterized queries and ORMs
-- **Dependency Scanning**: Regular vulnerability scans with tools like Bandit and Safety
-- **Security Headers**: Implement proper security headers in web applications
+**Performance Optimization**:
+- Profile-first approach to identify bottlenecks
+- Proper use of list comprehensions over loops
+- Understanding time complexity implications
+- Leveraging Python's standard library efficiently
 
-## Testing Excellence
+### Anti-Patterns to Avoid
 
-### Testing Strategy
-- **Test-Driven Development**: Write tests before implementation when appropriate
-- **Pytest Framework**: Use pytest as the standard testing framework
-- **Test Coverage**: Aim for meaningful coverage of critical code paths (80%+ target)
-- **Test Independence**: Each test should run independently without dependencies
+**Critical Anti-Patterns**:
+1. **Mutable Default Arguments**: Using mutable objects as default parameters
+2. **Broad Exception Handling**: Catching all exceptions without specificity
+3. **Global Variable Overuse**: Making code harder to maintain and debug
+4. **Inefficient Loops**: Using loops instead of comprehensions or built-ins
+5. **Import Anti-Patterns**: Circular imports and wildcard imports
+6. **String Concatenation in Loops**: Performance degradation
+7. **Misusing `is` vs `==`**: Incorrect identity vs equality comparisons
+8. **Ignoring Context Managers**: Not using `with` statements for resources
+9. **Print vs Logging**: Using print statements instead of proper logging
+10. **Pattern Overuse**: Applying design patterns unnecessarily
 
-### Modern Testing Approaches
-- **Property-Based Testing**: Use Hypothesis for generating test cases automatically
-- **Contract Testing**: Verify API contracts between services
-- **Parameterized Tests**: Test multiple scenarios efficiently with pytest.mark.parametrize
-- **Fixture Management**: Use pytest fixtures for test setup and teardown
+### Modern Development Practices
 
-## Performance Optimization
+**Async/Await Mastery**: Proper asynchronous programming with:
+- Understanding event loops and coroutines
+- Avoiding blocking operations in async functions
+- Proper exception handling in async contexts
 
-### Profiling and Monitoring
-- **Profile First**: Use cProfile, line_profiler, or py-spy to identify bottlenecks
-- **Memory Profiling**: Use memory_profiler to track memory usage
-- **Structured Logging**: Implement structured logging with JSON format
-- **Application Monitoring**: Use APM tools like New Relic or Datadog
+**Code Formatting and Linting**:
+- Black for consistent code formatting
+- Ruff as fast replacement for Flake8, isort, and other tools
+- MyPy for static type checking
+- Pre-commit hooks for automated quality gates
 
-### Optimization Techniques
-- **Algorithm Selection**: Choose efficient algorithms and data structures
-- **Caching Strategies**: Implement appropriate caching at multiple levels
-- **Database Optimization**: Optimize queries, indexing, and connection pooling
-- **Just-in-Time Compilation**: Use Numba for CPU-intensive numerical computations
-
-## Modern Development Workflow
-
-### CI/CD Integration
-- **Automated Testing**: Run comprehensive test suites on every change
-- **Code Quality Gates**: Integrate Ruff, Black, and Mypy in CI/CD pipelines
-- **Security Scanning**: Automated vulnerability scanning in deployment pipelines
-- **Deployment Automation**: Use containerization and infrastructure as code
-
-### Documentation and Maintenance
-- **Docstrings**: Use Google-style or NumPy-style docstrings consistently
-- **API Documentation**: Generate documentation from code annotations
-- **README Files**: Clear setup, usage, and contribution instructions
-- **Changelog**: Document all significant changes and version history
+**Documentation Standards**:
+- Comprehensive docstrings following Google or NumPy style
+- Type hints as living documentation
+- README files with clear setup and usage instructions
 
 ## Key Findings
 
-- **Tooling Revolution**: Rust-based tools (UV, Ruff) provide 10-100x performance improvements over traditional Python tools
-- **Type Safety**: Static type checking with Mypy has become essential for professional Python development
-- **Async Adoption**: Proper async programming can improve application responsiveness by up to 50% for I/O-bound tasks
-- **Security Focus**: Dependency scanning and secrets management are now critical requirements, not optional practices
-- **Testing Maturity**: Modern testing approaches with pytest, property-based testing, and contract testing are becoming standard
+- **Type hints adoption is accelerating** with Facebook's survey showing growing developer adoption for improved code quality
+- **Modern tooling (Ruff, Black, MyPy)** has become essential for professional Python development
+- **Virtual environments and dependency management** remain critical with new tools like UV revolutionizing speed
+- **Anti-pattern awareness** is crucial, with mutable default arguments and broad exception handling being most dangerous
+- **Testing excellence** requires 70%+ coverage and pytest as the standard framework
 
 ## Sources & References
 
-- [Python Best Practices: The 2025 Guide for Clean, Fast, and Secure Code](https://nerdleveltech.com/python-best-practices-the-2025-guide-for-clean-fast-and-secure-code) — Comprehensive modern practices guide
-- [Python Best Practices to Follow in 2026](https://www.geekcafe.com/blog/2025/12/python-best-practices-for-2026) — Latest tooling and practices
-- [Modern Good Practices for Python Development](https://www.stuartellis.name/articles/python-modern-practices/) — Development environment best practices
-- [Python UV: The Ultimate Guide to the Fastest Python Package Manager](https://www.datacamp.com/tutorial/python-uv) — Modern package management
-- [Advanced Python Concurrency: Asyncio Event Loop Optimization](https://dhirendrabiswal.com/advanced-python-concurrency-asyncio-event-loop-optimization-and-concurrent-futures-patterns/) — Async programming patterns
-- [Python Security Best Practices](https://databytesandinsights.substack.com/p/day-48-of-50-days-of-python-python) — Security practices
-- [Testing in Python with Pytest: A Complete Guide](https://obedmacallums.com/posts/testing-python-pytest) — Modern testing approaches
+- [Type-Driven Development in Python with Pydantic and MyPy](https://www.leapcell.io/blog/type-driven-development-in-python-with-pydantic-and-mypy) — Comprehensive guide to modern type-driven development
+- [Facebook Survey Reveals Growing Adoption of Typed Python](https://www.infoq.com/news/2026/01/facebook-typed-python-survey/) — 2025 survey results on type hints adoption
+- [Python Type Hints in Code Review: MyPy Integration](https://www.propelcode.ai/blog/python-type-hints-code-review-guide-mypy-best-practices) — Best practices for type hints in code review
+- [Common Anti-Patterns in Python](https://softwarepatternslexicon.com/python/anti-patterns/common-anti-patterns-in-python/) — Comprehensive anti-patterns guide
+- [18 Common Python Anti-Patterns](https://readmedium.com/18-common-python-anti-patterns-i-wish-i-had-known-before-44d983805f0f) — Practical anti-patterns to avoid
+- [Python Packaging Evolution](https://ericsson.github.io/cognitive-labs/2025/10/01/python-packaging-evolution-pip-poetry-uv.html) — Evolution from pip to Poetry to UV
+- [Unit Testing Guide for Python Backend Developers](https://moldstud.com/articles/p-essential-guide-to-unit-testing-in-python-for-every-backend-developer) — Modern testing practices
 
 ## Tools & Methods Used
 
-- web_search: "Python best practices 2025 2026 modern development standards"
-- web_search: "Python modern tooling 2025 uv ruff mypy poetry packaging best practices"
-- web_search: "Python async programming best practices 2025 asyncio performance patterns"
-- web_search: "Python security best practices 2025 dependency scanning secrets management"
-- web_search: "Python testing best practices 2025 pytest coverage modern testing strategies"
+- web_search: "Python best practices 2025 coding standards PEP 8 type hints error handling"
+- web_search: "Python best practices 2025 type hints mypy pydantic error handling async await"
+- web_search: "Python best practices 2025 code quality testing pytest black ruff performance"
+- web_search: "Python security best practices 2025 dependency management virtual environments packaging"
+- web_search: "Python anti-patterns 2025 common mistakes code smells performance issues"
 
 ## Metadata
 
-- Generated: 2026-01-13T00:44:47+01:00
+- Generated: 2026-01-13T05:17:01+01:00
 - Model: Claude 3.5 Sonnet
-- Tags: python, best-practices, modern-tooling, security, testing, async, performance
-- Confidence: High - Based on current industry research and established practices
+- Tags: python, best-practices, type-hints, testing, code-quality, anti-patterns, tooling
+- Confidence: High — Based on comprehensive 2025 industry research and official documentation
 - Version: 1
 
 ## Limitations & Confidence Notes
 
 - Data current as of January 2026
-- Practices may evolve as Python ecosystem continues rapid development
-- Tool recommendations based on current performance benchmarks and adoption trends
-- Security practices should be regularly updated as threat landscape evolves
+- Focuses on Python 3.5+ features (type hints era)
+- Emphasizes professional/enterprise development practices
+- Next steps: Regular updates as Python ecosystem evolves, particularly with GIL changes

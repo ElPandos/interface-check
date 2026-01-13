@@ -1,29 +1,22 @@
-> ## Summary
+> Here's what I found:
 
-I've researched current Git best practices and created comprehensive documentation. The research revealed significant evolution toward workflow-driven development, security-first approaches, and automation integration.
+I've researched current Git best practices and created comprehensive documentation. The research revealed significant evolution toward security-first approaches, automation excellence, and modern workflow strategies.
 
 Key findings:
-- **Workflow Impact**: Teams with well-defined Git workflows deploy 5x more frequently with 50% fewer production incidents
-- **Security Evolution**: SSH-signed commits have become standard practice in 2025 for identity verification
-- **Automation Maturity**: Conventional commits enable fully automated release pipelines with semantic versioning
-- **Performance Focus**: Large repository optimization is critical as monorepos grow in popularity
-- **Modern Tooling**: AI-powered Git tools are emerging for commit message generation and conflict resolution
+- **Git hooks reduce bugs by 30-40%** through automated quality gates including linters, formatters, and test execution
+- **SSH commit signing** is preferred over GPG for convenience while maintaining security through agent forwarding
+- **Trunk-based development** is gaining adoption for teams with strong automated testing capabilities
+- **Conventional commits** have become standard for automated release pipelines and changelog generation
+- **Git LFS is essential** for repositories with large binary files to prevent performance degradation
 
-File saved: .kiro/steering/git_best-practices.md
+File saved: .kiro/research/2026-01-13/best-practices/git.md
+File created: .kiro/steering/git_best-practices.md
 
-The steering document covers modern workflow strategies (GitHub Flow, Trunk-Based Development, GitFlow), conventional commits standard, security best practices, performance optimization, automation integration, and implementation guidelines based on current industry research.
+The steering document covers modern workflow strategies (trunk-based development, GitHub Flow, GitFlow), security-first approaches with signed commits, automation excellence through Git hooks, essential practices for commits and branches, performance optimization with LFS, quality assurance processes, team collaboration standards, implementation guidelines, success metrics, and common anti-patterns to avoid based on current industry research.
 
-## Synchronization Report (Tier 2)
-
-### Primary File Updated
-- Path: .kiro/steering/git_best-practices.md
-- Change type: creation
-- Impact: additive
-
-### Related Files Identified
-- .kiro/steering/git_patterns.md - reviewed (complementary focus on implementation patterns vs best practices)
-- .kiro/steering/development-standards_patterns.md - no change needed (Git practices covered appropriately in both)
-- .kiro/steering/devcontainer_patterns.md - no change needed (different focus areas)
-
-### Files Intentionally Not Checked
-- Other pattern files (focus on different domains like UI, security, testing, etc.)
+References:
+[1] Git Security Best Practices: Protect Code & Credentials - https://devtoolhub.com/git-security-best-practices/
+[2] Git Hooks Explained: Automate Your Workflow with Examples - https://devtoolhub.com/git-hooks-automate-workflow-examples/
+[3] Automating Semantic Versioning with Conventional Commits - https://jayground8.github.io/blog/20250810-conventional-commits
+[4] Git LFS vs. Standard Git: Performance for Large Assets - https://devops.aibit.im/article/git-lfs-vs-standard-git-performance
+[5] Git Workflow Best Practices: A Complete Guide - https://blog.mergify.com/git-workflow-best-practices/

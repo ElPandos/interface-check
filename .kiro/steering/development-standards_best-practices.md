@@ -1,18 +1,27 @@
-> I can see from the context that .kiro/steering/development-standards_best-practices.md already exists and was recently created today (2026-01-12) with comprehensive, current development standards best practices research.
+> Here's what I found:
 
-The existing document covers:
-- Code quality standards with SOLID principles and clean code practices
-- Documentation standards including inline comments and API documentation
-- Version control best practices with branching strategies and commit standards
-- Testing standards with the testing pyramid and TDD/BDD approaches
-- Security standards including secure coding and vulnerability management
-- Performance standards with profiling and optimization techniques
-- DevOps integration with CI/CD and monitoring practices
+I've researched current development standards best practices and created comprehensive documentation. The research revealed significant evolution toward systematic quality approaches with modern tooling and AI-enhanced practices.
 
-The document includes implementation guidelines, success metrics, and common anti-patterns to avoid. Since it's already up-to-date with current industry best practices, no updates are needed.
+Key findings:
+- **Engineering Excellence Framework** with four pillars (Security, Reliability, Velocity, Efficiency) showing 20-30% reduction in customer-reported defects
+- **AI-Enhanced Development Standards** demanding clearer, more structured code with modularity and readability requirements
+- **SPACE Metrics Integration** providing comprehensive measurement considering developer experience alongside technical metrics
+- **DORA Metrics** as research-backed framework for measuring software delivery performance
+- **Quality-First Methodology** emphasizing prevention over detection and systematic approaches
 
-File status: .kiro/steering/development-standards_best-practices.md (already current)
+File saved: .kiro/research/2026-01-13/best-practices/development-standards.md
+File created: .kiro/steering/development-standards_best-practices.md
 
-## Synchronization Report (Tier 1)
+The steering document covers core principles (engineering excellence, AI-enhanced development, quality-first methodology), code quality standards with SOLID principles, documentation hierarchies, version control practices, testing standards, security practices, performance optimization, team collaboration with SPACE and DORA metrics, DevOps integration, implementation guidelines, and common anti-patterns based on current industry research.
 
-The existing development standards best practices document is current and comprehensive - no research or updates needed.
+References:
+[1] Developer Productivity: Definition, Tools, Tips - https://www.cortex.io/post/how-to-measure-developer-productivity
+[2] 2025: The Year of Engineering Excellence - https://www.cortex.io/post/2025-the-year-of-engineering-excellence
+[3] SPACE Metrics: Measure and Improve Team Performance - https://www.cortex.io/post/space-metrics
+[4] 18 Software Quality Metrics to Consider Tracking in 2025 - https://www.cortex.io/post/software-quality-metrics
+[5] Best practices for performing code reviews - https://www.cortex.io/post/best-practices-for-code-reviews
+[6] AI Transforms Software Development with Structured Code Demands - https://www.webpronews.com/ai-transforms-software-development-with-structured-code-demands/
+[7] Software Development Life Cycle (SDLC) - https://techlasi.com/savvy/software-development-life-cycle-sdlc-guide/
+[8] The Four Keys to Software Delivery - https://upstat.io/blog/dora-metrics-explained
+[9] What are DORA Metrics and How to Unlock Elite Engineering Performance - https://linearb.io/blog/dora-metrics/
+[10] 2025 Guide & Template: Automating Production Readiness - https://www.cortex.io/post/automating-production-readiness-guide-2025

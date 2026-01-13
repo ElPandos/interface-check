@@ -18,13 +18,13 @@ cd /home/emvekta/_PROJECTS/interface-check
 source ./scripts/extract_topics.sh
 
 # Update best practices
-uv run scripts/research-steering/research.py -m best-practices -t "$TOPICS"
+uv run scripts/research-steering/research.py -m best-practices -t "$TOPICS" -f
 
 # Update patterns  
-uv run scripts/research-steering/research.py -m patterns -t "$TOPICS"
+uv run scripts/research-steering/research.py -m patterns -t "$TOPICS" -f
 
 # Update analyze documents
-uv run scripts/research-steering/research.py -m analyze -t "$TOPICS"
+#uv run scripts/research-steering/research.py -m analyze -t "$TOPICS" -f
 ```
 
 This will automatically refresh all steering documents with the latest research and best practices.

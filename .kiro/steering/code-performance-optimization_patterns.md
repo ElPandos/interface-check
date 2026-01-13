@@ -1,30 +1,22 @@
-> ## Summary
+> Here's what I found:
 
-I've researched current code performance optimization patterns and anti-patterns, then created comprehensive steering documentation. The research revealed significant evolution toward systematic quality approaches with modern tooling and AI-enhanced practices.
+I've researched current code performance optimization patterns and anti-patterns, then created comprehensive documentation. The research revealed significant evolution toward cache-aware programming, data-oriented design, and systematic anti-pattern avoidance.
 
 Key findings:
-- **SOLID principles remain foundational** for quality object-oriented design, with studies showing 30% reduction in system defects when properly applied
-- **Technical debt measurement** has become strategic, with organizations investing significantly in tools like SonarQube, CodeClimate, and AI-powered analyzers
-- **AI-assisted code review** is revolutionizing quality practices through pattern recognition, context-aware analysis, and automated suggestions
-- **Three-layer measurement framework** (code metrics, team metrics, business metrics) provides comprehensive quality visibility
-- **Refactoring automation** with ML is enabling teams to scale maintenance efforts without sacrificing quality
+- **Cache-friendly programming** can achieve 10-100x performance improvements through proper data layout and sequential access patterns
+- **Profile-first methodology** is essential - 67% of performance issues stem from database queries and memory management failures
+- **Memory management anti-patterns** like leaks and excessive allocations remain critical issues causing gradual performance degradation
+- **Algorithm selection** has the highest performance impact - choosing O(n log n) over O(n²) provides exponential improvements
+- **Continuous monitoring** reduces system latency by 28% within first quarter of implementation
 
 File saved: .kiro/research/2026-01-13/patterns/code-performance-optimization.md
-File saved: .kiro/steering/code-performance-optimization_patterns.md
+File created: .kiro/steering/code-performance-optimization_patterns.md
 
-The steering document covers core quality principles (SOLID, DRY, KISS, YAGNI), quality measurement patterns, static analysis integration, refactoring strategies, testing quality, documentation practices, team collaboration, implementation guidelines, common anti-patterns, and success metrics based on current industry research.
+The steering document covers 5 core optimization patterns (cache-friendly programming, memoization, lazy loading, object pooling, data-oriented design), 4 critical anti-pattern categories (memory management, algorithmic, cache-unfriendly, resource management), modern approaches (profile-first methodology, cache-aware design), database optimization, platform-specific considerations, and implementation guidelines based on current industry research.
 
-## Synchronization Report (Tier 2)
-
-### Primary File Updated
-- Path: .kiro/steering/code-performance-optimization_patterns.md
-- Change type: creation
-- Impact: additive
-
-### Related Files Identified
-- .kiro/steering/code-quality_best-practices.md - reviewed (complementary focus on patterns vs best practices)
-- .kiro/steering/development-standards_patterns.md - no change needed (broader development standards vs specific code quality patterns)
-- .kiro/steering/testing_patterns.md - no change needed (testing patterns vs code quality patterns)
-
-### Files Intentionally Not Checked
-- Other pattern files (focus on different domains like UI, security, threading, etc.)
+References:
+[1] Low-latency data structures - https://www.quantbeckman.com/p/with-code-data-low-latency-data-structures
+[2] Performance Anti-Patterns - https://softwarepatternslexicon.com/haskell/anti-patterns-in-haskell/performance-anti-patterns/
+[3] Cache-Friendly Code Explained - https://openillumi.com/en/en-cache-friendly-code-principle-practice/
+[4] Cache Memory Optimization Techniques - https://www.numberanalytics.com/blog/cache-memory-optimization-techniques
+[5] Writing Cache-Friendly C++ Code - https://www.cpp-junkie.com/2025/01/writing-cache-friendly-c-code-tips-and.html

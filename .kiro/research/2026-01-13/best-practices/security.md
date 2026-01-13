@@ -1,108 +1,123 @@
-# Research Output – 2026-01-13 00:49 CET
+# Research Output – 2026-01-13 05:19 CET
 
 ## Original Prompt
 > Research best security practices. Use the research file to create/update .kiro/steering/security_best-practices.md
 
 ## Complete Response
 
-Based on comprehensive research of current security best practices, the landscape has evolved significantly toward Zero Trust architectures, proactive security integration, and systematic risk management. Here are the key findings:
+Based on comprehensive research of current security best practices, the cybersecurity landscape in 2025 has evolved significantly toward prevention-focused approaches, Zero Trust architecture, and systematic vulnerability management. The research reveals critical insights into modern security frameworks and implementation strategies.
 
-### Zero Trust Architecture Revolution
-Zero Trust has become the dominant security paradigm, fundamentally shifting from perimeter-based security to "never trust, always verify" principles. Unlike traditional models that trust anything inside the network, Zero Trust assumes every user, device, and process is potentially compromised. This approach requires continuous verification of every access request regardless of location.
+### Key Research Findings
 
-### NIST Cybersecurity Framework 2.0 Evolution
-The NIST CSF has evolved to version 2.0 with six core functions: Govern, Identify, Protect, Detect, Respond, and Recover. The framework now emphasizes organizational governance as a foundational element and extends beyond critical infrastructure to all organizations. Implementation involves four tiers from Partial to Adaptive maturity levels.
+**OWASP Top 10 2025 Evolution**
+The OWASP Top 10 2025 represents a fundamental shift from symptom-focused to root cause-focused security. Key changes include:
+- Greater emphasis on supply chain security and third-party component risks
+- Expanded focus on API security and cloud-native application vulnerabilities  
+- Root cause analysis over symptom treatment (e.g., "Cryptographic Failures" vs "Sensitive Data Exposure")
+- Updated guidance for secure coding practices and threat modeling
 
-### Application Security Modernization
-The OWASP Top 10 for 2025 reflects evolving threats with Broken Access Control remaining the top risk. New additions include Software Supply Chain Failures and Mishandling of Exceptional Conditions, highlighting the growing importance of supply chain security and proper error handling in modern applications.
+**Zero Trust Architecture Dominance**
+Zero Trust has become the dominant security paradigm with 60% adoption expected by 2025:
+- Core principle: "Never trust, always verify"
+- Seven key pillars: user, device, data, application/workload, network/environment, automation/orchestration, visibility/analytics
+- Eliminates implicit trust and requires continuous authentication/authorization
+- 80% of data breaches in 2025 target organizations using outdated "castle-and-moat" models
 
-### Cloud Security Maturity
-With 94% cloud adoption in 2025, cloud security has become critical. The shared responsibility model requires organizations to understand their security obligations across AWS, Azure, and GCP. Key practices include implementing least privilege access, proper IAM configuration, encryption at rest and in transit, and continuous monitoring.
+**DevSecOps Integration Critical**
+Security integration throughout the development lifecycle is essential:
+- Over 40,009 new vulnerabilities discovered in 2025 (38% increase)
+- Shift-left security reduces vulnerability fixing costs by up to 100x
+- Proactive threat modeling prevents vulnerabilities before they occur
+- Security teams and developers share responsibility for secure code delivery
 
-### DevSecOps and Shift-Left Security
-Security integration has moved from end-of-cycle testing to continuous integration throughout development. Shift-left security embeds automated security checks early in CI/CD pipelines, reducing remediation costs by up to 100x compared to production fixes. This includes static analysis (SAST), dynamic analysis (DAST), and infrastructure-as-code scanning.
+**Vulnerability Management Evolution**
+Modern vulnerability management emphasizes systematic approaches:
+- Cyclical practice of identifying, classifying, prioritizing, remediating, and mitigating
+- Integration of static analysis, dynamic testing, and fuzzing techniques
+- Threat intelligence integration for context-aware prioritization
+- Automated scanning and remediation workflows
 
-### Key Security Controls and Practices
+**Incident Response Modernization**
+Enterprise incident response has evolved toward intelligence-driven approaches:
+- 70% of incidents occur on three or more attack fronts simultaneously
+- Cyber Threat Intelligence (CTI) provides critical context for response decisions
+- Multi-pronged attack surface protection (endpoints, networks, cloud, human factor)
+- Structured response plans with containment, eradication, and recovery phases
 
-**Identity and Access Management:**
-- Multi-factor authentication (MFA) as standard requirement
-- Role-based access control (RBAC) with least privilege principles
-- Regular access reviews and automated deprovisioning
-- Identity federation and single sign-on (SSO) implementation
+### Security Framework Integration
 
-**Data Protection:**
-- Encryption at rest and in transit using strong algorithms
-- Data classification and handling procedures
-- Privacy by design principles
-- Secure key management and rotation
+**NIST Cybersecurity Framework Alignment**
+Modern security practices align with NIST CSF core functions:
+- Identify: Asset management, risk assessment, governance
+- Protect: Access control, data security, protective technology
+- Detect: Continuous monitoring, detection processes
+- Respond: Response planning, communications, analysis
+- Recover: Recovery planning, improvements, communications
 
-**Infrastructure Security:**
-- Network segmentation and micro-segmentation
-- Vulnerability management and patch management
-- Security monitoring and incident response
-- Backup and disaster recovery procedures
+**CIS Controls Implementation**
+Critical Security Controls provide foundational security measures:
+- Basic controls: Inventory, software management, configuration management
+- Foundational controls: Vulnerability management, administrative privileges
+- Organizational controls: Security awareness, incident response
 
-**Application Security:**
-- Secure coding practices and code reviews
-- Input validation and output encoding
-- Dependency scanning and supply chain security
-- Regular security testing and penetration testing
+### Technology-Specific Considerations
 
-### Emerging Trends and Technologies
+**Cloud-Native Security**
+Cloud environments require specialized security approaches:
+- Container security with distroless images and vulnerability scanning
+- Serverless security with function-level access controls
+- Multi-cloud security orchestration and policy management
+- Cloud Security Posture Management (CSPM) implementation
 
-**AI-Powered Security:**
-- Machine learning for threat detection and response
-- Automated vulnerability assessment and remediation
-- Behavioral analytics for anomaly detection
-- AI-assisted security operations and incident response
+**API Security Focus**
+API security has become critical with microservices adoption:
+- OAuth 2.0 and JWT implementation for authentication/authorization
+- Rate limiting and input validation for API endpoints
+- API gateway security with threat detection
+- Regular API security testing and monitoring
 
-**Supply Chain Security:**
-- Software Bill of Materials (SBOM) requirements
-- Third-party risk assessment and monitoring
-- Secure development lifecycle for vendors
-- Container and image security scanning
-
-**Compliance and Governance:**
-- Automated compliance monitoring and reporting
-- Risk-based security controls implementation
-- Security metrics and KPI tracking
-- Board-level security governance and oversight
+**Supply Chain Security**
+Third-party component security is increasingly important:
+- Software Bill of Materials (SBOM) generation and management
+- Dependency vulnerability scanning and management
+- Vendor security assessment and monitoring
+- Secure software development lifecycle (SSDLC) implementation
 
 ## Key Findings
 
-- Zero Trust architecture has become the dominant security paradigm, requiring continuous verification of all access requests
-- NIST CSF 2.0 introduces governance as a core function and extends framework applicability beyond critical infrastructure
-- DevSecOps shift-left security can reduce remediation costs by 100x through early vulnerability detection
-- Cloud security requires understanding shared responsibility models across AWS, Azure, and GCP platforms
-- Application security focuses on supply chain risks and proper exception handling as emerging critical areas
+- **Zero Trust Architecture** is becoming the dominant security paradigm with 60% adoption expected by 2025
+- **OWASP Top 10 2025** shifts focus from symptoms to root causes with emphasis on supply chain and API security
+- **DevSecOps Integration** is critical with over 40,009 new vulnerabilities discovered in 2025 (38% increase)
+- **Incident Response Evolution** shows 70% of incidents occur on multiple attack fronts simultaneously
+- **Prevention-Focused Approach** reduces vulnerability fixing costs by up to 100x through shift-left security
 
 ## Sources & References
 
-- [Zero Trust Security Guide 2026](https://www.openedr.com/blog/zero-trust-security/) — Comprehensive guide to Zero Trust principles and implementation
-- [NIST Compliance in 2026: A Complete Implementation Guide](https://upguard.com/blog/nist-compliance) — Updated NIST framework guidance and implementation
-- [What is OWASP Top 10 for 2025](https://www.devopsschool.com/blog/what-is-owasp-top-10-for-2025/) — Latest application security risks and vulnerabilities
-- [Cloud Security Best Practices for AWS, Azure, and GCP](https://complyfactor.com/cloud-security-best-practices-for-aws-azure-and-gcp-environments/) — Multi-cloud security strategies
-- [Shifting Left: Automating DevSecOps in Your CI/CD Pipeline](https://devtoolhub.com/devsecops-automation-ci-cd-shift-left/) — DevSecOps integration and automation practices
+- [OWASP Top 10 2025: Key Changes and How to Prepare](https://www.cycubix.com/cybersecurity-insights/owasp-top-10-2025-whats-new) — OWASP 2025 updates and changes
+- [Zero Trust Architecture 2025](https://www.onlinehashcrack.com/guides/cybersecurity-trends/zero-trust-architecture-2025-adoption-guide.php) — Zero Trust adoption trends and implementation
+- [Best Practices Framework Guide](https://www.geenxt.com/blog/secure-software-development/) — Secure development practices and vulnerability statistics
+- [Essential Strategies for Secure Development](https://toxigon.com/devsecops-best-practices-2025) — DevSecOps integration and best practices
+- [2025 Unit 42 Global Incident Response Report](https://www.paloaltonetworks.com/resources/research/unit-42-incident-response-report) — Incident response trends and statistics
 
 ## Tools & Methods Used
 
-- web_search: "security best practices 2025 2026 cybersecurity frameworks zero trust"
-- web_search: "cybersecurity best practices 2025 2026 NIST framework security controls"
-- web_search: "application security best practices 2025 secure coding OWASP top 10"
-- web_search: "cloud security best practices 2025 2026 AWS Azure GCP security controls"
-- web_search: "DevSecOps security best practices 2025 shift left security CI/CD pipeline"
+- web_search: "security best practices 2025 cybersecurity frameworks OWASP"
+- web_search: "cybersecurity best practices 2025 zero trust architecture security frameworks"  
+- web_search: "security best practices 2025 DevSecOps secure coding practices vulnerability management"
+- web_search: "enterprise security best practices 2025 incident response threat intelligence"
 
 ## Metadata
 
-- Generated: 2026-01-13T00:49:26+01:00
+- Generated: 2026-01-13T05:19:47+01:00
 - Model: Claude 3.5 Sonnet
-- Tags: security, best-practices, zero-trust, NIST, OWASP, cloud-security, DevSecOps
-- Confidence: High - Based on current industry standards and authoritative sources
+- Tags: security, cybersecurity, best-practices, zero-trust, owasp, devsecops, incident-response
+- Confidence: High — Based on current industry research from authoritative sources including OWASP, NIST, and major security vendors
 - Version: 1
 
 ## Limitations & Confidence Notes
 
-- Data current as of January 2026 based on available sources
-- Security landscape evolves rapidly; practices should be regularly updated
-- Implementation details may vary based on organizational context and compliance requirements
-- Next steps: Regular review of emerging threats and updated security frameworks
+- Data current as of January 2026 research
+- Security landscape evolves rapidly - practices should be regularly updated
+- Implementation details vary by organization size and industry
+- Compliance requirements may impose additional security controls
+- Next steps: Regular review of emerging threats and security framework updates

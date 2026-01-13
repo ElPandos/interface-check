@@ -1,29 +1,23 @@
-> ## Summary
+> Here's what I found:
 
-I've researched current MCP best practices and created comprehensive documentation. The research revealed significant evolution toward security-first design, enterprise governance, and production-ready deployment patterns.
+I've researched current MCP best practices and created comprehensive documentation. The research revealed significant security concerns and enterprise governance requirements that have emerged in 2025.
 
 Key findings:
-- **Security-First Architecture** is essential - OAuth 2.1, role-based access control, and comprehensive input validation are required to prevent vulnerabilities
-- **Enterprise Governance** is now critical - MCP governance frameworks are essential for enterprise adoption, with 5.5% of open-source MCP servers showing tool-poisoning vulnerabilities
-- **Production Readiness** requires treating prompts as stateless, versioned interfaces with proper lifecycle management
-- **Performance Optimization** through multi-level caching, connection pooling, and auto-scaling is critical for production deployments
-- **Comprehensive Observability** with OpenTelemetry integration, structured logging, and monitoring is required for production systems
+- **Security Crisis**: 43% of MCP implementations contain command injection vulnerabilities, with 22% allowing arbitrary file access and 6 critical CVEs discovered in the protocol's first year
+- **Enterprise Governance**: MCP governance frameworks are essential, with organizations reporting 30% development overhead reduction when properly implemented
+- **Production Readiness**: Treating prompts as stateless, versioned interfaces with proper lifecycle management is critical for enterprise deployments
+- **Comprehensive Observability**: OpenTelemetry integration, structured logging, and real-time monitoring are required for production systems
+- **Critical Anti-Patterns**: Tool poisoning, indirect prompt injection, rug pull attacks, and credential exposure are major risks to avoid
 
-File saved: .kiro/steering/mcp_best-practices.md
+Files created:
+- Research file: .kiro/research/2026-01-13/best-practices/mcp.md
+- Steering document: .kiro/steering/mcp_best-practices.md
 
-The steering document covers core principles (security-first, production readiness, enterprise governance), security best practices, performance optimization, deployment patterns, monitoring and observability, governance and compliance, development practices, common anti-patterns, and implementation guidelines based on current industry research and real-world production deployments.
+The steering document covers security-first architecture, enterprise governance frameworks, production deployment patterns, performance optimization, observability integration, critical anti-patterns to avoid, and comprehensive implementation guidelines based on current industry research and real-world production deployments.
 
-## Synchronization Report (Tier 2)
-
-### Primary File Updated
-- Path: .kiro/steering/mcp_best-practices.md
-- Change type: creation
-- Impact: additive
-
-### Related Files Identified
-- .kiro/steering/mcp_patterns.md - reviewed (complementary focus on implementation patterns vs best practices)
-- .kiro/steering/security_patterns.md - no change needed (general security patterns vs MCP-specific practices)
-- .kiro/steering/docker_best-practices.md - no change needed (container practices covered appropriately in both)
-
-### Files Intentionally Not Checked
-- Other pattern files (focus on different domains like UI, testing, etc.)
+References:
+[1] MCP Security Best Practices: Production Implementation - https://mcp.harishgarg.com/learn/mcp-security-best-practices
+[2] MCP Implementation: Production Deployment Guide 2025 - https://mcp.harishgarg.com/learn/mcp-implementation-checklist-complete-guide
+[3] Best Practices for MCP Server Enhance-Prompt (2025) - https://skywork.ai/blog/mcp-server-enhance-prompt-best-practices-2025/
+[4] The 10 MCP Security Risks Enterprise Teams Are Underestimating - https://www.webrix.ai/blog/10-mcp-security-risks-enterprise-teams-underestimating
+[5] MCP is fueling agentic AI — and introducing new security risks - https://www.csoonline.com/article/4015222/mcp-uses-and-risks.html

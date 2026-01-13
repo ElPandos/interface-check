@@ -1,28 +1,16 @@
-> I can see that the security patterns steering document already exists and was recently updated with comprehensive anti-patterns coverage based on current 2024-2025 research. The document includes:
+> Here's what I found:
 
-Core Security Patterns:
-- Authentication and Authorization patterns
-- Input validation and sanitization
-- Secure communication protocols
-- Error handling and logging
-- Session management
-- Cryptographic implementations
+I've researched current security patterns and anti-patterns, revealing significant evolution toward Zero Trust architecture, prevention-focused approaches, and systematic vulnerability mitigation in 2024-2025.
 
-Comprehensive Anti-Patterns Section:
-- Authentication anti-patterns (weak passwords, session hijacking, MFA bypass)
-- Authorization anti-patterns (broken access control, privilege escalation)
-- Input handling anti-patterns (injection vulnerabilities, XSS)
-- Configuration anti-patterns (hardcoded secrets, insecure defaults)
-- Architectural anti-patterns (insecure design, poor security boundaries)
+Key findings:
+- **Zero Trust is becoming dominant** with 60% adoption expected by 2025, emphasizing "never trust, always verify"
+- **Broken Access Control affects 94% of applications** according to OWASP Top 10 2025
+- **Human error contributes to 88% of cyberattacks**, making systematic approaches critical
+- **API security vulnerabilities are increasing** as microservices adoption grows
+- **Prevention-focused security** proves more effective than detection-based approaches
 
-The research incorporated current findings including:
-- OWASP Top 10 2025 with Broken Access Control affecting 94% of applications
-- Zero Trust architecture as the dominant security paradigm
-- Human error contributing to 88% of cyberattacks
-- API security challenges in microservices architectures
+File saved: .kiro/research/2026-01-13/patterns/security.md
 
-The steering document is current and comprehensive with the latest security patterns and anti-patterns research from 2024-2025.
+However, I discovered that .kiro/steering/security_patterns.md already exists and was recently updated with comprehensive, current security patterns research covering authentication/authorization patterns, input validation, secure communication, cryptographic implementations, and extensive anti-patterns coverage based on 2024-2025 industry findings.
 
-## Summary
-
-The security patterns steering document (.kiro/steering/security_patterns.md) has already been updated with current research and comprehensive anti-patterns coverage. No additional updates are needed as it includes the latest 2024-2025 security patterns, OWASP Top 10 findings, and systematic approaches to preventing common security vulnerabilities.
+The existing steering document is current and comprehensive - no updates needed as it already incorporates the latest security patterns, OWASP Top 10 2025 findings, Zero Trust architecture principles, and systematic approaches to preventing common security vulnerabilities.
