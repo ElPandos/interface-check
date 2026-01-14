@@ -1,22 +1,11 @@
 {
   "name": "devops-infrastructure",
   "description": "Docker, CI/CD, and deployment automation specialist",
-  "personality": {
-    "style": "infrastructure-focused, automation-expert",
-    "explanation_length": "deployment-ready"
-  },
-  "core_prompt": "You are a DevOps infrastructure specialist. Focus on Docker containerization, CI/CD pipelines, deployment automation, and infrastructure as code. Prioritize security, scalability, and maintainability.",
-  "tools": [
-    "read",
-    "write",
-    "shell",
-    "grep"
-  ],
-  "allowedTools": [
-    "read",
-    "shell",
-    "grep"
-  ],
+  "prompt": "file://../prompts/devops-infrastructure.md",
+  "mcpServers": {},
+  "tools": ["read", "write", "shell", "grep"],
+  "toolAliases": {},
+  "allowedTools": ["read", "shell", "grep"],
   "toolsSettings": {
     "shell": {
       "allowedCommands": [
@@ -55,8 +44,10 @@
   "hooks": {
     "agentSpawn": [
       {
-        "command": "docker --version 2>/dev/null || echo 'Docker not available'"
+        "command": "docker --version 2>/dev/null || echo 'Docker not available'",
+        "timeout_ms": 5000
       }
     ]
-  }
+  },
+  "includeMcpJson": false
 }

@@ -1,24 +1,21 @@
 {
   "name": "project-planner-git-workflow",
   "description": "Specialized agent that are an expert on development workflow and handles Git integration for entire project",
-  "prompt": "You are a software developer assistant with expertise in Git workflows and code management. You like to split larger task into smaller pieces and sort them in execution order for your fellow agent collegues.",
-  "tools": [
-    "read",
-    "write",
-    "shell",
-    "@git"
-  ],
-  "allowedTools": [
-    "read",
-    "@git/git_status",
-    "@git/git_log",
-    "@git/git_diff"
-  ],
+  "prompt": "file://../prompts/project-planner-git-workflow.md",
+  "mcpServers": {
+    "git": {
+      "command": "git-mcp-server",
+      "args": [],
+      "timeout": 30000
+    }
+  },
+  "tools": ["read", "write", "shell", "@git"],
   "toolAliases": {
     "@git/git_status": "status",
     "@git/git_log": "log",
     "@git/git_diff": "diff"
   },
+  "allowedTools": ["read", "@git/git_status", "@git/git_log", "@git/git_diff"],
   "toolsSettings": {
     "write": {
       "allowedPaths": [
@@ -30,13 +27,6 @@
         "package.json",
         "requirements.txt"
       ]
-    }
-  },
-  "mcpServers": {
-    "git": {
-      "command": "git-mcp-server",
-      "args": [],
-      "timeout": 30000
     }
   },
   "resources": [
@@ -60,5 +50,6 @@
         "timeout_ms": 3000
       }
     ]
-  }
+  },
+  "includeMcpJson": false
 }

@@ -1,22 +1,11 @@
 {
   "name": "ssh-connection-expert",
   "description": "Multi-hop SSH connection management and automation specialist",
-  "personality": {
-    "style": "connection-focused, troubleshooting-expert",
-    "explanation_length": "step-by-step-guidance"
-  },
-  "core_prompt": "You are an SSH connection specialist focused on multi-hop connections, jump hosts, and remote command execution. Expert in paramiko, connection pooling, and SSH troubleshooting for the Interface Check project.",
-  "tools": [
-    "read",
-    "write",
-    "shell",
-    "grep"
-  ],
-  "allowedTools": [
-    "read",
-    "shell",
-    "grep"
-  ],
+  "prompt": "file://../prompts/ssh-connection-expert.md",
+  "mcpServers": {},
+  "tools": ["read", "write", "shell", "grep"],
+  "toolAliases": {},
+  "allowedTools": ["read", "shell", "grep"],
   "toolsSettings": {
     "shell": {
       "allowedCommands": [
@@ -48,8 +37,10 @@
   "hooks": {
     "agentSpawn": [
       {
-        "command": "ssh-add -l 2>/dev/null || echo 'No SSH keys loaded'"
+        "command": "ssh-add -l 2>/dev/null || echo 'No SSH keys loaded'",
+        "timeout_ms": 5000
       }
     ]
-  }
+  },
+  "includeMcpJson": false
 }

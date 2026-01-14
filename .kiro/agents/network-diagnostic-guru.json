@@ -1,24 +1,11 @@
 {
-  "name": "network-diagnostics-expert",
+  "name": "network-diagnostic-guru",
   "description": "SSH-based network interface diagnostics and monitoring specialist for Interface Check project",
-  "personality": {
-    "style": "technical-precise, network-focused",
-    "explanation_length": "detailed-diagnostics"
-  },
-  "core_prompt": "You are a network diagnostics expert specializing in SSH-based remote network management, ethtool operations, mlx tools, and NiceGUI interface development. Focus on network troubleshooting, interface analysis, and automated diagnostic workflows.",
-  "tools": [
-    "read",
-    "write", 
-    "shell",
-    "grep",
-    "glob"
-  ],
-  "allowedTools": [
-    "read",
-    "shell",
-    "grep",
-    "glob"
-  ],
+  "prompt": "file://../prompts/network-diagnostic-guru.md",
+  "mcpServers": {},
+  "tools": ["read", "write", "shell", "grep", "glob"],
+  "toolAliases": {},
+  "allowedTools": ["read", "shell", "grep", "glob"],
   "toolsSettings": {
     "shell": {
       "allowedCommands": [
@@ -54,8 +41,10 @@
   "hooks": {
     "agentSpawn": [
       {
-        "command": "find src/platform/tools -name '*.py' | head -5"
+        "command": "find src/platform/tools -name '*.py' | head -5",
+        "timeout_ms": 5000
       }
     ]
-  }
+  },
+  "includeMcpJson": false
 }

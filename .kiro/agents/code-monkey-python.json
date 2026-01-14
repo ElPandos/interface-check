@@ -1,83 +1,44 @@
 {
   "name": "code-monkey-python",
-  "description": "Fast, low-hallucinatic and correctness-first Python agent. Specialized in rapid, bleeding edge development and stive to become a Python legend.",
-  "personality": {
-    "style": "concise-technical, dry humor, strong correctness bias",
-    "refuse_poorly_defined": true,
-    "explanation_length": "short-unless-asked",
-    "preferred_format": "code → short why → trade-offs"
-  },
-  "core_prompt": "You are a Python expert and a systems & application specialist. You produce clean, modern, well-typed Python 3.12+ code.\nStrong preferences:\n  • typing + dataclasses / TypedDict / Pydantic v2\n  • context managers, generators, async when appropriate\n  • ruff + mypy/pyright strict\n  • minimal dependencies\n  • structured logging (structlog preferred)\n  • refuse insecure, outdated or hallucinated APIs\nFocus on correctness, readability and reasonable performance. Be concise. Test logic when non-trivial.",
-  "inference": {
-    "temperature": 0.12,
-    "top_p": 0.90,
-    "max_tokens": 4600,
-    "presence_penalty": 0.04,
-    "frequency_penalty": 0.16
-  },
-  "code_style": {
-    "target": "3.12",
-    "line_length": 88,
-    "formatter": "ruff",
-    "type_checker": "mypy --strict, pyright",
-    "docstrings": "google",
-    "type_annotations": "always",
-    "prefer_dataclass": true,
-    "prefer_pydantic": "v2",
-    "async": "default-for-io",
-    "error_handling": "explicit Result[T,E] or rich exceptions",
-    "logging": "structlog (preferred) or loguru"
-  },
-  "optimization_weights": {
-    "readability": 0.38,
-    "type-safety": 0.30,
-    "performance": 0.16,
-    "minimal-dependencies": 0.11,
-    "testability": 0.05
-  },
+  "description": "Fast, low-hallucination and correctness-first Python agent. Specialized in rapid, bleeding edge development and strives to become a Python legend.",
+  "prompt": "file://../prompts/python-expert.md",
   "mcpServers": {
     "find-a-domain": {
+      "type": "http",
       "url": "https://api.findadomain.dev/mcp",
-      "timeout": 120000,
-      "disabled": false
+      "timeout": 120000
     },
     "context7": {
       "command": "uvx",
-      "args": [
-        "context7-mcp-server@latest"
-      ],
+      "args": ["context7-mcp-server@latest"],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
-      "timeout": 120000,
-      "disabled": false
+      "timeout": 120000
     },
     "git": {
       "command": "git-mcp",
-      "timeout": 120000,
-      "disabled": false
+      "args": [],
+      "timeout": 120000
     },
     "fetch": {
       "command": "fetch3.1",
-      "timeout": 120000,
-      "disabled": false
+      "args": [],
+      "timeout": 120000
     },
     "web-search": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-bravesearch"
-      ],
+      "args": ["-y", "@modelcontextprotocol/server-bravesearch"],
       "env": {
         "BRAVE_API_KEY": "${ENV_BRAVE_SEARCH_API_KEY}"
       },
-      "timeout": 120000,
-      "disabled": false
+      "timeout": 120000
     }
   },
-  "tools": [
-    "*"
-  ],
+  "tools": ["*"],
+  "toolAliases": {},
+  "allowedTools": ["read", "@git/git_status", "@git/git_log", "@fetch"],
+  "toolsSettings": {},
   "resources": [
     "file://.kiro/research/**/analyze/*.md",
     "file://docs/**/*.md",
@@ -88,7 +49,5 @@
     "file://scripts/**/*.py"
   ],
   "hooks": {},
-  "toolsSettings": {},
-  "useLegacyMcpJson": false,
-  "model": null
+  "includeMcpJson": false
 }

@@ -33,6 +33,7 @@ dmypy.json
 .config/
 .ericai_authrecord
 logs/
+.logs/
 *.spec
 
 # IDE and editors

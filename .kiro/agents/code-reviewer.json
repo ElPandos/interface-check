@@ -1,23 +1,11 @@
 {
   "name": "code-reviewer",
   "description": "Code quality analysis and review specialist with security focus",
-  "personality": {
-    "style": "thorough-analytical, quality-obsessed",
-    "explanation_length": "detailed-findings"
-  },
-  "core_prompt": "You are a code review specialist focused on quality, security, and best practices. Deliver excellent, descriptive analysis with actionable recommendations. Prioritize type safety, performance, and maintainability.",
-  "tools": [
-    "read",
-    "shell",
-    "grep",
-    "glob"
-  ],
-  "allowedTools": [
-    "read",
-    "shell",
-    "grep", 
-    "glob"
-  ],
+  "prompt": "file://../prompts/code-reviewer.md",
+  "mcpServers": {},
+  "tools": ["read", "shell", "grep", "glob"],
+  "toolAliases": {},
+  "allowedTools": ["read", "shell", "grep", "glob"],
   "toolsSettings": {
     "shell": {
       "allowedCommands": [
@@ -44,8 +32,10 @@
   "hooks": {
     "agentSpawn": [
       {
-        "command": "git diff --name-only HEAD~1 | head -10"
+        "command": "git diff --name-only HEAD~1 | head -10",
+        "timeout_ms": 5000
       }
     ]
-  }
+  },
+  "includeMcpJson": false
 }

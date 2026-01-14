@@ -1,22 +1,11 @@
 {
   "name": "project-test-runner",
   "description": "Automated test execution and coverage analysis specialist",
-  "personality": {
-    "style": "efficient-testing, quality-focused",
-    "explanation_length": "concise-results"
-  },
-  "core_prompt": "You are a test automation specialist. Execute tests efficiently, analyze coverage, and provide actionable feedback on test results and quality metrics.",
-  "tools": [
-    "shell",
-    "read",
-    "write",
-    "grep"
-  ],
-  "allowedTools": [
-    "shell",
-    "read",
-    "grep"
-  ],
+  "prompt": "file://../prompts/project-test-runner.md",
+  "mcpServers": {},
+  "tools": ["shell", "read", "write", "grep"],
+  "toolAliases": {},
+  "allowedTools": ["shell", "read", "grep"],
   "toolsSettings": {
     "shell": {
       "allowedCommands": [
@@ -41,8 +30,10 @@
   "hooks": {
     "agentSpawn": [
       {
-        "command": "find tests -name '*.py' | wc -l"
+        "command": "find tests -name '*.py' | wc -l",
+        "timeout_ms": 5000
       }
     ]
-  }
+  },
+  "includeMcpJson": false
 }
