@@ -1,6 +1,5 @@
 {
   "name": "devops-infrastructure",
-  "version": "1.0.0",
   "description": "Docker, CI/CD, and deployment automation specialist",
   "personality": {
     "style": "infrastructure-focused, automation-expert",

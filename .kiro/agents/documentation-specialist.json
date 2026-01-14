@@ -1,6 +1,5 @@
 {
   "name": "documentation-specialist",
-  "version": "1.0.0",
   "description": "Technical documentation creation and maintenance expert",
   "personality": {
     "style": "clear-comprehensive, user-focused",

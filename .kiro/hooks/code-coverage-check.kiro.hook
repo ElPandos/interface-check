@@ -1,14 +1,15 @@
 {
     "enabled": true,
     "name": "Code Coverage Check",
-    "description": "Run tests with coverage and report on coverage gaps following testing best practices",
-    "version": "1",
+    "description": "Analyze test coverage and identify gaps with actionable recommendations",
+    "version": "2.0",
     "when": {
         "type": "manual",
         "button_text": "Check Coverage"
     },
     "then": {
         "type": "askAgent",
-        "prompt": "Run tests with code coverage analysis following testing best practices. Please:\n1. Run the test suite with coverage reporting enabled using minimal verbosity (--silent, --quiet flags)\n2. Generate a coverage report showing which lines/functions are not covered\n3. Identify files with low coverage (< 80%)\n4. Suggest specific areas that need more tests\n5. Check for any dead code that can be removed\n6. Report overall coverage statistics\n7. Suggest improvements to increase coverage\n8. Use commands like: npm test -- --coverage --silent, yarn test --coverage --silent, or pytest --cov --tb=short -q\n9. Focus on testing behavior, not implementation\n10. Ensure tests are descriptive and well-organized"
+        "agentName": "project-test-runner",
+        "prompt": "Run comprehensive coverage analysis:\n\n**Commands**:\n- Python: `pytest --cov=src --cov-report=term-missing --cov-report=html -q`\n- TypeScript: `npm test -- --coverage --silent`\n\n**Analysis**:\n1. **Overall stats**: Lines, branches, functions covered\n2. **Low coverage files**: <80% coverage with specific uncovered lines\n3. **Critical gaps**: Untested error paths, edge cases\n4. **Dead code**: Unreachable code to remove\n5. **Test suggestions**: Specific test cases needed\n\n**Output**: Coverage summary + prioritized action items with line numbers"
     }
 }

@@ -1,6 +1,5 @@
 {
   "name": "network-diagnostics-expert",
-  "version": "1.0.0",
   "description": "SSH-based network interface diagnostics and monitoring specialist for Interface Check project",
   "personality": {
     "style": "technical-precise, network-focused",

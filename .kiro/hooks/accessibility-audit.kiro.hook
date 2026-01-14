@@ -2,7 +2,7 @@
     "enabled": false,
     "name": "Accessibility Audit",
     "description": "Audit React/HTML components for accessibility issues (disabled by default for performance)",
-    "version": "1",
+    "version": "2.0",
     "when": {
         "type": "fileEdited",
         "patterns": [
@@ -13,6 +13,7 @@
     },
     "then": {
         "type": "askAgent",
-        "prompt": "A UI component file has been modified. Please audit it for accessibility issues following React and web accessibility best practices:\n1. Check for proper ARIA labels and roles\n2. Ensure all interactive elements are keyboard accessible\n3. Verify proper heading hierarchy (h1, h2, h3, etc.)\n4. Check color contrast ratios\n5. Ensure images have alt text\n6. Verify form labels are properly associated\n7. Check for semantic HTML usage\n8. Suggest improvements for screen reader compatibility\n9. Follow React accessibility patterns and hooks usage\n10. Ensure components are properly tested for accessibility"
+        "agentName": "ui-designer",
+        "prompt": "Run accessibility audit:\n\n**Tools**: `axe-core`, `lighthouse --only-categories=accessibility`, `pa11y`\n\n**Checks**:\n1. **WCAG compliance**: AA level standards\n2. **Keyboard navigation**: Tab order, focus indicators\n3. **Screen readers**: ARIA labels, semantic HTML\n4. **Color contrast**: 4.5:1 minimum ratio\n5. **Images**: Alt text, decorative vs informative\n\n**Output**: Accessibility score with specific violations and remediation steps",
     }
 }

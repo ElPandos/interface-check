@@ -1,6 +1,5 @@
 {
   "name": "ssh-connection-expert",
-  "version": "1.0.0",
   "description": "Multi-hop SSH connection management and automation specialist",
   "personality": {
     "style": "connection-focused, troubleshooting-expert",
