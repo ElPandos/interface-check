@@ -1,3 +1,11 @@
+---
+title:        Project Initialization Instructions
+inclusion:    always
+version:      1.0
+last-updated: 2026-01-15 15:25:00
+status:       active
+---
+
 # Project init: Initialize Project Context
 
 ## Objective
@@ -109,5 +117,5 @@ git log -10 --name-only --pretty=format: | sort | uniq -c | sort -nr | head -10 
 
 ## Version History
 
-- v1.0 (2026-01-12): Initial version
-- v1.1 (2026-01-12): Optimized for better robustness and efficiency
+- v1.0 (2026-01-12 00:00:00): Initial version
+- v1.1 (2026-01-12 00:00:00): Optimized for better robustness and efficiency

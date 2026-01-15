@@ -1,3 +1,11 @@
+---
+title:        Interface Check Project README
+inclusion:    always
+version:      1.0
+last-updated: 2026-01-15 15:25:00
+status:       active
+---
+
 # Interface Check
 
 Network interface monitoring and traffic testing tool with SSH-based remote management and web-based GUI.
@@ -249,3 +257,7 @@ See [docs/CONFIGURATION_GUIDE.md](docs/CONFIGURATION_GUIDE.md) for detailed conf
 ## License
 
 See LICENSE file for details.
+
+## Version History
+
+- v1.0 (2026-01-15 15:25:00): Initial version with frontmatter

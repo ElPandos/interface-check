@@ -1,3 +1,11 @@
+---
+title:        Project TODO and Code Quality Issues
+inclusion:    always
+version:      1.0
+last-updated: 2026-01-15 15:25:00
+status:       active
+---
+
 # TODO - Code Quality Issues
 
 Generated on: 2026-01-12
@@ -115,3 +123,7 @@ Generated on: 2026-01-12
 4. Store asyncio task references properly
 5. Remove commented-out code
 6. Replace print statements in tests with proper assertions
+
+## Version History
+
+- v1.0 (2026-01-15 15:25:00): Initial version with frontmatter

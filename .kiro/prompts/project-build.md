@@ -2,7 +2,7 @@
 title:        Project Build Instructions
 inclusion:    always
 version:      1.3
-last-updated: 2026-01-13
+last-updated: 2026-01-13 00:00:00
 status:       active
 ---
 
@@ -74,6 +74,6 @@ Output: `dist/` directory
 
 ## Version History
 
-- v1.0 (2026-01-12): Initial version
-- v1.2 (2026-01-12): Removed reference to missing build_binary.sh script
-- v1.3 (2026-01-13): Streamlined structure, added quick start, combined commands
+- v1.0 (2026-01-12 00:00:00): Initial version
+- v1.2 (2026-01-12 00:00:00): Removed reference to missing build_binary.sh script
+- v1.3 (2026-01-13 00:00:00): Streamlined structure, added quick start, combined commands

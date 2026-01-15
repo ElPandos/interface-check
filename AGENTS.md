@@ -1,3 +1,11 @@
+---
+title:        Custom Kiro Agents Configuration
+inclusion:    always
+version:      1.0
+last-updated: 2026-01-15 15:25:00
+status:       active
+---
+
 # Custom Agents
 
 This document describes the custom Kiro agents configured for the interface-check project.
@@ -244,4 +252,4 @@ kiro-cli --agent agent-name
 
 ## Version History
 
-- v1.0 (2026-01-15): Initial agent configurations for interface-check project
+- v1.0 (2026-01-15 15:25:00): Initial agent configurations for interface-check project
