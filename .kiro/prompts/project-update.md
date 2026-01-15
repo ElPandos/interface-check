@@ -18,10 +18,7 @@ cd /home/emvekta/_PROJECTS/interface-check
 source ./scripts/extract_topics.sh
 
 # Update best practices (parallel with 4 workers)
-uv run scripts/research.py -b -t "$TOPICS" -w 4 -f
-
-# Update patterns (parallel with 4 workers)
-uv run scripts/research.py -p -t "$TOPICS" -w 4 -f
+uv run scripts/research.py -b -p -t "$TOPICS" -w 4 -f
 
 # Update analyze documents (comprehensive web crawling for URLs)
 # Example: uv run scripts/research.py -a -t "https://docs.example.com" -d 3 -w 4 -f

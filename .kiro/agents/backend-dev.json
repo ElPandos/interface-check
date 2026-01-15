@@ -1,0 +1,117 @@
+{
+  "name": "backend-dev",
+  "description": "General backend development specialist supporting Python, Node.js, Rust, Go, and Java. Focuses on API design, security, performance, and scalable architecture.",
+  "prompt": "file://../prompts/agents/backend-dev.md",
+  "mcpServers": {
+    "git": {
+      "command": "git-mcp",
+      "args": [],
+      "timeout": 120000
+    },
+    "fetch": {
+      "command": "fetch3.1",
+      "args": [],
+      "timeout": 120000
+    },
+    "web-search": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-bravesearch"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "${ENV_BRAVE_SEARCH_API_KEY}"
+      },
+      "timeout": 120000
+    }
+  },
+  "tools": [
+    "*"
+  ],
+  "toolAliases": {
+    "@git/git_status": "status",
+    "@git/git_log": "log"
+  },
+  "allowedTools": [
+    "read",
+    "@git/git_status",
+    "@git/git_log",
+    "@fetch"
+  ],
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": [
+        "src/**/*.py",
+        "src/**/*.ts",
+        "src/**/*.js",
+        "src/**/*.rs",
+        "src/**/*.go",
+        "src/**/*.java",
+        "tests/**",
+        "api/**",
+        "routes/**",
+        "controllers/**",
+        "services/**",
+        "models/**",
+        "schemas/**",
+        "migrations/**"
+      ]
+    },
+    "shell": {
+      "allowedCommands": [
+        "pytest",
+        "cargo test",
+        "go test",
+        "npm test",
+        "mvn test",
+        "cargo build",
+        "go build",
+        "npm run build"
+      ],
+      "autoAllowReadonly": true
+    }
+  },
+  "resources": [
+    "file://docs/api-designer_best-practices.md",
+    "file://docs/api-designer_patterns.md",
+    "file://docs/rest-api_best-practices.md",
+    "file://docs/rest-api_patterns.md",
+    "file://docs/security_best-practices.md",
+    "file://docs/security_patterns.md",
+    "file://docs/error-handling_best-practices.md",
+    "file://docs/error-handling_patterns.md",
+    "file://docs/code-quality_best-practices.md",
+    "file://docs/code-quality_patterns.md",
+    "file://docs/testing_best-practices.md",
+    "file://docs/testing_patterns.md",
+    "file://docs/code-performance-optimization_best-practices.md",
+    "file://docs/code-performance-optimization_patterns.md",
+    "file://docs/python_best-practices.md",
+    "file://docs/python_patterns.md",
+    "file://docs/rust_best-practices.md",
+    "file://docs/rust_patterns.md",
+    "file://docs/pydantic-models_best-practices.md",
+    "file://docs/pydantic-models_patterns.md",
+    "file://README.md",
+    "file://pyproject.toml",
+    "file://Cargo.toml",
+    "file://package.json",
+    "file://go.mod"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "git status --short && echo '---' && git log --oneline -3",
+        "timeout_ms": 5000
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "write",
+        "command": "if [[ \"$TOOL_INPUT_PATH\" == *.py ]]; then uv run ruff format \"$TOOL_INPUT_PATH\" 2>/dev/null || true; fi",
+        "timeout_ms": 10000
+      }
+    ]
+  },
+  "includeMcpJson": false
+}

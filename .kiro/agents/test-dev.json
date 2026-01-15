@@ -1,0 +1,57 @@
+{
+  "name": "test-dev",
+  "description": "Multi-language test execution and quality analysis specialist. Handles Python (pytest, mypy, ruff), Rust (cargo test), JavaScript/TypeScript (npm test, jest), and general testing workflows.",
+  "prompt": "file://../prompts/agents/test-dev.md",
+  "tools": ["read", "shell", "code"],
+  "allowedTools": ["read", "code"],
+  "toolsSettings": {
+    "shell": {
+      "allowedCommands": [
+        "pytest",
+        "pytest *",
+        "mypy",
+        "mypy *",
+        "ruff check",
+        "ruff check *",
+        "ruff format",
+        "ruff format *",
+        "cargo test",
+        "cargo test *",
+        "cargo clippy",
+        "npm test",
+        "npm run test",
+        "npm run test:*",
+        "jest",
+        "jest *",
+        "go test",
+        "go test *",
+        "mvn test",
+        "gradle test"
+      ],
+      "autoAllowReadonly": true
+    }
+  },
+  "resources": [
+    "file://README.md",
+    "file://AGENTS.md",
+    "file://.kiro/steering/product.md",
+    "file://.kiro/steering/tech.md",
+    "file://.kiro/steering/structure.md",
+    "file://.kiro/steering/system-file-style.md",
+    "file://pyproject.toml",
+    "file://Cargo.toml",
+    "file://package.json",
+    "file://tests/**/*.py",
+    "file://tests/**/*.rs",
+    "file://tests/**/*.ts",
+    "file://tests/**/*.js"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "find tests -type f \\( -name '*.py' -o -name '*.rs' -o -name '*.ts' -o -name '*.js' \\) 2>/dev/null | wc -l | xargs echo 'Test files found:'",
+        "timeout_ms": 5000
+      }
+    ]
+  }
+}

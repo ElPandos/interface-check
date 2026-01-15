@@ -1,0 +1,99 @@
+{
+  "name": "frontend-dev",
+  "description": "General frontend development specialist supporting React, Vue, Angular, Svelte, and vanilla JS/TS. Focuses on accessibility, performance, and modern UI/UX patterns.",
+  "prompt": "file://../prompts/agents/frontend-dev.md",
+  "mcpServers": {
+    "git": {
+      "command": "git-mcp",
+      "args": [],
+      "timeout": 120000
+    },
+    "fetch": {
+      "command": "fetch3.1",
+      "args": [],
+      "timeout": 120000
+    },
+    "web-search": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-bravesearch"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "${ENV_BRAVE_SEARCH_API_KEY}"
+      },
+      "timeout": 120000
+    }
+  },
+  "tools": [
+    "*"
+  ],
+  "toolAliases": {
+    "@git/git_status": "status",
+    "@git/git_log": "log"
+  },
+  "allowedTools": [
+    "read",
+    "@git/git_status",
+    "@git/git_log",
+    "@fetch"
+  ],
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": [
+        "src/ui/**",
+        "src/**/*.tsx",
+        "src/**/*.jsx",
+        "src/**/*.vue",
+        "src/**/*.svelte",
+        "src/**/*.css",
+        "src/**/*.scss",
+        "public/**",
+        "components/**",
+        "pages/**",
+        "styles/**"
+      ]
+    },
+    "shell": {
+      "allowedCommands": [
+        "npm test",
+        "npm run lint",
+        "npm run build",
+        "npm run dev",
+        "pnpm test",
+        "pnpm lint",
+        "yarn test",
+        "yarn lint"
+      ],
+      "autoAllowReadonly": true
+    }
+  },
+  "resources": [
+    "file://docs/ui_best-practices.md",
+    "file://docs/ui_patterns.md",
+    "file://docs/nicegui-development_best-practices.md",
+    "file://docs/nicegui-development_patterns.md",
+    "file://docs/rest-api_best-practices.md",
+    "file://docs/rest-api_patterns.md",
+    "file://docs/code-quality_best-practices.md",
+    "file://docs/code-quality_patterns.md",
+    "file://docs/testing_best-practices.md",
+    "file://docs/testing_patterns.md",
+    "file://docs/architecture-development_best-practices.md",
+    "file://docs/architecture-development_patterns.md",
+    "file://README.md",
+    "file://package.json",
+    "file://tsconfig.json",
+    "file://vite.config.ts",
+    "file://tailwind.config.js"
+  ],
+  "hooks": {
+    "agentSpawn": [
+      {
+        "command": "git status --short && echo '---' && git log --oneline -3",
+        "timeout_ms": 5000
+      }
+    ]
+  },
+  "includeMcpJson": false
+}

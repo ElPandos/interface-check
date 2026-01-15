@@ -1,7 +1,4 @@
 #!/usr/bin/env python3
+"""Simple hello world script for testing purposes."""
 
-# Simple greeting script
-# Print a greeting to the console
-# Standard hello world example
-# This is a basic demonstration
 print("Hello, World!")
