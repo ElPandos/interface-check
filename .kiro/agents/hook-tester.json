@@ -1,0 +1,38 @@
+{
+  "name": "hook-tester",
+  "description": "Minimal agent for testing hooks when updating Python files in scripts folder",
+  "tools": [
+    "read",
+    "write"
+  ],
+  "allowedTools": [
+    "read",
+    "write"
+  ],
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": [
+        "scripts/**/*.py"
+      ]
+    }
+  },
+  "resources": [
+    "file://scripts/**/*.py"
+  ],
+  "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "write",
+        "command": "echo 'PRE-HOOK: About to write file'",
+        "timeout_ms": 5000
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "write",
+        "command": "echo 'POST-HOOK: File written successfully'",
+        "timeout_ms": 5000
+      }
+    ]
+  }
+}

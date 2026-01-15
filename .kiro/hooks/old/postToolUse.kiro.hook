@@ -1,0 +1,9 @@
+{
+    "postToolUse": [
+        {
+            "matcher": "write",
+            "command": "echo 'POST-HOOK: File written successfully' >&2",
+            "timeout_ms": 5000
+        }
+    ]
+}

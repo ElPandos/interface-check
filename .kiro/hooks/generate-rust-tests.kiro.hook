@@ -1,0 +1,16 @@
+{
+    "enabled": true,
+    "name": "Generate Rust Tests",
+    "description": "Generate tests when a Rust file is saved in src/",
+    "version": "1.0",
+    "when": {
+        "type": "fileEdited",
+        "patterns": [
+            "src/**/*.rs"
+        ]
+    },
+    "then": {
+        "type": "askAgent",
+        "prompt": "A Rust file was saved. Check if it has a #[cfg(test)] module.\n\nRules:\n1. Skip if tests module already exists in the file\n2. Skip mod.rs and lib.rs unless they contain logic\n3. Skip files that are purely type definitions\n\nIf tests don't exist, add a #[cfg(test)] module at the bottom with:\n- Unit tests for public functions\n- Edge cases and error conditions\n- Use assert!, assert_eq!, assert_ne! macros\n- Mock external dependencies where needed\n\nAdd tests inline in the same file following Rust conventions."
+    }
+}

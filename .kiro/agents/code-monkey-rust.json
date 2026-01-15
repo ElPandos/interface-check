@@ -1,7 +1,7 @@
 {
   "name": "code-monkey-rust",
   "description": "Fast, low-hallucination and correctness-first Rust agent. Specialized in rapid, bleeding edge development and strives to become a true Rust legend.",
-  "prompt": "file://../prompts/rust-expert.md",
+  "prompt": "file://../prompts/agents/code-monkey-rust.md",
   "mcpServers": {
     "find-a-domain": {
       "type": "http",
@@ -10,7 +10,9 @@
     },
     "context7": {
       "command": "uvx",
-      "args": ["context7-mcp-server@latest"],
+      "args": [
+        "context7-mcp-server@latest"
+      ],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
@@ -28,16 +30,26 @@
     },
     "web-search": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-bravesearch"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-bravesearch"
+      ],
       "env": {
         "BRAVE_API_KEY": "${ENV_BRAVE_SEARCH_API_KEY}"
       },
       "timeout": 120000
     }
   },
-  "tools": ["*"],
+  "tools": [
+    "*"
+  ],
   "toolAliases": {},
-  "allowedTools": ["read", "@git/git_status", "@git/git_log", "@fetch"],
+  "allowedTools": [
+    "read",
+    "@git/git_status",
+    "@git/git_log",
+    "@fetch"
+  ],
   "toolsSettings": {},
   "resources": [
     "file://.kiro/research/**/analyze/*.md",

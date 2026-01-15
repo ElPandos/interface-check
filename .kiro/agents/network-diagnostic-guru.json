@@ -1,11 +1,22 @@
 {
   "name": "network-diagnostic-guru",
   "description": "SSH-based network interface diagnostics and monitoring specialist for Interface Check project",
-  "prompt": "file://../prompts/network-diagnostic-guru.md",
+  "prompt": "file://../prompts/agents/network-diagnostic-guru.md",
   "mcpServers": {},
-  "tools": ["read", "write", "shell", "grep", "glob"],
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "grep",
+    "glob"
+  ],
   "toolAliases": {},
-  "allowedTools": ["read", "shell", "grep", "glob"],
+  "allowedTools": [
+    "read",
+    "shell",
+    "grep",
+    "glob"
+  ],
   "toolsSettings": {
     "shell": {
       "allowedCommands": [

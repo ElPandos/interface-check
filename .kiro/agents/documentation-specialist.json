@@ -1,17 +1,37 @@
 {
   "name": "documentation-specialist",
   "description": "Technical documentation creation and maintenance expert",
-  "prompt": "file://../prompts/documentation-specialist.md",
+  "prompt": "file://../prompts/agents/documentation-specialist.md",
   "mcpServers": {},
-  "tools": ["read", "write", "grep", "glob"],
+  "tools": [
+    "read",
+    "write",
+    "grep",
+    "glob"
+  ],
   "toolAliases": {},
-  "allowedTools": ["read", "write", "grep", "glob"],
+  "allowedTools": [
+    "read",
+    "write",
+    "grep",
+    "glob"
+  ],
   "toolsSettings": {
     "write": {
-      "allowedPaths": ["docs/**", "README.md", "*.md"]
+      "allowedPaths": [
+        "docs/**",
+        "README.md",
+        "*.md"
+      ]
     },
     "read": {
-      "allowedPaths": ["src/**", "docs/**", "*.md", "*.json", "pyproject.toml"]
+      "allowedPaths": [
+        "src/**",
+        "docs/**",
+        "*.md",
+        "*.json",
+        "pyproject.toml"
+      ]
     }
   },
   "resources": [

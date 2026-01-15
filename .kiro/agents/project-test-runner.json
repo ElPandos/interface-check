@@ -1,11 +1,20 @@
 {
   "name": "project-test-runner",
   "description": "Automated test execution and coverage analysis specialist",
-  "prompt": "file://../prompts/project-test-runner.md",
+  "prompt": "file://../prompts/agents/project-test-runner.md",
   "mcpServers": {},
-  "tools": ["shell", "read", "write", "grep"],
+  "tools": [
+    "shell",
+    "read",
+    "write",
+    "grep"
+  ],
   "toolAliases": {},
-  "allowedTools": ["shell", "read", "grep"],
+  "allowedTools": [
+    "shell",
+    "read",
+    "grep"
+  ],
   "toolsSettings": {
     "shell": {
       "allowedCommands": [
@@ -18,7 +27,12 @@
       "autoAllowReadonly": true
     },
     "read": {
-      "allowedPaths": ["tests/**", "src/**", "pyproject.toml", "Cargo.toml"]
+      "allowedPaths": [
+        "tests/**",
+        "src/**",
+        "pyproject.toml",
+        "Cargo.toml"
+      ]
     }
   },
   "resources": [

@@ -2,7 +2,7 @@
 title:        System File Style Guidelines
 inclusion:    always
 version:      1.1
-last-updated: 2026-01-12
+last-updated: 2026-01-12 00:00:00
 status:       active
 ---
 
@@ -152,5 +152,5 @@ logger.error(f"{index}✗ Failed: {e}")
 
 ## Version History
 
-- v1.0 (2026-01-12): Initial version
-- v1.1 (2026-01-12): Condensed, removed duplication, added checklist, stricter import rules
+- v1.0 (2026-01-12 00:00:00): Initial version
+- v1.1 (2026-01-12 00:00:00): Condensed, removed duplication, added checklist, stricter import rules

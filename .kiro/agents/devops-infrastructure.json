@@ -1,11 +1,20 @@
 {
   "name": "devops-infrastructure",
   "description": "Docker, CI/CD, and deployment automation specialist",
-  "prompt": "file://../prompts/devops-infrastructure.md",
+  "prompt": "file://../prompts/agents/devops-infrastructure.md",
   "mcpServers": {},
-  "tools": ["read", "write", "shell", "grep"],
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "grep"
+  ],
   "toolAliases": {},
-  "allowedTools": ["read", "shell", "grep"],
+  "allowedTools": [
+    "read",
+    "shell",
+    "grep"
+  ],
   "toolsSettings": {
     "shell": {
       "allowedCommands": [

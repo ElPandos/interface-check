@@ -1,7 +1,7 @@
 {
   "name": "project-planner-git-workflow",
   "description": "Specialized agent that are an expert on development workflow and handles Git integration for entire project",
-  "prompt": "file://../prompts/project-planner-git-workflow.md",
+  "prompt": "file://../prompts/agents/project-planner-git-workflows.md",
   "mcpServers": {
     "git": {
       "command": "git-mcp-server",
@@ -9,13 +9,23 @@
       "timeout": 30000
     }
   },
-  "tools": ["read", "write", "shell", "@git"],
+  "tools": [
+    "read",
+    "write",
+    "shell",
+    "@git"
+  ],
   "toolAliases": {
     "@git/git_status": "status",
     "@git/git_log": "log",
     "@git/git_diff": "diff"
   },
-  "allowedTools": ["read", "@git/git_status", "@git/git_log", "@git/git_diff"],
+  "allowedTools": [
+    "read",
+    "@git/git_status",
+    "@git/git_log",
+    "@git/git_diff"
+  ],
   "toolsSettings": {
     "write": {
       "allowedPaths": [

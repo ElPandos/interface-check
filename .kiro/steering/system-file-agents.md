@@ -2,7 +2,7 @@
 title:        System File Agent Configuration
 inclusion:    always
 version:      1.0
-last-updated: 2026-01-14
+last-updated: 2026-01-14 10:02:00
 status:       active
 ---
 
@@ -366,4 +366,4 @@ kiro-cli --agent my-agent
 
 ## Version History
 
-- v1.0 (2026-01-14): Initial version based on Kiro custom agents documentation
+- v1.0 (2026-01-14 00:00:00): Initial version based on Kiro custom agents documentation

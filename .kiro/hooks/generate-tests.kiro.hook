@@ -1,0 +1,16 @@
+{
+    "enabled": true,
+    "name": "Generate Pytest Tests",
+    "description": "Generate pytest tests when a new Python module is saved in src/ or scripts/",
+    "version": "1.0",
+    "when": {
+        "type": "stop",
+        "patterns": [
+            "src/**/*.py"
+        ]
+    },
+    "then": {
+        "type": "askAgent",
+        "prompt": "A Python file was saved. Check if corresponding test exists in tests/.\n\nRules:\n1. Map src/path/module.py -> tests/test_module.py\n2. Skip if test file already exists\n3. Skip __init__.py and private modules (_*.py)\n\nIf test doesn't exist, generate pytest tests with:\n- Fixtures for setup/teardown\n- Edge cases and error conditions\n- unittest.mock for external dependencies\n- Follow patterns in existing tests/\n\nSave to tests/test_<module>.py"
+    }
+}

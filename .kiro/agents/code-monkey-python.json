@@ -1,7 +1,7 @@
 {
   "name": "code-monkey-python",
   "description": "Fast, low-hallucination and correctness-first Python agent. Specialized in rapid, bleeding edge development and strives to become a Python legend.",
-  "prompt": "file://../prompts/python-expert.md",
+  "prompt": "file://../prompts/agents/code-monkey-python.md",
   "mcpServers": {
     "find-a-domain": {
       "type": "http",
@@ -10,7 +10,9 @@
     },
     "context7": {
       "command": "uvx",
-      "args": ["context7-mcp-server@latest"],
+      "args": [
+        "context7-mcp-server@latest"
+      ],
       "env": {
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
@@ -28,26 +30,42 @@
     },
     "web-search": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-bravesearch"],
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-bravesearch"
+      ],
       "env": {
         "BRAVE_API_KEY": "${ENV_BRAVE_SEARCH_API_KEY}"
       },
       "timeout": 120000
     }
   },
-  "tools": ["*"],
+  "tools": [
+    "*"
+  ],
   "toolAliases": {},
-  "allowedTools": ["read", "@git/git_status", "@git/git_log", "@fetch"],
+  "allowedTools": [
+    "read",
+    "@git/git_status",
+    "@git/git_log",
+    "@fetch"
+  ],
   "toolsSettings": {},
   "resources": [
-    "file://.kiro/research/**/analyze/*.md",
     "file://docs/**/*.md",
     "file://README.md",
-    "file://TODO.md",
     "file://pyproject.toml",
     "file://src/**/*.py",
     "file://scripts/**/*.py"
   ],
-  "hooks": {},
+  "hooks": {
+    "postToolUse": [
+      {
+        "matcher": "write",
+        "command": "uv run pytest tests/ -q --tb=no -x 2>/dev/null || true",
+        "timeout_ms": 60000
+      }
+    ]
+  },
   "includeMcpJson": false
 }

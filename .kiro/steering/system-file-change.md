@@ -2,7 +2,7 @@
 title: System File Change Synchronization
 inclusion: always
 version: 1.0
-last-updated: 2026-01-12
+last-updated: 2026-01-12 00:00:00
 status: active
 ---
 
@@ -84,4 +84,4 @@ When scripts or automation change:
 
 ## Version History
 
-- v1.0 (2026-01-12): Initial version
+- v1.0 (2026-01-12 00:00:00): Initial version

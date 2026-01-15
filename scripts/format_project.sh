@@ -3,17 +3,21 @@ set -e
 
 echo "🔧 Formatting project files..."
 
-# Python (primary)
-uv run ruff format .
-uv run ruff check . --fix
+# Python (parallel)
+uv run ruff format . &
+uv run ruff check . --fix &
+wait
 
-# JSON files
-find . -name "*.json" -not -path "./.git/*" -not -path "./.venv/*" | while read -r file; do
-    python -m json.tool "$file" > "$file.tmp" && mv "$file.tmp" "$file"
-done
+# JSON files (parallel with error handling)
+if command -v jq >/dev/null; then
+    find . -name "*.json" -not -path "./.git/*" -not -path "./.venv/*" -not -path "./.logs/*" -print0 | \
+        xargs -0 -P 4 -I {} sh -c 'jq --indent 2 . "{}" > "{}.tmp" 2>/dev/null && mv "{}.tmp" "{}" || rm -f "{}.tmp"'
+else
+    find . -name "*.json" -not -path "./.git/*" -not -path "./.venv/*" -not -path "./.logs/*" -print0 | \
+        xargs -0 -P 4 -I {} sh -c 'python -m json.tool "{}" > "{}.tmp" 2>/dev/null && mv "{}.tmp" "{}" || rm -f "{}.tmp"'
+fi
 
-# Optional: Other formats
-command -v shfmt >/dev/null && find . -name "*.sh" -not -path "./.git/*" | xargs shfmt -w -i 2
-command -v yamlfmt >/dev/null && yamlfmt -w **/*.y*ml
+# Shell scripts (if shfmt available)
+command -v shfmt >/dev/null && find . -name "*.sh" -not -path "./.git/*" -print0 | xargs -0 shfmt -w -i 2
 
 echo "✅ Formatting complete!"

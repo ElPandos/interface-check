@@ -1,1 +1,8 @@
-{}
+{
+  "chat.enableCheckpoint": true,
+  "chat.enableContextUsageIndicator": true,
+  "chat.enableDelegate": true,
+  "chat.enableNotofication": true,
+  "chat.enableNotofications": true,
+  "chat.enableTodoList": true
+}

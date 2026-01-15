@@ -1,0 +1,8 @@
+trigger: onSave
+pattern: "**/*.py"
+instructions: |
+  When a Python module is saved:
+  1. Check if a corresponding test file exists in tests/
+  2. If not, create one with basic pytest tests
+  3. If it exists, update it to cover any new functions or classes
+  4. Run the test to verify it passes

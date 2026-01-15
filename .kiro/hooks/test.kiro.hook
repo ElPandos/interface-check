@@ -1,0 +1,8 @@
+{
+    "stop": [
+        {
+            "command": "uv run pytest tests/ -q --tb=no -x 2>/dev/null || true",
+            "timeout_ms": 60000
+        }
+    ]
+}

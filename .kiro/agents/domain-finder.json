@@ -1,16 +1,20 @@
 {
   "name": "domain-finder",
   "description": "Agent with access to domain search capabilities",
-  "prompt": "file://../prompts/domain-finder.md",
+  "prompt": "file://../prompts/agents/domain-finder.md",
   "mcpServers": {
     "find-a-domain": {
       "type": "http",
       "url": "https://api.findadomain.dev/mcp"
     }
   },
-  "tools": ["@find-a-domain"],
+  "tools": [
+    "@find-a-domain"
+  ],
   "toolAliases": {},
-  "allowedTools": ["@find-a-domain"],
+  "allowedTools": [
+    "@find-a-domain"
+  ],
   "toolsSettings": {},
   "resources": [],
   "hooks": {},

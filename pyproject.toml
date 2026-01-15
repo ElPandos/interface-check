@@ -42,6 +42,11 @@ build = [
 analysis = [
     "pip-licenses>=5.5.0",
 ]
+scripts = [
+    "requests>=2.32.0",
+    "beautifulsoup4>=4.12.0",
+    "packaging>=24.0",
+]
 
 [tool.ruff]
 line-length = 120
